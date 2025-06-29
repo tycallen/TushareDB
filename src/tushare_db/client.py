@@ -3,7 +3,8 @@ import os
 import time
 import pandas as pd
 import logging
-from typing import Any, Dict, Optional, Union
+import tushare as ts
+from typing import Any, Dict, Optional
 
 from tushare_db.tushare_client import TushareClient, TushareClientError
 from tushare_db.duckdb_manager import DuckDBManager, DuckDBManagerError
@@ -122,7 +123,7 @@ class TushareDBClient:
                         date_col = cache_info.get('date_col')
                         if date_col and date_col in local_data_df.columns:
                             latest_local_date = self.duckdb_manager.get_latest_date(table_name, date_col)
-                            requested_start_date = params.get('start_date')
+                            
                             requested_end_date = params.get('end_date')
 
                             # If local data covers the requested end date, no need to fetch from API
@@ -167,7 +168,22 @@ class TushareDBClient:
 
             final_df = pd.DataFrame()
             if fetch_from_api:
-                new_data_df = self.tushare_client.fetch(api_name, **updated_params)
+                if api_name == 'pro_bar':
+                    # For pro_bar, directly call tushare.pro_bar
+                    # Note: Tushare's pro_bar expects parameters directly, not through a client.fetch abstraction
+                    # We need to ensure all relevant parameters from updated_params are passed correctly.
+                    # The pro_bar interface documentation shows ts_code, start_date, end_date, asset, adj, freq, ma, factors, adjfactor
+                    # We should extract these specific parameters from updated_params.
+                    pro_bar_params = {
+                        k: v for k, v in updated_params.items() if k in [
+                            'ts_code', 'start_date', 'end_date', 'asset', 'adj',
+                            'freq', 'ma', 'factors', 'adjfactor'
+                        ]
+                    }
+                    logging.info(f"Directly calling ts.pro_bar with params: {pro_bar_params}")
+                    new_data_df = ts.pro_bar(**pro_bar_params)
+                else:
+                    new_data_df = self.tushare_client.fetch(api_name, **updated_params)
                 if not new_data_df.empty:
                     if cache_info and cache_info['type'] == 'incremental':
                         date_col = cache_info.get('date_col')

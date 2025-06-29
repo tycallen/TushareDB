@@ -167,3 +167,164 @@ def hs_const(
 
     # 通过 client 获取数据
     return client.get_data('hs_const', **params)
+
+
+class StockCompany:
+    """
+    `stock_company` 接口返回的 DataFrame 的列名常量。
+    """
+    # --- DataFrame 的列名常量 ---
+    TS_CODE = "ts_code"  # 股票代码
+    COM_NAME = "com_name"  # 公司全称
+    COM_ID = "com_id"  # 统一社会信用代码
+    EXCHANGE = "exchange"  # 交易所代码
+    CHAIRMAN = "chairman"  # 法人代表
+    MANAGER = "manager"  # 总经理
+    SECRETARY = "secretary"  # 董秘
+    REG_CAPITAL = "reg_capital"  # 注册资本(万元)
+    SETUP_DATE = "setup_date"  # 注册日期
+    PROVINCE = "province"  # 所在省份
+    CITY = "city"  # 所在城市
+    INTRODUCTION = "introduction"  # 公司介绍
+    WEBSITE = "website"  # 公司主页
+    EMAIL = "email"  # 电子邮件
+    OFFICE = "office"  # 办公室
+    EMPLOYEES = "employees"  # 员工人数
+    MAIN_BUSINESS = "main_business"  # 主要业务及产品
+    BUSINESS_SCOPE = "business_scope"  # 经营范围
+
+
+def stock_company(
+    client: TushareDBClient,
+    ts_code: str = None,
+    exchange: str = None,
+    fields: str = 'ts_code,com_name,com_id,exchange,chairman,manager,secretary,reg_capital,setup_date,province,city,website,email,employees,main_business'
+) -> pd.DataFrame:
+    """
+    获取上市公司基础信息。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: TushareDBClient 实例。
+    :param ts_code: 股票代码
+    :param exchange: 交易所代码 ，SSE上交所 SZSE深交所 BSE北交所
+    :param fields: 需要返回的字段，默认不包含 `introduction`, `office`, `business_scope` 等较长字段。
+                   如果传入 `None`，则返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    # 构建传递给 client.query 的参数字典
+    params = {
+        "ts_code": ts_code,
+        "exchange": exchange,
+        "fields": fields
+    }
+    # 过滤掉值为 None 的参数
+    params = {k: v for k, v in params.items() if v is not None}
+
+    # 通过 client 获取数据
+    return client.get_data('stock_company', **params)
+
+
+class ProBar:
+    """
+    `pro_bar` 接口返回的 DataFrame 的列名常量。
+    """
+    # --- DataFrame 的列名常量 ---
+    TS_CODE = "ts_code"  # 证券代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    OPEN = "open"  # 开盘价
+    HIGH = "high"  # 最高价
+    LOW = "low"  # 最低价
+    CLOSE = "close"  # 收盘价
+    PRE_CLOSE = "pre_close"  # 昨收价
+    CHANGE = "change"  # 涨跌额
+    PCT_CHG = "pct_chg"  # 涨跌幅
+    VOL = "vol"  # 成交量 （手）
+    AMOUNT = "amount"  # 成交额 （千元）
+    # 新增列名
+    ADJ_FACTOR = "adj_factor" # 复权因子
+
+
+class ProBarAsset:
+    """
+    `pro_bar` 接口的 `asset` 参数常量。
+    资产类别：E股票 I沪深指数 C数字货币 FT期货 FD基金 O期权 CB可转债。
+    """
+    STOCK = 'E'  # 股票
+    INDEX = 'I'  # 沪深指数
+    CRYPTO = 'C'  # 数字货币
+    FUTURES = 'FT'  # 期货
+    FUND = 'FD'  # 基金
+    OPTIONS = 'O'  # 期权
+    CONVERTIBLE_BOND = 'CB' # 可转债
+
+
+class ProBarAdj:
+    """
+    `pro_bar` 接口的 `adj` 参数常量。
+    复权类型(只针对股票)：None未复权 qfq前复权 hfq后复权。
+    """
+    NONE = None  # 未复权
+    QFQ = 'qfq'  # 前复权
+    HFQ = 'hfq'  # 后复权
+
+
+class ProBarFreq:
+    """
+    `pro_bar` 接口的 `freq` 参数常量。
+    数据频度 ：支持分钟(min)/日(D)/周(W)/月(M)K线。
+    """
+    MIN1 = '1min'  # 1分钟
+    MIN5 = '5min'  # 5分钟
+    MIN15 = '15min'  # 15分钟
+    MIN30 = '30min'  # 30分钟
+    MIN60 = '60min'  # 60分钟
+    DAILY = 'D'  # 日线
+    WEEKLY = 'W'  # 周线
+    MONTHLY = 'M'  # 月线
+
+
+def pro_bar(
+    client: TushareDBClient,
+    ts_code: str,
+    start_date: str = None,
+    end_date: str = None,
+    asset: str = 'E',
+    adj: str = None,
+    freq: str = 'D',
+    ma: list = None,
+    factors: list = None,
+    adjfactor: bool = False,
+) -> pd.DataFrame:
+    """
+    通用行情接口，整合了股票（未复权、前复权、后复权）、指数、数字货币、ETF基金、期货、期权的行情数据。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: TushareDBClient 实例。
+    :param ts_code: 证券代码，不支持多值输入，多值输入获取结果会有重复记录
+    :param start_date: 开始日期 (日线格式：YYYYMMDD，提取分钟数据请用2019-09-01 09:00:00这种格式)
+    :param end_date: 结束日期 (日线格式：YYYYMMDD)
+    :param asset: 资产类别：E股票 I沪深指数 C数字货币 FT期货 FD基金 O期权 CB可转债（v1.2.39），默认E
+    :param adj: 复权类型(只针对股票)：None未复权 qfq前复权 hfq后复权 , 默认None，目前只���持日线复权，同时复权机制是根据设定的end_date参数动态复权，采用分红再投模式，具体请参考常见问题列表里的说明，如果获取跟行情软件一致的复权行情，可以参阅股票技术因子接口。
+    :param freq: 数据频度 ：支持分钟(min)/日(D)/周(W)/月(M)K线，其中1min表示1分钟（类推1/5/15/30/60分钟） ，默认D。
+    :param ma: 均线，支持任意合理int数值。注：均线是动态计算，要设置一定时间范围才能获得相应的均线，比如5日均线，开始和结束日期参数跨度必须要超过5日。目前只支持单一个股票提取均线，即需要输入ts_code参数。e.g: ma_5表示5日均价，ma_v_5表示5日均量
+    :param factors: 股票因子（asset='E'有效）支持 tor换手率 vr量比
+    :param adjfactor: 复权因子，在复权数据时，如果此参数为True，返回的数据中则带复权因子，默认为False。 该功能从1.2.33版本开始生效
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    # 构建传递给 client.query 的参数字典
+    params = {
+        "ts_code": ts_code,
+        "start_date": start_date,
+        "end_date": end_date,
+        "asset": asset,
+        "adj": adj,
+        "freq": freq,
+        "ma": ma,
+        "factors": factors,
+        "adjfactor": adjfactor,
+    }
+    # 过滤掉值为 None 的参数
+    params = {k: v for k, v in params.items() if v is not None}
+
+    # 通过 client 获取数据
+    return client.get_data('pro_bar', **params)
