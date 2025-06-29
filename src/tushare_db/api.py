@@ -14,7 +14,10 @@ pandas.DataFrame 的列名定义为大写的类属性（字符串常量）。
 接口函数本身的返回类型依然是 pandas.DataFrame，以便于您进行后续的数据分析。
 """
 import pandas as pd
-from .client import TushareDBClient
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .client import TushareDBClient
 
 
 class StockBasic:
@@ -42,7 +45,7 @@ class StockBasic:
 
 
 def stock_basic(
-    client: TushareDBClient,
+    client: 'TushareDBClient',
     ts_code: str = None,
     name: str = None,
     market: str = None,
@@ -55,7 +58,7 @@ def stock_basic(
     获取股票基础信息数据，包括股票代码、名称、上市日期等。
     数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
-    :param client: TushareDBClient 实例。
+    :param client: 'TushareDBClient' 实例。
     :param ts_code: TS股票代码 (e.g. '000001.SZ')
     :param name: 股票名称 (支持模糊匹配)
     :param market: 市场类别 (主板/创业板/科创板/CDR/北交所)
@@ -94,7 +97,7 @@ class TradeCal:
 
 
 def trade_cal(
-    client: TushareDBClient,
+    client: 'TushareDBClient',
     exchange: str = None,
     start_date: str = None,
     end_date: str = None,
@@ -105,7 +108,7 @@ def trade_cal(
     获取各大交易所交易日历数据,默认提取的是上交所。
     数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
-    :param client: TushareDBClient 实例。
+    :param client: 'TushareDBClient' 实例。
     :param exchange: 交易所 SSE上交所,SZSE深交所,CFFEX 中金所,SHFE 上期所,CZCE 郑商所,DCE 大商所,INE 上能源
     :param start_date: 开始日期 (格式：YYYYMMDD)
     :param end_date: 结束日期 (格式：YYYYMMDD)
@@ -141,7 +144,7 @@ class HsConst:
 
 
 def hs_const(
-    client: TushareDBClient,
+    client: 'TushareDBClient',
     hs_type: str,
     is_new: str = '1',
     fields: str = 'ts_code,hs_type,in_date,out_date,is_new'
@@ -150,7 +153,7 @@ def hs_const(
     获取沪股通、深股通成分数据。
     数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
-    :param client: TushareDBClient 实例。
+    :param client: 'TushareDBClient' 实例。
     :param hs_type: 类型SH沪股通SZ深股通
     :param is_new: 是否最新 1 是 0 否 (默认1)
     :param fields: 需要返回的字段，默认包含所有字段。
@@ -195,7 +198,7 @@ class StockCompany:
 
 
 def stock_company(
-    client: TushareDBClient,
+    client: 'TushareDBClient',
     ts_code: str = None,
     exchange: str = None,
     fields: str = 'ts_code,com_name,com_id,exchange,chairman,manager,secretary,reg_capital,setup_date,province,city,website,email,employees,main_business'
@@ -204,7 +207,7 @@ def stock_company(
     获取上市公司基础信息。
     数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
-    :param client: TushareDBClient 实例。
+    :param client: 'TushareDBClient' 实例。
     :param ts_code: 股票代码
     :param exchange: 交易所代码 ，SSE上交所 SZSE深交所 BSE北交所
     :param fields: 需要返回的字段，默认不包含 `introduction`, `office`, `business_scope` 等较长字段。
@@ -284,7 +287,7 @@ class ProBarFreq:
 
 
 def pro_bar(
-    client: TushareDBClient,
+    client: 'TushareDBClient',
     ts_code: str,
     start_date: str = None,
     end_date: str = None,
@@ -299,7 +302,7 @@ def pro_bar(
     通用行情接口，整合了股票（未复权、前复权、后复权）、指数、数字货币、ETF基金、期货、期权的行情数据。
     数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
-    :param client: TushareDBClient 实例。
+    :param client: 'TushareDBClient' 实例。
     :param ts_code: 证券代码，不支持多值输入，多值输入获取结果会有重复记录
     :param start_date: 开始日期 (日线格式：YYYYMMDD，提取分钟数据请用2019-09-01 09:00:00这种格式)
     :param end_date: 结束日期 (日线格式：YYYYMMDD)

@@ -6,12 +6,13 @@ import logging
 import tushare as ts
 from typing import Any, Dict, Optional
 from datetime import datetime, timedelta
+from tqdm import tqdm
 
 from tushare_db.tushare_client import TushareClient, TushareClientError
 from tushare_db.duckdb_manager import DuckDBManager, DuckDBManagerError
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
 
 class TushareDBClientError(Exception):
     """Custom exception for TushareDBClient errors."""
@@ -66,6 +67,7 @@ class TushareDBClient:
         }
         logging.info("TushareDBClient initialized.")
 
+
     def _build_where_clause(self, api_name: str, params: Dict[str, Any]) -> str:
         """
         Builds a SQL WHERE clause from a dictionary of parameters,
@@ -119,7 +121,7 @@ class TushareDBClient:
         try:
             if self.duckdb_manager.table_exists(table_name):
                 local_data_df = self.duckdb_manager.execute_query(f"SELECT * FROM {table_name}{where_clause_for_db}")
-                logging.info(f"Loaded {len(local_data_df)} rows from cache for {api_name}.")
+                logging.warning(f"Loaded {len(local_data_df)} rows from cache for {api_name} by [SELECT * FROM {table_name}{where_clause_for_db}].")
 
                 if cache_info and not local_data_df.empty:
                     if cache_info['type'] == 'incremental':
@@ -132,15 +134,15 @@ class TushareDBClient:
                             # If local data covers the requested end date, no need to fetch from API
                             # This check needs to be robust for incremental updates
                             if latest_local_date and requested_end_date and latest_local_date >= requested_end_date:
-                                logging.info(f"Incremental cache for {api_name} covers requested range up to {requested_end_date}. Returning cached data.")
+                                logging.debug(f"Incremental cache for {api_name} covers requested range up to {requested_end_date}. Returning cached data.")
                                 fetch_from_api = False
                             elif latest_local_date:
                                 # If local data exists but doesn't cover the full requested range, fetch incrementally
                                 updated_params['start_date'] = latest_local_date
-                                logging.info(f"Incremental update: Latest local date for {api_name} is {latest_local_date}. Fetching data from {latest_local_date}.")
+                                logging.debug(f"Incremental update: Latest local date for {api_name} is {latest_local_date}. Fetching data from {latest_local_date}.")
                                 fetch_from_api = True
                             else:
-                                logging.info(f"No latest date found for {api_name} in cache. Fetching all data.")
+                                logging.debug(f"No latest date found for {api_name} in cache. Fetching all data.")
                                 fetch_from_api = True
                         else:
                             logging.warning(f"Incremental policy for {api_name} missing or invalid 'date_col'. Fetching all data.")
@@ -151,10 +153,10 @@ class TushareDBClient:
                         if ttl is not None:
                             last_updated = self.duckdb_manager.get_cache_metadata(table_name)
                             if last_updated and (time.time() - last_updated) < ttl:
-                                logging.info(f"Full cache for {api_name} is fresh. Returning cached data.")
+                                logging.debug(f"Full cache for {api_name} is fresh. Returning cached data.")
                                 fetch_from_api = False
                             else:
-                                logging.info(f"Full cache for {api_name} is stale or not found. Fetching new data.")
+                                logging.debug(f"Full cache for {api_name} is stale or not found. Fetching new data.")
                                 fetch_from_api = True
                         else:
                             logging.warning(f"Full policy for {api_name} missing 'ttl'. Fetching all data.")
@@ -190,7 +192,7 @@ class TushareDBClient:
                     }
                     # Filter out None values for parameters that are not required by Tushare if they are None
                     pro_bar_params = {k: v for k, v in pro_bar_params.items() if v is not None}
-                    logging.info(f"Directly calling ts.pro_bar with params: {pro_bar_params}")
+                    logging.debug(f"Directly calling ts.pro_bar with params: {pro_bar_params}")
                     new_data_df = ts.pro_bar(**pro_bar_params)
                 else:
                     new_data_df = self.tushare_client.fetch(api_name, **updated_params)
@@ -284,15 +286,17 @@ class TushareDBClient:
         初始化基础数据，包括股票基本信息、交易日历、沪深股通成分和上市公司基本信息。
         这些数据通常更新频率较低，适合在首次使用或定期进行全量更新。
         """
+        from .api import stock_basic, trade_cal, hs_const, stock_company
         logging.info("Initializing basic data...")
         try:
-            self.get_data('stock_basic', list_status='L')
+            stock_basic(self, list_status='L')
             logging.info("Stock basic data initialized.")
-            self.get_data('trade_cal', start_date='19900101', end_date=datetime.now().strftime('%Y%m%d'))
+            trade_cal(self, start_date='19900101', end_date=datetime.now().strftime('%Y%m%d'))
             logging.info("Trade calendar data initialized.")
-            self.get_data('hs_const', is_new='1')
+            hs_const(self, is_new='1', hs_type="SH")
+            hs_const(self, is_new='1', hs_type="SZ")
             logging.info("HS Const data initialized.")
-            self.get_data('stock_company')
+            stock_company(self)
             logging.info("Stock company data initialized.")
             logging.info("Basic data initialization complete.")
         except TushareDBClientError as e:
@@ -308,37 +312,40 @@ class TushareDBClient:
         :param end_date: 结束日期 (YYYYMMDD)
         :return: 包含所有股票前复权日线数据的 DataFrame。
         """
+        from .api import stock_basic, pro_bar
         logging.info(f"Fetching all stock QFQ daily bar data from {start_date} to {end_date}...")
-        all_stocks_df = self.get_data('stock_basic', list_status='L')
+        all_stocks_df = stock_basic(self, list_status='L')
         if all_stocks_df.empty:
             logging.warning("No stock basic data found. Cannot fetch pro_bar for all stocks.")
             return pd.DataFrame()
 
         all_bar_data = []
-        for index, row in all_stocks_df.iterrows():
+        # 使用tqdm显示进度条
+        for index, row in tqdm(all_stocks_df.iterrows(), total=len(all_stocks_df), desc="获取股票日线数据"):
             ts_code = row['ts_code']
             try:
-                df = self.get_data(
-                    'pro_bar',
-                    ts_code=ts_code,
-                    start_date=start_date,
-                    end_date=end_date,
-                    adj='qfq',
-                    freq='D',
-                    asset='E'
-                )
+                # df = self.get_data(
+                #     'pro_bar',
+                #     ts_code=ts_code,
+                #     start_date=start_date,
+                #     end_date=end_date,
+                #     adj='qfq',
+                #     freq='D',
+                #     asset='E'
+                # )
+                df = pro_bar(self, ts_code=ts_code, start_date=start_date, end_date=end_date, adj='qfq', freq='D', asset='E')
                 if not df.empty:
                     all_bar_data.append(df)
-                    logging.info(f"Fetched {len(df)} rows for {ts_code}.")
+                    logging.debug(f"Fetched {len(df)} rows for {ts_code}.")
                 else:
-                    logging.info(f"No pro_bar data for {ts_code} in the specified range.")
+                    logging.debug(f"No pro_bar data for {ts_code} in the specified range.")
             except TushareDBClientError as e:
                 logging.error(f"Failed to fetch pro_bar for {ts_code}: {e}")
                 # Continue to next stock even if one fails
 
         if all_bar_data:
             final_df = pd.concat(all_bar_data, ignore_index=True)
-            logging.info(f"Successfully fetched QFQ daily bar data for {len(all_bar_data)} stocks, total {len(final_df)} rows.")
+            logging.debug(f"Successfully fetched QFQ daily bar data for {len(all_bar_data)} stocks, total {len(final_df)} rows.")
             return final_df
         else:
             logging.warning("No QFQ daily bar data found for any stock.")
@@ -404,8 +411,8 @@ if __name__ == '__main__':
         # 第二次获取 - 如果在缓存有效期 (TTL) 内，将从缓存加载
         print("\n--- 第二次获取股票基础信息 (应从缓存加载) ---")
         print("第二次获取: 数据将从 DuckDB 缓存中加载，速度会快很多。")
-        stock_basic_cached = client.get_stock_basic(list_status='L')
-        print(f"第二次获取 stock_basic 数据: {len(stock_basic_cached.data)} 行 (来自缓存)")
+        stock_basic_cached = client.get_data('stock_basic', list_status='L')
+        print(f"第二次获取 stock_basic 数据: {len(stock_basic_cached)} 行 (来自缓存)")
 
     except TushareDBClientError as e:
         print(f"\n示例执行过程中发生错误: {e}")

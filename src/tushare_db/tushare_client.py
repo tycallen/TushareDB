@@ -9,7 +9,7 @@ import logging
 from typing import Any, Deque
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
 
 class TushareClientError(Exception):
     """Custom exception for TushareClient errors."""
