@@ -91,6 +91,10 @@ class TushareDBClient:
         for key, value in valid_params.items():
             if isinstance(value, str):
                 conditions.append(f"{key} = '{value}'")
+            elif isinstance(value, list):
+                # Handle list values for 'IN' clause
+                str_values = [f"'{v}'" for v in value]
+                conditions.append(f"{key} IN ({', '.join(str_values)})")
             elif isinstance(value, (int, float)):
                 conditions.append(f"{key} = {value}")
         return " WHERE " + " AND ".join(conditions) if conditions else ""
@@ -136,13 +140,37 @@ class TushareDBClient:
                             if latest_local_date and requested_end_date and latest_local_date >= requested_end_date:
                                 logging.debug(f"Incremental cache for {api_name} covers requested range up to {requested_end_date}. Returning cached data.")
                                 fetch_from_api = False
+                            elif latest_local_date and requested_end_date:
+                                # If local data exists but might be outdated, check against the trade calendar.
+                                if self.duckdb_manager.table_exists('trade_cal'):
+                                    try:
+                                        query = f"SELECT count(*) FROM trade_cal WHERE cal_date > '{latest_local_date}' AND cal_date <= '{requested_end_date}' AND is_open = 1"
+                                        trading_days_count_df = self.duckdb_manager.execute_query(query)
+                                        trading_days_count = trading_days_count_df.iloc[0, 0] if not trading_days_count_df.empty else 0
+                                        
+                                        if trading_days_count == 0:
+                                            logging.info(f"No new trading days found between {latest_local_date} and {requested_end_date}. Returning up-to-date cached data.")
+                                            fetch_from_api = False
+                                        else:
+                                            updated_params['start_date'] = latest_local_date
+                                            logging.debug(f"Found {trading_days_count} new trading days. Fetching incrementally from {latest_local_date}.")
+                                            fetch_from_api = True
+                                    except DuckDBManagerError as e:
+                                        logging.warning(f"Could not query trade_cal to check for new trading days: {e}. Proceeding with API fetch.")
+                                        updated_params['start_date'] = latest_local_date
+                                        fetch_from_api = True
+                                else:
+                                    # trade_cal not available, fall back to original logic
+                                    updated_params['start_date'] = latest_local_date
+                                    logging.debug(f"Incremental update (trade_cal not found): Fetching data from {latest_local_date}.")
+                                    fetch_from_api = True
                             elif latest_local_date:
-                                # If local data exists but doesn't cover the full requested range, fetch incrementally
+                                # If local data exists but end_date is not specified, fetch incrementally
                                 updated_params['start_date'] = latest_local_date
                                 logging.debug(f"Incremental update: Latest local date for {api_name} is {latest_local_date}. Fetching data from {latest_local_date}.")
                                 fetch_from_api = True
                             else:
-                                logging.debug(f"No latest date found for {api_name} in cache. Fetching all data.")
+                                logging.info(f"No latest date found for {api_name} in cache. Fetching all data.")
                                 fetch_from_api = True
                         else:
                             logging.warning(f"Incremental policy for {api_name} missing or invalid 'date_col'. Fetching all data.")
@@ -214,9 +242,8 @@ class TushareDBClient:
                                 logging.info(f"Filtered new data to only include records after {latest_local_date_for_filter}.")
 
                             if not new_data_df.empty:
-                                combined_df = pd.concat([local_data_df, new_data_df]).drop_duplicates(subset=[date_col], keep='last') # Simplified deduplication
-                                self.duckdb_manager.write_dataframe(combined_df, table_name, mode='replace')
-                                logging.info(f"Appended and deduplicated {len(new_data_df)} new rows to {table_name}.")
+                                self.duckdb_manager.write_dataframe(new_data_df, table_name, mode='append')
+                                logging.info(f"Appended {len(new_data_df)} new rows to {table_name}.")
                             else:
                                 logging.info("No truly new data to append after filtering for incremental update.")
                                 # If no new data after filtering, just return existing local data
@@ -227,8 +254,9 @@ class TushareDBClient:
                             self.duckdb_manager.write_dataframe(new_data_df, table_name, mode='replace')
                             logging.info(f"Replaced cache for {table_name} with {len(new_data_df)} new rows.")
                     else: # Full refresh or no specific policy
-                        self.duckdb_manager.write_dataframe(new_data_df, table_name, mode='replace')
-                        logging.info(f"Replaced cache for {table_name} with {len(new_data_df)} new rows.")
+                        write_mode = 'append' if api_name == 'pro_bar' else 'replace'
+                        self.duckdb_manager.write_dataframe(new_data_df, table_name, mode=write_mode)
+                        logging.info(f"Wrote to cache for {table_name} with {len(new_data_df)} new rows in mode '{write_mode}'.")
                     
                     if cache_info and cache_info['type'] == 'full':
                         self.duckdb_manager.update_cache_metadata(table_name, time.time())

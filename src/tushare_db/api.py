@@ -14,7 +14,7 @@ pandas.DataFrame 的列名定义为大写的类属性（字符串常量）。
 接口函数本身的返回类型依然是 pandas.DataFrame，以便于您进行后续的数据分析。
 """
 import pandas as pd
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union, List
 
 if TYPE_CHECKING:
     from .client import TushareDBClient
@@ -288,7 +288,7 @@ class ProBarFreq:
 
 def pro_bar(
     client: 'TushareDBClient',
-    ts_code: str,
+    ts_code: Optional[Union[str, List[str]]] = None,
     start_date: str = None,
     end_date: str = None,
     asset: str = 'E',
@@ -303,7 +303,9 @@ def pro_bar(
     数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
     :param client: 'TushareDBClient' 实例。
-    :param ts_code: 证券代码，不支持多值输入，多值输入获取结果会有重复记录
+    :param ts_code: 证券代码。
+                    - 如果为 `None`（默认），则返回数据库中 `pro_bar` 表的全部数据。
+                    - 如果为字符串（单个代码）或字符串列表（多个代码），则通过 `client.get_data` 获取数据。
     :param start_date: 开始日期 (日线格式：YYYYMMDD，提取分钟数据请用2019-09-01 09:00:00这种格式)
     :param end_date: 结束日期 (日线格式：YYYYMMDD)
     :param asset: 资产类别：E股票 I沪深指数 C数字货币 FT期货 FD基金 O期权 CB可转债（v1.2.39），默认E
@@ -314,6 +316,11 @@ def pro_bar(
     :param adjfactor: 复权因子，在复权数据时，如果此参数为True，返回的数据中则带复权因子，默认为False。 该功能从1.2.33版本开始生效
     :return: 一个 pandas.DataFrame，包含了查询结果。
     """
+    # 如果 ts_code 为 None，则直接查询数据库中的全部 pro_bar 数据
+    if ts_code is None:
+        ts_code = stock_basic(client, list_status='L')['ts_code'].unique().tolist()
+        # return client.duckdb_manager.execute_query("SELECT * FROM pro_bar")
+
     # 构建传递给 client.query 的参数字典
     params = {
         "ts_code": ts_code,
