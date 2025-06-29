@@ -60,7 +60,8 @@ class TushareDBClient:
         self.cache_policy = cache_policy or {
             'daily': {'type': 'incremental', 'date_col': 'trade_date'},
             'stock_basic': {'type': 'full', 'ttl': 60 * 60 * 24 * 7}, # 7 days
-            'trade_cal': {'type': 'incremental', 'date_col': 'cal_date'}
+            'trade_cal': {'type': 'incremental', 'date_col': 'cal_date'},
+            'pro_bar': {'type': 'incremental', 'date_col': 'trade_date'} # Add cache policy for pro_bar
         }
         logging.info("TushareDBClient initialized.")
 
@@ -74,7 +75,8 @@ class TushareDBClient:
         column_mappers = {
             'daily': ['ts_code', 'trade_date'],
             'stock_basic': ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_status'],
-            'trade_cal': ['exchange', 'cal_date', 'is_open']
+            'trade_cal': ['exchange', 'cal_date', 'is_open'],
+            'pro_bar': ['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol', 'amount', 'adj_factor']
         }
         
         table_name = api_name
@@ -175,11 +177,18 @@ class TushareDBClient:
                     # The pro_bar interface documentation shows ts_code, start_date, end_date, asset, adj, freq, ma, factors, adjfactor
                     # We should extract these specific parameters from updated_params.
                     pro_bar_params = {
-                        k: v for k, v in updated_params.items() if k in [
-                            'ts_code', 'start_date', 'end_date', 'asset', 'adj',
-                            'freq', 'ma', 'factors', 'adjfactor'
-                        ]
+                        'ts_code': updated_params.get('ts_code'),
+                        'start_date': updated_params.get('start_date'),
+                        'end_date': updated_params.get('end_date'),
+                        'asset': updated_params.get('asset', 'E'), # Default to 'E'
+                        'adj': updated_params.get('adj'),
+                        'freq': updated_params.get('freq', 'D'), # Default to 'D'
+                        'ma': updated_params.get('ma'),
+                        'factors': updated_params.get('factors'),
+                        'adjfactor': updated_params.get('adjfactor', False) # Default to False
                     }
+                    # Filter out None values for parameters that are not required by Tushare if they are None
+                    pro_bar_params = {k: v for k, v in pro_bar_params.items() if v is not None}
                     logging.info(f"Directly calling ts.pro_bar with params: {pro_bar_params}")
                     new_data_df = ts.pro_bar(**pro_bar_params)
                 else:
