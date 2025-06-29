@@ -272,3 +272,57 @@ class TestTushareDBClient:
         assert len(df3) == 7 # 5 old + 2 new
         assert '20230106' in df3['trade_date'].values
         assert '20230107' in df3['trade_date'].values
+
+    @mock.patch('tushare_db.client.TushareDBClient.get_data')
+    def test_initialize_basic_data(self, mock_get_data, client):
+        """测试基础数据初始化方法。"""
+        client.initialize_basic_data()
+
+        # Verify that get_data was called for each basic API
+        mock_get_data.assert_any_call('stock_basic', list_status='L')
+        mock_get_data.assert_any_call('trade_cal', start_date='19900101', end_date=mock.ANY) # end_date is dynamic
+        mock_get_data.assert_any_call('hs_const', is_new='1')
+        mock_get_data.assert_any_call('stock_company')
+        assert mock_get_data.call_count == 4
+
+    @mock.patch('tushare_db.client.TushareDBClient.get_data')
+    def test_get_all_stock_qfq_daily_bar(self, mock_get_data, client):
+        """测试获取所有股票前复权日线数据。"""
+        # Mock stock_basic to return some stock codes
+        mock_get_data.side_effect = [
+            pd.DataFrame({'ts_code': ['000001.SZ', '000002.SZ']}), # For stock_basic call
+            mock_tushare_pro_bar('000001.SZ', '20230101', '20230105'), # For 000001.SZ pro_bar call
+            mock_tushare_pro_bar('000002.SZ', '20230101', '20230105')  # For 000002.SZ pro_bar call
+        ]
+
+        start_date = '20230101'
+        end_date = '20230105'
+        all_qfq_df = client.get_all_stock_qfq_daily_bar(start_date, end_date)
+
+        assert not all_qfq_df.empty
+        assert len(all_qfq_df) == 10 # 2 stocks * 5 days each
+        assert '000001.SZ' in all_qfq_df['ts_code'].values
+        assert '000002.SZ' in all_qfq_df['ts_code'].values
+        # Verify that get_data was called for stock_basic and then for each pro_bar
+        mock_get_data.assert_any_call('stock_basic', list_status='L')
+        mock_get_data.assert_any_call('pro_bar', ts_code='000001.SZ', start_date=start_date, end_date=end_date, adj='qfq', freq='D', asset='E')
+        mock_get_data.assert_any_call('pro_bar', ts_code='000002.SZ', start_date=start_date, end_date=end_date, adj='qfq', freq='D', asset='E')
+        assert mock_get_data.call_count == 3 # 1 for stock_basic, 2 for pro_bar
+
+    @mock.patch('tushare_db.client.TushareDBClient.get_data')
+    @mock.patch('tushare_db.client.TushareDBClient.get_all_stock_qfq_daily_bar')
+    @mock.patch('tushare_db.client.datetime')
+    def test_daily_update(self, mock_datetime, mock_get_all_stock_qfq_daily_bar, mock_get_data, client):
+        """测试每日更新方法。"""
+        # Mock datetime.now() to control dates
+        mock_datetime.now.return_value = datetime(2023, 1, 6)
+        mock_datetime.strptime = datetime.strptime # Ensure original strptime is used
+        mock_datetime.timedelta = timedelta # Ensure original timedelta is used
+
+        client.daily_update()
+
+        # Verify calls
+        mock_get_data.assert_any_call('trade_cal', start_date='20230105', end_date='20230106')
+        mock_get_all_stock_qfq_daily_bar.assert_called_once_with(start_date='20230105', end_date='20230106')
+        assert mock_get_data.call_count == 1 # Only trade_cal is called via get_data directly
+        assert mock_get_all_stock_qfq_daily_bar.call_count == 1

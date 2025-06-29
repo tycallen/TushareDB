@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 import tushare as ts
 from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
 
 from tushare_db.tushare_client import TushareClient, TushareClientError
 from tushare_db.duckdb_manager import DuckDBManager, DuckDBManagerError
@@ -277,6 +278,96 @@ class TushareDBClient:
             logging.info("TushareDBClient closed DuckDB connection.")
         except DuckDBManagerError as e:
             raise TushareDBClientError(f"Failed to close DuckDB connection: {e}") from e
+
+    def initialize_basic_data(self) -> None:
+        """
+        初始化基础数据，包括股票基本信息、交易日历、沪深股通成分和上市公司基本信息。
+        这些数据通常更新频率较低，适合在首次使用或定期进行全量更新。
+        """
+        logging.info("Initializing basic data...")
+        try:
+            self.get_data('stock_basic', list_status='L')
+            logging.info("Stock basic data initialized.")
+            self.get_data('trade_cal', start_date='19900101', end_date=datetime.now().strftime('%Y%m%d'))
+            logging.info("Trade calendar data initialized.")
+            self.get_data('hs_const', is_new='1')
+            logging.info("HS Const data initialized.")
+            self.get_data('stock_company')
+            logging.info("Stock company data initialized.")
+            logging.info("Basic data initialization complete.")
+        except TushareDBClientError as e:
+            logging.error(f"Failed to initialize basic data: {e}")
+            raise
+
+
+    def get_all_stock_qfq_daily_bar(self, start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        获取所有股票在指定日期范围内的前复权日线数据。
+
+        :param start_date: 开始日期 (YYYYMMDD)
+        :param end_date: 结束日期 (YYYYMMDD)
+        :return: 包含所有股票前复权日线数据的 DataFrame。
+        """
+        logging.info(f"Fetching all stock QFQ daily bar data from {start_date} to {end_date}...")
+        all_stocks_df = self.get_data('stock_basic', list_status='L')
+        if all_stocks_df.empty:
+            logging.warning("No stock basic data found. Cannot fetch pro_bar for all stocks.")
+            return pd.DataFrame()
+
+        all_bar_data = []
+        for index, row in all_stocks_df.iterrows():
+            ts_code = row['ts_code']
+            try:
+                df = self.get_data(
+                    'pro_bar',
+                    ts_code=ts_code,
+                    start_date=start_date,
+                    end_date=end_date,
+                    adj='qfq',
+                    freq='D',
+                    asset='E'
+                )
+                if not df.empty:
+                    all_bar_data.append(df)
+                    logging.info(f"Fetched {len(df)} rows for {ts_code}.")
+                else:
+                    logging.info(f"No pro_bar data for {ts_code} in the specified range.")
+            except TushareDBClientError as e:
+                logging.error(f"Failed to fetch pro_bar for {ts_code}: {e}")
+                # Continue to next stock even if one fails
+
+        if all_bar_data:
+            final_df = pd.concat(all_bar_data, ignore_index=True)
+            logging.info(f"Successfully fetched QFQ daily bar data for {len(all_bar_data)} stocks, total {len(final_df)} rows.")
+            return final_df
+        else:
+            logging.warning("No QFQ daily bar data found for any stock.")
+            return pd.DataFrame()
+
+    def daily_update(self) -> None:
+        """
+        执行每日数据更新，包括交易日历和所有股票的最新日线数据。
+        """
+        logging.info("Starting daily data update...")
+        today = datetime.now().strftime('%Y%m%d')
+        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y%m%d')
+
+        try:
+            # 更新交易日历
+            logging.info("Updating trade calendar...")
+            self.get_data('trade_cal', start_date=yesterday, end_date=today)
+            logging.info("Trade calendar updated.")
+
+            # 更新所有股票的最新日线数据
+            logging.info("Updating all stock QFQ daily bar data...")
+            # 这里我们只获取昨天的日线数据，因为get_all_stock_qfq_daily_bar会处理增量更新
+            self.get_all_stock_qfq_daily_bar(start_date=yesterday, end_date=today)
+            logging.info("All stock QFQ daily bar data updated.")
+
+            logging.info("Daily data update complete.")
+        except TushareDBClientError as e:
+            logging.error(f"Daily update failed: {e}")
+            raise
 
 
 if __name__ == '__main__':
