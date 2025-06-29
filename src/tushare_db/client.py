@@ -58,7 +58,8 @@ class TushareDBClient:
 
         self.cache_policy = cache_policy or {
             'daily': {'type': 'incremental', 'date_col': 'trade_date'},
-            'stock_basic': {'type': 'full', 'ttl': 60 * 60 * 24 * 7} # 7 days
+            'stock_basic': {'type': 'full', 'ttl': 60 * 60 * 24 * 7}, # 7 days
+            'trade_cal': {'type': 'incremental', 'date_col': 'cal_date'}
         }
         logging.info("TushareDBClient initialized.")
 
@@ -71,7 +72,8 @@ class TushareDBClient:
         # This needs to be maintained based on Tushare API return fields
         column_mappers = {
             'daily': ['ts_code', 'trade_date'],
-            'stock_basic': ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_status']
+            'stock_basic': ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_status'],
+            'trade_cal': ['exchange', 'cal_date', 'is_open']
         }
         
         table_name = api_name
@@ -283,26 +285,16 @@ if __name__ == '__main__':
         daily_df_cached = client.get_data('daily', ts_code='000001.SZ', start_date='20230101', end_date='20230131')
         print(f"Second fetch of daily data (000001.SZ): {len(daily_df_cached)} rows (from cache)")
 
-        # --- Example 2: Fetching stock basic information (Full Update Policy with TTL) ---
-        print("\n--- Fetching stock basic information ---")
-        print("First fetch: This might take a moment as data is fetched from Tushare API.")
-        stock_basic_df = client.get_data('stock_basic', list_status='L')
-        print(f"First fetch of stock_basic data: {len(stock_basic_df)} rows")
-        if not stock_basic_df.empty:
-            print(stock_basic_df.head())
-        else:
-            print("No stock basic data fetched.")
-
-        # Second fetch for stock_basic - should load from cache if within TTL
-        print("\n--- Second fetch of stock basic information (should be from cache) ---")
-        print("Second fetch: This should be much faster as data is loaded from DuckDB cache.")
-        stock_basic_df_cached = client.get_data('stock_basic', list_status='L')
-        print(f"Second fetch of stock_basic data: {len(stock_basic_df_cached)} rows (from cache)")
+        # 第二次获取 - 如果在缓存有效期 (TTL) 内，将从缓存加载
+        print("\n--- 第二次获取股票基础信息 (应从缓存加载) ---")
+        print("第二次获取: 数据将从 DuckDB 缓存中加载，速度会快很多。")
+        stock_basic_cached = client.get_stock_basic(list_status='L')
+        print(f"第二次获取 stock_basic 数据: {len(stock_basic_cached.data)} 行 (来自缓存)")
 
     except TushareDBClientError as e:
-        print(f"\nError during example execution: {e}")
+        print(f"\n示例执行过程中发生错误: {e}")
     except Exception as e:
-        print(f"\nAn unexpected error occurred: {e}")
+        print(f"\n发生未知错误: {e}")
     finally:
         # Close the database connection when done
         if 'client' in locals() and client.duckdb_manager.con:
