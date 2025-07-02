@@ -1,6 +1,7 @@
 from tushare_db import TushareDBClient, stock_basic, StockBasic, trade_cal, TradeCal, hs_const, HsConst, stock_company, StockCompany, pro_bar, ProBar
 from tushare_db.client import TushareDBClientError
 import pandas as pd
+from datetime import datetime
 
 def test_init():
     try:
@@ -10,7 +11,8 @@ def test_init():
         # client.initialize_basic_data()
 
         # download stock basic data
-        client.get_all_stock_qfq_daily_bar(start_date="20000101", end_date="20250628")
+        trade_cal(client, start_date='19900101', end_date=datetime.now().strftime('%Y%m%d'))
+        client.get_all_stock_qfq_daily_bar(start_date="20000101", end_date="20250702")
 
     except TushareDBClientError as e:
         print(f"Successfully caught expected error: {e}")
@@ -140,5 +142,5 @@ def test_vectorbt():
     print(pf.trades.records_readable)    
 
 if __name__ == "__main__":
-    test_vectorbt()
-    # test_init()
+    # test_vectorbt()
+    test_init()

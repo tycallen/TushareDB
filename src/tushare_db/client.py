@@ -65,6 +65,8 @@ class TushareDBClient:
             'trade_cal': {'type': 'incremental', 'date_col': 'cal_date'},
             'pro_bar': {'type': 'incremental', 'date_col': 'trade_date'} # Add cache policy for pro_bar
         }
+        
+
         logging.info("TushareDBClient initialized.")
 
 
@@ -131,7 +133,11 @@ class TushareDBClient:
                     if cache_info['type'] == 'incremental':
                         date_col = cache_info.get('date_col')
                         if date_col and date_col in local_data_df.columns:
-                            latest_local_date = self.duckdb_manager.get_latest_date(table_name, date_col)
+                            ts_code = params.get('ts_code')
+                            if ts_code:
+                                latest_local_date = self.duckdb_manager.get_latest_date_for_stock(table_name, date_col, ts_code)
+                            else:
+                                latest_local_date = self.duckdb_manager.get_latest_date(table_name, date_col)
                             
                             requested_end_date = params.get('end_date')
 
@@ -148,7 +154,8 @@ class TushareDBClient:
                                         trading_days_count_df = self.duckdb_manager.execute_query(query)
                                         trading_days_count = trading_days_count_df.iloc[0, 0] if not trading_days_count_df.empty else 0
                                         
-                                        if trading_days_count == 0:
+                                        # 对交易日历特殊处理
+                                        if trading_days_count == 0 and api_name != 'trade_cal':
                                             logging.info(f"No new trading days found between {latest_local_date} and {requested_end_date}. Returning up-to-date cached data.")
                                             fetch_from_api = False
                                         else:

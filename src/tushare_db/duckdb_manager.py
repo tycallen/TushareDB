@@ -2,8 +2,7 @@
 import duckdb
 import pandas as pd
 import logging
-from typing import List, Optional
-
+from typing import TYPE_CHECKING, Optional, Union, List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
@@ -181,6 +180,7 @@ class DuckDBManager:
         Raises:
             DuckDBManagerError: If there's an error during the query.
         """
+        assert table_name not in ['pro_bar']
         if not self.table_exists(table_name):
             logging.info(f"Table {table_name} does not exist. Returning None for latest date.")
             return None
@@ -199,6 +199,67 @@ class DuckDBManager:
         except Exception as e:
             logging.error(f"Error getting latest date from {table_name}.{date_col}: {e}")
             raise DuckDBManagerError(f"Failed to get latest date: {e}") from e
+
+    def get_latest_date_for_stock(self, table_name: str, date_col: str, 
+                                ts_code: Union[str, List[str]]) -> Optional[str]:
+        """
+        For one or more stocks, finds the latest date for each, and then returns the
+        earliest (oldest) among these latest dates.
+
+        This is useful for determining the `start_date` for an incremental update
+        for a batch of stocks, ensuring no data is missed.
+
+        Args:
+            table_name: The name of the table to query.
+            date_col: The name of the date column (e.g., 'trade_date').
+            ts_code: A single stock code or a list of stock codes.
+
+        Returns:
+            The earliest of the latest dates as a string (e.g., 'YYYYMMDD'), 
+            or None if no data is found for any of the given stocks.
+
+        Raises:
+            DuckDBManagerError: If there's an error during the query.
+        """
+        if not self.table_exists(table_name):
+            logging.info(f"Table {table_name} does not exist. Returning None for latest date.")
+            return None
+
+        if isinstance(ts_code, str):
+            codes = [ts_code]
+        else:
+            codes = ts_code
+
+        if not codes:
+            logging.warning("ts_code list is empty. Returning None.")
+            return None
+
+        try:
+            # This query finds the latest date for each stock in the list,
+            # and then returns the minimum date among them.
+            # This ensures that when doing an incremental update for a batch of stocks,
+            # we start from a date that covers the stock with the "oldest" data.
+            query = f"""
+                SELECT MIN(max_date)
+                FROM (
+                    SELECT MAX({date_col}) AS max_date
+                    FROM {table_name}
+                    WHERE ts_code IN (SELECT * FROM UNNEST(?))
+                    GROUP BY ts_code
+                )
+            """
+            result = self.con.execute(query, [codes]).fetchone()
+            
+            if result and result[0] is not None:
+                latest_date = str(result[0])
+                logging.info(f"Oldest latest date for stocks {codes} in {table_name}.{date_col}: {latest_date}")
+                return latest_date
+            else:
+                logging.info(f"No data found for any of stocks {codes} in {table_name}. Returning None.")
+                return None
+        except Exception as e:
+            logging.error(f"Error getting latest date for stocks {codes} from {table_name}.{date_col}: {e}")
+            raise DuckDBManagerError(f"Failed to get latest date for stock(s): {e}") from e
 
     def close(self) -> None:
         """
