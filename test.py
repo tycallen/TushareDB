@@ -176,5 +176,5 @@ def test_dc_index():
 
 if __name__ == "__main__":
     # test_vectorbt()
-    # test_init()
-    test_dc_index()
+    test_init()
+    # test_dc_index()
