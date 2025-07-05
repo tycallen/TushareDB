@@ -338,3 +338,53 @@ def pro_bar(
 
     # 通过 client 获取数据
     return client.get_data('pro_bar', **params)
+
+
+class DcIndex:
+    """
+    `dc_index` 接口返回的 DataFrame 的列名常量。
+    """
+    TS_CODE = "ts_code"  # 概念代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    NAME = "name"  # 概念名称
+    LEADING = "leading"  # 领涨股票名称
+    LEADING_CODE = "leading_code"  # 领涨股票代码
+    PCT_CHANGE = "pct_change"  # 涨跌幅
+    LEADING_PCT = "leading_pct"  # 领涨股票涨跌幅
+    TOTAL_MV = "total_mv"  # 总市值（万元）
+    TURNOVER_RATE = "turnover_rate"  # 换手率
+    UP_NUM = "up_num"  # 上涨家数
+    DOWN_NUM = "down_num"  # 下降家数
+
+
+def dc_index(
+    client: 'TushareDBClient',
+    ts_code: Optional[Union[str, List[str]]] = None,
+    name: str = None,
+    trade_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取东方财富每个交易日的概念板块数据，支持按日期查询。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 指数代码（支持多个代码同时输入，用逗号分隔）
+    :param name: 板块名称（例如：人形机器人）
+    :param trade_date: 交易日期（YYYYMMDD格式）
+    :param start_date: 开始日期
+    :param end_date: 结束日期
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "name": name,
+        "trade_date": trade_date,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('dc_index', **params)

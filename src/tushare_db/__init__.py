@@ -19,6 +19,7 @@ from .api import (
     ProBarAsset,
     ProBarAdj,
     ProBarFreq,
+    dc_index,
 )
 
 __all__ = [
@@ -37,4 +38,5 @@ __all__ = [
     "ProBarAsset",
     "ProBarAdj",
     "ProBarFreq",
+    "dc_index"
 ]

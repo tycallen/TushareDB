@@ -63,7 +63,8 @@ class TushareDBClient:
             'daily': {'type': 'incremental', 'date_col': 'trade_date'},
             'stock_basic': {'type': 'full', 'ttl': 60 * 60 * 24 * 7}, # 7 days
             'trade_cal': {'type': 'incremental', 'date_col': 'cal_date'},
-            'pro_bar': {'type': 'incremental', 'date_col': 'trade_date'} # Add cache policy for pro_bar
+            'pro_bar': {'type': 'incremental', 'date_col': 'trade_date'},
+            'dc_index': {'type': 'incremental', 'date_col': 'trade_date'}
         }
         
 
@@ -81,7 +82,8 @@ class TushareDBClient:
             'daily': ['ts_code', 'trade_date'],
             'stock_basic': ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_status'],
             'trade_cal': ['exchange', 'cal_date', 'is_open'],
-            'pro_bar': ['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol', 'amount', 'adj_factor']
+            'pro_bar': ['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol', 'amount', 'adj_factor'],
+            'dc_index': ['ts_code', 'name', 'trade_date']
         }
         
         table_name = api_name
@@ -249,7 +251,8 @@ class TushareDBClient:
                                 logging.info(f"Filtered new data to only include records after {latest_local_date_for_filter}.")
 
                             if not new_data_df.empty:
-                                self.duckdb_manager.write_dataframe(new_data_df, table_name, mode='append')
+                                self.duckdb_manager.write_dataframe(new_data_df, table_name, 
+                                    mode='append' if self.duckdb_manager.table_exists(table_name) else 'replace')
                                 logging.info(f"Appended {len(new_data_df)} new rows to {table_name}.")
                             else:
                                 logging.info("No truly new data to append after filtering for incremental update.")

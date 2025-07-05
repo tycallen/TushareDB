@@ -1,4 +1,4 @@
-from tushare_db import TushareDBClient, stock_basic, StockBasic, trade_cal, TradeCal, hs_const, HsConst, stock_company, StockCompany, pro_bar, ProBar
+from tushare_db import TushareDBClient, stock_basic, StockBasic, trade_cal, TradeCal, hs_const, HsConst, stock_company, StockCompany, pro_bar, ProBar, dc_index
 from tushare_db.client import TushareDBClientError
 import pandas as pd
 from datetime import datetime
@@ -98,6 +98,7 @@ def test_vectorbt():
     print("交易信号已生成。")
 
 
+
     # ==============================================================================
     # 步骤 4: 执行向量化回测
     # ==============================================================================
@@ -141,6 +142,39 @@ def test_vectorbt():
     print("\n--- 交易记录 ---")
     print(pf.trades.records_readable)    
 
+def test_dc_index():
+    client = TushareDBClient()
+    
+    # 获取2023年的所有交易日
+    trade_dates_df = trade_cal(client, start_date='20200101', 
+        end_date=datetime.now().strftime('%Y%m%d'), is_open='1')
+    trade_dates = trade_dates_df[TradeCal.CAL_DATE].tolist()
+
+    print(f"获取到 {len(trade_dates)} 个交易日，将逐日获取概念板块数据...")
+
+    all_data = []
+    for date in trade_dates:
+        print(f"正在获取 {date} 的数据...")
+        try:
+            df = dc_index(client, trade_date=date)
+            if not df.empty:
+                all_data.append(df)
+                print(f"成功获取 {len(df)} 条数据。")
+            else:
+                print(f"当日无数据。")
+        except Exception as e:
+            print(f"获取 {date} 数据时出错: {e}")
+
+    if all_data:
+        final_df = pd.concat(all_data, ignore_index=True)
+        print("\n--- 所有数据获取完毕 ---")
+        print(f"总共获取 {len(final_df)} 条记录。")
+        print("数据预览:")
+        print(final_df.head())
+    else:
+        print("未能获取到任何数据。")
+
 if __name__ == "__main__":
     # test_vectorbt()
-    test_init()
+    # test_init()
+    test_dc_index()
