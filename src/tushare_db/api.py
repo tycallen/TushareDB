@@ -14,7 +14,7 @@ pandas.DataFrame 的列名定义为大写的类属性（字符串常量）。
 接口函数本身的返回类型依然是 pandas.DataFrame，以便于您进行后续的数据分析。
 """
 import pandas as pd
-from typing import TYPE_CHECKING, Optional, Union, List
+from typing import TYPE_CHECKING, Optional, Union, List, Dict
 
 if TYPE_CHECKING:
     from .client import TushareDBClient
@@ -227,6 +227,43 @@ def stock_company(
     return client.get_data('stock_company', **params)
 
 
+class DcMember:
+    """
+    `dc_member` 接口返回的 DataFrame 的列名常量。
+    """
+    # --- DataFrame 的列名常量 ---
+    TRADE_DATE = "trade_date"  # 交易日期
+    TS_CODE = "ts_code"  # 板块指数代码
+    CON_CODE = "con_code"  # 成分股票代码
+    NAME = "name"  # 成分股名称
+
+def dc_member(
+    client: 'TushareDBClient',
+    ts_code: str = None,
+    con_code: str = None,
+    trade_date: str = None,
+    fields: str = 'trade_date,ts_code,con_code,name'
+) -> pd.DataFrame:
+    """
+    获取东方财富板块每日成分数据。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 板块指数代码 (e.g. 'BK1184.DC')
+    :param con_code: 成分股票代码 (e.g. '002117.SZ')
+    :param trade_date: 交易日期 (YYYYMMDD格式)
+    :param fields: 需要返回的字段，默认包含常用字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "con_code": con_code,
+        "trade_date": trade_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('dc_member', **params)
+
 class ProBar:
     """
     `pro_bar` 接口返回的 DataFrame 的列名常量。
@@ -245,6 +282,7 @@ class ProBar:
     AMOUNT = "amount"  # 成交额 （千元）
     # 新增列名
     ADJ_FACTOR = "adj_factor" # 复权因子
+
 
 
 class ProBarAsset:
@@ -285,7 +323,24 @@ class ProBarFreq:
     WEEKLY = 'W'  # 周线
     MONTHLY = 'M'  # 月线
 
+"""
+通用行情接口，整合了股票（未复权、前复权、后复权）、指数、数字货币、ETF基金、期货、期权的行情数据。
+数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
 
+:param client: 'TushareDBClient' 实例。
+:param ts_code: 证券代码。
+                - 如果为 `None`（默认），则返回数据库中 `pro_bar` 表的全部数据。
+                - 如果为字符串（单个代码）或字符串列表（多个代码），则通过 `client.get_data` 获取数据。
+:param start_date: 开始日期 (日线格式：YYYYMMDD，提取分钟数据请用2019-09-01 09:00:00这种格式)
+:param end_date: 结束日期 (日线格式：YYYYMMDD)
+:param asset: 资产类别：E股票 I沪深指数 C数字货币 FT期货 FD基金 O期权 CB可转债（v1.2.39），默认E
+:param adj: 复权类型(只针对股票)：None未复权 qfq前复权 hfq后复权 , 默认None，目前只���持日线复权，同时复权机制是根据设定的end_date参数动态复权，采用分红再投模式，具体请参考常见问题列表里的说明，如果获取跟行情软件一致的复权行情，可以参阅股票技术因子接口。
+:param freq: 数据频度 ：支持分钟(min)/日(D)/周(W)/月(M)K线，其中1min表示1分钟（类推1/5/15/30/60分钟） ，默认D。
+:param ma: 均线，支持任意合理int数值。注：均线是动态计算，要设置一定时间范围才能获得相应的均线，比如5日均线，开始和结束日期参数跨度必须要超过5日。目前只支持单一个股票提取均线，即需要输入ts_code参数。e.g: ma_5表示5日均价，ma_v_5表示5日均量
+:param factors: 股票因子（asset='E'有效）支持 tor换手率 vr量比
+:param adjfactor: 复权因子，在复权数据时，如果此参数为True，返回的数据中则带复权因子，默认为False。 该功能从1.2.33版本开始生效
+:return: 一个 pandas.DataFrame，包含了查询结果。
+"""
 def pro_bar(
     client: 'TushareDBClient',
     ts_code: Optional[Union[str, List[str]]] = None,
@@ -298,24 +353,6 @@ def pro_bar(
     factors: list = None,
     adjfactor: bool = False,
 ) -> pd.DataFrame:
-    """
-    通用行情接口，整合了股票（未复权、前复权、后复权）、指数、数字货币、ETF基金、期货、期权的行情数据。
-    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
-
-    :param client: 'TushareDBClient' 实例。
-    :param ts_code: 证券代码。
-                    - 如果为 `None`（默认），则返回数据库中 `pro_bar` 表的全部数据。
-                    - 如果为字符串（单个代码）或字符串列表（多个代码），则通过 `client.get_data` 获取数据。
-    :param start_date: 开始日期 (日线格式：YYYYMMDD，提取分钟数据请用2019-09-01 09:00:00这种格式)
-    :param end_date: 结束日期 (日线格式：YYYYMMDD)
-    :param asset: 资产类别：E股票 I沪深指数 C数字货币 FT期货 FD基金 O期权 CB可转债（v1.2.39），默认E
-    :param adj: 复权类型(只针对股票)：None未复权 qfq前复权 hfq后复权 , 默认None，目前只���持日线复权，同时复权机制是根据设定的end_date参数动态复权，采用分红再投模式，具体请参考常见问题列表里的说明，如果获取跟行情软件一致的复权行情，可以参阅股票技术因子接口。
-    :param freq: 数据频度 ：支持分钟(min)/日(D)/周(W)/月(M)K线，其中1min表示1分钟（类推1/5/15/30/60分钟） ，默认D。
-    :param ma: 均线，支持任意合理int数值。注：均线是动态计算，要设置一定时间范围才能获得相应的均线，比如5日均线，开始和结束日期参数跨度必须要超过5日。目前只支持单一个股票提取均线，即需要输入ts_code参数。e.g: ma_5表示5日均价，ma_v_5表示5日均量
-    :param factors: 股票因子（asset='E'有效）支持 tor换手率 vr量比
-    :param adjfactor: 复权因子，在复权数据时，如果此参数为True，返回的数据中则带复权因子，默认为False。 该功能从1.2.33版本开始生效
-    :return: 一个 pandas.DataFrame，包含了查询结果。
-    """
     # 如果 ts_code 为 None，则直接查询数据库中的全部 pro_bar 数据
     if ts_code is None:
         ts_code = stock_basic(client, list_status='L')['ts_code'].unique().tolist()
@@ -357,6 +394,17 @@ class DcIndex:
     DOWN_NUM = "down_num"  # 下降家数
 
 
+"""
+获取东方财富每个交易日的概念板块数据，支持按日期查询。
+:param client: 'TushareDBClient' 实例。
+:param ts_code: 指数代码（支持多个代码同时输入，用逗号分隔）
+:param name: 板块名称（例如：人形机器人）
+:param trade_date: 交易日期（YYYYMMDD格式）
+:param start_date: 开始日期
+:param end_date: 结束日期
+:param fields: 需要返回的字段，默认返回所有字段。
+:return: 一个 pandas.DataFrame，包含了查询结果。
+"""
 def dc_index(
     client: 'TushareDBClient',
     ts_code: Optional[Union[str, List[str]]] = None,
@@ -366,18 +414,6 @@ def dc_index(
     end_date: str = None,
     fields: str = None
 ) -> pd.DataFrame:
-    """
-    获取东方财富每个交易日的概念板块数据，支持按日期查询。
-
-    :param client: 'TushareDBClient' 实例。
-    :param ts_code: 指数代码（支持多个代码同时输入，用逗号分隔）
-    :param name: 板块名称（例如：人形机器人）
-    :param trade_date: 交易日期（YYYYMMDD格式）
-    :param start_date: 开始日期
-    :param end_date: 结束日期
-    :param fields: 需要返回的字段，默认返回所有字段。
-    :return: 一个 pandas.DataFrame，包含了查询结果。
-    """
     params = {
         "ts_code": ts_code,
         "name": name,
@@ -388,3 +424,49 @@ def dc_index(
     }
     params = {k: v for k, v in params.items() if v is not None}
     return client.get_data('dc_index', **params)
+
+"""
+获取指定日期范围内每日最强前n个板块的成员股票列表
+:param client: 'TushareDBClient' 实例
+:param start_date: 开始日期 (YYYYMMDD格式)
+:param end_date: 结束日期 (YYYYMMDD格式)
+:param top_n: 获取每日前n个板块，默认为5
+:param sort_by: 排序字段，默认为'pct_change'(涨跌幅)
+:param ascending: 排序方式，False为降序(默认)，True为升序
+:return: 字典，key为日期，value为包含该日前n板块及其成员股票的DataFrame
+"""
+def get_top_n_sector_members(
+    client: 'TushareDBClient',
+    start_date: str,
+    end_date: str,
+    top_n: int = 5,
+    sort_by: str = 'pct_change',
+    ascending: bool = False
+) -> Dict[str, pd.DataFrame]:
+    # 获取日期范围内的交易日历
+    trade_dates = trade_cal(client, start_date=start_date, end_date=end_date, is_open='1')
+    trade_dates = trade_dates['cal_date'].tolist()
+    
+    result = {}
+    
+    for date in trade_dates:
+        # 获取当日所有板块数据并按指定字段排序
+        print("get_top_n_sector_members 获取日期:", date)
+        sectors = dc_index(client, trade_date=date)
+        if not sectors.empty:
+            # 排序并取前n个板块
+            top_sectors = sectors.sort_values(by=sort_by, ascending=ascending).head(top_n)
+            
+            # 获取每个板块的成员股票
+            members_list = []
+            for _, sector in top_sectors.iterrows():
+                members = dc_member(client, ts_code=sector['ts_code'], trade_date=date)
+                if not members.empty:
+                    members['sector_name'] = sector['name']
+                    members['sector_pct_change'] = sector['pct_change']
+                    members_list.append(members)
+            
+            if members_list:
+                result[date] = pd.concat(members_list)
+    
+    return result

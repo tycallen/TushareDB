@@ -12,7 +12,25 @@ from tushare_db.tushare_client import TushareClient, TushareClientError
 from tushare_db.duckdb_manager import DuckDBManager, DuckDBManagerError
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
+def configure_logging(level=logging.INFO):
+    """
+    Configures logging with specified level.
+    
+    Args:
+        level: Logging level (e.g. logging.INFO, logging.DEBUG)
+    """
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s'
+    )
+
+# 定义表名与日期列的映射关系
+DATE_COLUMN_MAPPING = {
+    'trade_cal': 'cal_date',
+    'dc_member': 'trade_date',
+    'dc_index': 'trade_date',
+    'pro_bar': 'trade_date'
+}
 
 class TushareDBClientError(Exception):
     """Custom exception for TushareDBClient errors."""
@@ -28,7 +46,8 @@ class TushareDBClient:
         tushare_token: Optional[str] = None,
         db_path: str = 'tushare.db',
         rate_limit_per_minute: int = 500,
-        cache_policy: Optional[Dict[str, Dict[str, Any]]] = None
+        cache_policy: Optional[Dict[str, Dict[str, Any]]] = None,
+        log_level: int = logging.INFO
     ):
         """
         Initializes the TushareDBClient.
@@ -64,11 +83,13 @@ class TushareDBClient:
             'stock_basic': {'type': 'full', 'ttl': 60 * 60 * 24 * 7}, # 7 days
             'trade_cal': {'type': 'incremental', 'date_col': 'cal_date'},
             'pro_bar': {'type': 'incremental', 'date_col': 'trade_date'},
-            'dc_index': {'type': 'incremental', 'date_col': 'trade_date'}
+            'dc_index': {'type': 'incremental', 'date_col': 'trade_date'},
+            'dc_member': {'type': 'incremental', 'date_col': 'trade_date'}
         }
         
-
-        logging.info("TushareDBClient initialized.")
+        # Configure logging with specified level
+        configure_logging(level=log_level)
+        logging.info("TushareDBClient initialized with log level: %s", logging.getLevelName(log_level))
 
 
     def _build_where_clause(self, api_name: str, params: Dict[str, Any]) -> str:
@@ -83,7 +104,8 @@ class TushareDBClient:
             'stock_basic': ['ts_code', 'symbol', 'name', 'area', 'industry', 'market', 'list_status'],
             'trade_cal': ['exchange', 'cal_date', 'is_open'],
             'pro_bar': ['ts_code', 'trade_date', 'open', 'high', 'low', 'close', 'pre_close', 'change', 'pct_chg', 'vol', 'amount', 'adj_factor'],
-            'dc_index': ['ts_code', 'name', 'trade_date']
+            'dc_index': ['ts_code', 'name', 'trade_date'],
+            'dc_member': ['ts_code', 'con_code', 'trade_date', 'name']
         }
         
         table_name = api_name
@@ -129,7 +151,7 @@ class TushareDBClient:
         try:
             if self.duckdb_manager.table_exists(table_name):
                 local_data_df = self.duckdb_manager.execute_query(f"SELECT * FROM {table_name}{where_clause_for_db}")
-                logging.warning(f"Loaded {len(local_data_df)} rows from cache for {api_name} by [SELECT * FROM {table_name}{where_clause_for_db}].")
+                logging.debug(f"Loaded {len(local_data_df)} rows from cache for {api_name} by [SELECT * FROM {table_name}{where_clause_for_db}].")
 
                 if cache_info and not local_data_df.empty:
                     if cache_info['type'] == 'incremental':
@@ -158,7 +180,7 @@ class TushareDBClient:
                                         
                                         # 对交易日历特殊处理
                                         if trading_days_count == 0 and api_name != 'trade_cal':
-                                            logging.info(f"No new trading days found between {latest_local_date} and {requested_end_date}. Returning up-to-date cached data.")
+                                            logging.debug(f"No new trading days found between {latest_local_date} and {requested_end_date}. Returning up-to-date cached data.")
                                             fetch_from_api = False
                                         else:
                                             updated_params['start_date'] = latest_local_date
@@ -179,7 +201,7 @@ class TushareDBClient:
                                 logging.debug(f"Incremental update: Latest local date for {api_name} is {latest_local_date}. Fetching data from {latest_local_date}.")
                                 fetch_from_api = True
                             else:
-                                logging.info(f"No latest date found for {api_name} in cache. Fetching all data.")
+                                logging.debug(f"No latest date found for {api_name} in cache. Fetching all data.")
                                 fetch_from_api = True
                         else:
                             logging.warning(f"Incremental policy for {api_name} missing or invalid 'date_col'. Fetching all data.")
@@ -199,13 +221,13 @@ class TushareDBClient:
                             logging.warning(f"Full policy for {api_name} missing 'ttl'. Fetching all data.")
                             fetch_from_api = True
                 elif local_data_df.empty:
-                    logging.info(f"No data found in cache for {api_name}. Fetching from API.")
+                    logging.debug(f"No data found in cache for {api_name}. Fetching from API.")
                     fetch_from_api = True
                 else:
-                    logging.info(f"No cache policy defined for {api_name}. Fetching from API.")
+                    logging.debug(f"No cache policy defined for {api_name}. Fetching from API.")
                     fetch_from_api = True
             else:
-                logging.info(f"Table {table_name} does not exist in cache. Fetching from API.")
+                logging.debug(f"Table {table_name} does not exist in cache. Fetching from API.")
                 fetch_from_api = True
 
             final_df = pd.DataFrame()
@@ -279,12 +301,14 @@ class TushareDBClient:
             else:
                 final_df = local_data_df
 
-            # Apply date and other API-specific filtering to the final DataFrame
-            if 'trade_date' in final_df.columns:
+            # 根据映射关系获取日期列
+            date_column = DATE_COLUMN_MAPPING.get(api_name, 'trade_date')
+            # 修改后的日期过滤逻辑
+            if date_column in final_df.columns:
                 if 'start_date' in params:
-                    final_df = final_df[final_df['trade_date'] >= params['start_date']]
+                    final_df = final_df[pd.to_datetime(final_df[date_column]) >= pd.to_datetime(params['start_date'])]
                 if 'end_date' in params:
-                    final_df = final_df[final_df['trade_date'] <= params['end_date']]
+                    final_df = final_df[pd.to_datetime(final_df[date_column]) <= pd.to_datetime(params['end_date'])]
             
             # Apply other API-specific filters if they are not part of the DB query
             # These are filters that Tushare API accepts but might not be direct columns in the returned DF

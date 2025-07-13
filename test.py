@@ -12,7 +12,7 @@ def test_init():
 
         # download stock basic data
         trade_cal(client, start_date='19900101', end_date=datetime.now().strftime('%Y%m%d'))
-        client.get_all_stock_qfq_daily_bar(start_date="20000101", end_date="20250702")
+        client.get_all_stock_qfq_daily_bar(start_date="20250701", end_date=datetime.now().strftime('%Y%m%d'))
 
     except TushareDBClientError as e:
         print(f"Successfully caught expected error: {e}")
@@ -146,7 +146,7 @@ def test_dc_index():
     client = TushareDBClient()
     
     # 获取2023年的所有交易日
-    trade_dates_df = trade_cal(client, start_date='20200101', 
+    trade_dates_df = trade_cal(client, start_date='20250601', 
         end_date=datetime.now().strftime('%Y%m%d'), is_open='1')
     trade_dates = trade_dates_df[TradeCal.CAL_DATE].tolist()
 
@@ -176,5 +176,5 @@ def test_dc_index():
 
 if __name__ == "__main__":
     # test_vectorbt()
-    test_init()
-    # test_dc_index()
+    # test_init()
+    test_dc_index()

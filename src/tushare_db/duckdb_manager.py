@@ -69,7 +69,7 @@ class DuckDBManager:
             DuckDBManagerError: If the query execution fails.
         """
         try:
-            logging.info(f"Executing query: {query}")
+            logging.info(f"Executing query: {query:30}")
             df = self.con.execute(query).fetchdf()
             return df
         except Exception as e:
