@@ -5,6 +5,8 @@ import os
 import pandas as pd
 from tushare_db.client import TushareDBClient
 from tushare_db.api import *
+from typing import Dict
+from datetime import datetime, timedelta
 
 
 def test_dc_member():
@@ -47,10 +49,10 @@ def test_dc_member():
 def test_get_top_n_sector_members():
     token = os.getenv('TUSHARE_TOKEN')
     client = TushareDBClient(tushare_token=token)
-    result = get_top_n_sector_members(client=client, start_date='20250101', end_date='20250704')
+    result = get_top_n_sector_members(client=client, start_date='20250101', end_date=datetime.now().strftime('%Y%m%d'))
     print(result)
 
 
 if __name__ == '__main__':
-    # test_dc_member()
+    test_dc_member()
     test_get_top_n_sector_members()

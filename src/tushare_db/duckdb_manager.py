@@ -149,8 +149,12 @@ class DuckDBManager:
                 self.con.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM df_temp")
             elif mode == 'append':
                 logging.info(f"Appending data to table {table_name}.")
-                # If table doesn't exist, INSERT INTO will create it based on the registered DataFrame's schema
-                self.con.execute(f"INSERT INTO {table_name} SELECT * FROM df_temp")
+                # If table doesn't exist, create it first, then append.
+                if not self.table_exists(table_name):
+                    logging.info(f"Table {table_name} does not exist. Creating it before appending.")
+                    self.con.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df_temp")
+                else:
+                    self.con.execute(f"INSERT INTO {table_name} SELECT * FROM df_temp")
             
             logging.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
 

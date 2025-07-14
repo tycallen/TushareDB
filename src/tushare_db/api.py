@@ -15,6 +15,7 @@ pandas.DataFrame 的列名定义为大写的类属性（字符串常量）。
 """
 import pandas as pd
 from typing import TYPE_CHECKING, Optional, Union, List, Dict
+from datetime import datetime, timedelta
 
 if TYPE_CHECKING:
     from .client import TushareDBClient
@@ -116,6 +117,23 @@ def trade_cal(
     :param fields: 需要返回的字段，默认包含所有字段。
     :return: 一个 pandas.DataFrame，包含了查询结果。
     """
+    # 验证日期格式
+    def _validate_date_format(date_str: str, param_name: str) -> None:
+        if date_str is not None:
+            import re
+            # 检查格式是否为YYYYMMDD
+            if not re.match(r'^\d{8}$', date_str):
+                raise ValueError(f"{param_name} must be in YYYYMMDD format, got: {date_str}")
+            # 检查日期是否有效
+            try:
+                datetime.strptime(date_str, '%Y%m%d')
+            except ValueError as e:
+                raise ValueError(f"Invalid date format for {param_name}: {date_str}. {str(e)}")
+    
+    # 验证输入的日期格式
+    _validate_date_format(start_date, "start_date")
+    _validate_date_format(end_date, "end_date")
+    
     # 构建传递给 client.query 的参数字典
     params = {
         "exchange": exchange,
@@ -124,11 +142,19 @@ def trade_cal(
         "is_open": is_open,
         "fields": fields
     }
-    # 过滤掉值�� None 的参数
+    # 过滤掉值为 None 的参数
     params = {k: v for k, v in params.items() if v is not None}
 
     # 通过 client 获取数据
-    return client.get_data('trade_cal', **params)
+    df = client.get_data('trade_cal', **params)
+    
+    # 如果用户指定了 fields，确保返回的 DataFrame 只包含这些列
+    if fields:
+        requested_fields = fields.split(',')
+        # 过滤掉 DataFrame 中不存在的列名
+        valid_fields = [f for f in requested_fields if f in df.columns]
+        return df[valid_fields]
+    return df
 
 
 class HsConst:
@@ -423,6 +449,7 @@ def dc_index(
         "fields": fields
     }
     params = {k: v for k, v in params.items() if v is not None}
+    print(f"dc_index params: {params}")
     return client.get_data('dc_index', **params)
 
 """
@@ -449,7 +476,7 @@ def get_top_n_sector_members(
     
     result = {}
     
-    for date in trade_dates:
+    for date in reversed(trade_dates):
         # 获取当日所有板块数据并按指定字段排序
         print("get_top_n_sector_members 获取日期:", date)
         sectors = dc_index(client, trade_date=date)
@@ -470,3 +497,91 @@ def get_top_n_sector_members(
                 result[date] = pd.concat(members_list)
     
     return result
+
+
+class CyqPerf:
+    """
+    `cyq_perf` 接口返回的 DataFrame 的列名常量。
+    """
+    TS_CODE = "ts_code"  # 股票代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    HIS_LOW = "his_low"  # 历史最低价
+    HIS_HIGH = "his_high"  # 历史最高价
+    COST_5PCT = "cost_5pct"  # 5分位成本
+    COST_15PCT = "cost_15pct"  # 15分位成本
+    COST_50PCT = "cost_50pct"  # 50分位成本
+    COST_85PCT = "cost_85pct"  # 85分位成本
+    COST_95PCT = "cost_95pct"  # 95分位成本
+    WEIGHT_AVG = "weight_avg"  # 加权平均成本
+    WINNER_RATE = "winner_rate"  # 胜率
+
+
+def cyq_perf(
+    client: 'TushareDBClient',
+    ts_code: Optional[Union[str, List[str]]] = None,
+    trade_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取A股每日筹码平均成本和胜率情况。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 股票代码 (e.g. '600000.SH')
+    :param trade_date: 交易日期 (YYYYMMDD格式)
+    :param start_date: 开始日期 (YYYYMMDD格式)
+    :param end_date: 结束日期 (YYYYMMDD格式)
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "trade_date": trade_date,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('cyq_perf', **params)
+
+class CyqChips:
+    """
+    `cyq_chips` 接口返回的 DataFrame 的列名常量。
+    """
+    TS_CODE = "ts_code"  # 股票代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    PRICE = "price"  # 成本价格
+    PERCENT = "percent"  # 价格占比（%）
+
+
+def cyq_chips(
+    client: 'TushareDBClient',
+    ts_code: Optional[Union[str, List[str]]] = None,
+    trade_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取A股每日的筹码分布情况。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 股票代码 (e.g. '600000.SH')
+    :param trade_date: 交易日期 (YYYYMMDD格式)
+    :param start_date: 开始日期 (YYYYMMDD格式)
+    :param end_date: 结束日期 (YYYYMMDD格式)
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "trade_date": trade_date,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('cyq_chips', **params)
