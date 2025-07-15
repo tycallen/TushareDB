@@ -1,7 +1,8 @@
-from tushare_db import TushareDBClient, stock_basic, StockBasic, trade_cal, TradeCal, hs_const, HsConst, stock_company, StockCompany, pro_bar, ProBar, dc_index
+from tushare_db import TushareDBClient, stock_basic, StockBasic, trade_cal, TradeCal, hs_const, HsConst, stock_company, StockCompany, pro_bar, ProBar, dc_index 
+from tushare_db.api import stk_factor_pro
 from tushare_db.client import TushareDBClientError
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def test_init():
     try:
@@ -174,7 +175,16 @@ def test_dc_index():
     else:
         print("未能获取到任何数据。")
 
+def test_stk_factor_pro():
+    client = TushareDBClient()
+    all_stocks_df = stock_basic(client, list_status="L")
+    ts_codes = all_stocks_df["ts_code"].tolist()
+    yesterday = (datetime.now() - timedelta(days = 1)).strftime("%Y%m%d")
+    for ts_code in ts_codes:
+        stk_factor_pro(client, ts_code=ts_code, start_date='20000104', end_date=yesterday)
+
 if __name__ == "__main__":
     # test_vectorbt()
     # test_init()
-    test_dc_index()
+    # test_dc_index()
+    test_stk_factor_pro()

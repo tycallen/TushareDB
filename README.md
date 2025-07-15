@@ -1,150 +1,130 @@
-# Tushare-DuckDB
+# Tushare-DuckDB：本地化 Tushare 数据缓存方案
 
-一个用于高效获取和管理 Tushare 金融数据，并使用本地 DuckDB 进行缓存的 Python 库。
+一个基于 Python 的工具库，旨在利用 [DuckDB](https://duckdb.org/) 为 [Tushare Pro](https://tushare.pro/) 金融数据提供一个高效、本地化的缓存层。本库可以显著减少重复的网络请求，加快数据获取速度，并为本地量化分析提供便利。
 
-## 概述
+## 核心功能
 
-Tushare-DuckDB 提供了一个强大且易于使用的接口，用于与 Tushare Pro API 交互，并智能地将数据缓存在本地 DuckDB 数据库中。这使得后续数据检索更快，减少了 API 调用次数，并简化了本地金融数据分析。
-
-## 特性
-
-*   **统一接口**: 单一的 `TushareDBClient` 用于获取各种 Tushare API 数据。
-*   **透明缓存**: 自动将获取的数据存储在本地 DuckDB 文件中。
-*   **智能更新策略**: 支持增量更新（针对日线数据等时间序列数据）和带可配置 TTL（Time-To-Live）的完全刷新（针对股票基本信息等静态数据）。
-*   **API 频率限制**: 内置线程安全机制，严格遵守 Tushare Pro API 调用频率限制。
-*   **高效本地存储**: 利用 DuckDB 在本地数据上进行高性能分析查询。
+- **智能缓存**: 自动将从 Tushare API 获取的数据缓存到本地 DuckDB 数据库中，后续请求优先从本地读取，大幅提升数据访问效率。
+- **自动建表**: 无需预先定义数据库表结构。在首次写入数据时，系统会自动根据数据内容创建相应的表。
+- **`pro_bar` 接口优化**: 针对 `pro_bar` 接口获取多只股票行情的需求进行了特殊优化。当传入多只股票代码时，会自动拆分为单个请求循环获取，并将结果合并，对上层调用完全透明。
+- **智能查询参数**: 在构建数据库查询语句时，会自动过滤掉非数据表列的 API 参数（如 `fields`），避免了因参数误用导致的数据库查询错误。
+- **易用的 API**: 提供了简洁的 `Client` 和一系列封装好的 API ���数，让数据获取和缓存管理变得简单直观。
+- **抑制第三方库警告**: 自动屏蔽 Tushare 库内部因依赖旧版 `pandas` 功能而产生的 `FutureWarning`，保持控制台输出整洁。
 
 ## 安装
 
-目前，您可以克隆此仓库并在本地安装：
+1.  克隆本项目到本地：
+    ```bash
+    git clone https://github.com/your-repo/Tushare-DuckDB.git # 请替换为您的仓库 URL
+    cd Tushare-DuckDB
+    ```
 
-```bash
-git clone https://github.com/your-repo/Tushare-DuckDB.git # 请替换为实际的仓库 URL
-cd Tushare-DuckDB
-pip install -e .
-```
+2.  使用 pip 进行安装。推荐使用可编辑模式（`-e`），便于后续开发和调试：
+    ```bash
+    pip install -e .
+    ```
 
 ## 配置
 
-Tushare-DuckDB 需要您的 Tushare Pro API 令牌。您可以通过两种方式提供：
+项目需要您的 Tushare Pro API 令牌才能正常工作。
 
-1.  **环境变量 (推荐)**: 设置 `TUSHARE_TOKEN` 环境变量。
-
+1.  将配置文件模板 `.env.example` 复制为 `.env`：
     ```bash
-    export TUSHARE_TOKEN="YOUR_TUSHARE_PRO_TOKEN"
+    cp .env.example .env
     ```
 
-2.  **直接在代码中**: 将令牌直接传递给 `TushareDBClient` 构造函数。
-
-    ```python
-    from tushare_db import TushareDBClient
-    client = TushareDBClient(tushare_token="YOUR_TUSHARE_PRO_TOKEN")
+2.  编辑 `.env` 文件，填入您的个人 Tushare Token：
     ```
+    TUSHARE_TOKEN='your_actual_tushare_token_here'
+    ```
+    程序启动时会自动加载此文件中的配置。
 
-## 快速入门
+## 使用说明
 
-以下是一个快速示例，演示如何使用 `TushareDBClient` 进行数据获取和缓存。
+您可以通过两种主要方式来使用本工具。
 
-## 使用方法
+### 1. 运行初始化脚本
 
-您可以通过两种主要方式从 Tushare 获取数据：
+对于首次使用或需要大批量初始化数据的场景，可以直接运行 `scripts` 目录下的脚本。
 
-### 1. 通用 `get_data` 方法
+- **初始化基础数据**:
+  ```bash
+  python scripts/init_data.py
+  ```
+  该脚本会执行一些预设的任务，例如下载所有股票的基本信息、交易日历以及历史行情数据。您可���根据需要自行修改此脚本。
 
-这是最灵活的访问方式，允许您调用任何 Tushare Pro API 接口。您只需提供接口名称（例如 `'daily'`、`'stock_basic'`）和相应的参数即可。`TushareDBClient` 会自动处理缓存和数据更新。
+- **每日数据更新**:
+  ```bash
+  python scripts/update_daily.py
+  ```
+  该脚本用于获取最近一个交易日的日线行情等增量数据。建议配置定时任务（如 `cron`）来自动执行。
 
-```python
-# 使用通用方法获取日线数据
-daily_data = client.get_data('daily', ts_code='000001.SZ', start_date='20230101')
+### 2. 作为库在代码中调用
 
-# 获取备用列表
-备用_data = client.get_data('bak_basic', trade_date='20231120')
-```
-
-### 2. 使用预定义的 API 函数
-
-为了方便起见，`tushare_db.api` 模块中预定义了许多常用的 Tushare 接口。这些函数提供了更好的代码提示和参数类型检查，使您的代码更具可读性和健壮性。
-
-这些预定义的函数最终也会通过 `TushareDBClient` 来执行，因此同样享受透明缓存和智能更新带来的所有好处。
-
-```python
-from tushare_db import api
-
-# 使用预定义的函数获取日线数据
-daily_data_api = api.daily(client, ts_code='000001.SZ', start_date='20230101')
-
-# 获取交易日历
-trade_cal_data = api.trade_cal(client, exchange='SSE', start_date='20230101', end_date='20231231')
-```
+您可以方便地在自己的 Python 代码中引入本库，进行更灵活的数据操作。
 
 ```python
-import os
-from tushare_db import TushareDBClient, ProBarAsset, ProBarAdj, ProBarFreq
+from tushare_db import TushareDBClient, api
+from datetime import datetime
 
-# 确保您的 TUSHARE_TOKEN 环境变量已设置
-# export TUSHARE_TOKEN="YOUR_TUSHARE_PRO_TOKEN"
-
-# 初始化客户端
-# 数据库文件将默认在当前目录下创建，文件名为 'tushare.db'
-# 您可以指定不同的路径: db_path='data/my_tushare.db'
+# 1. 初始化客户端
+# 默认会在项目根目录下创建或连接 tushare.db 数据库文件
 client = TushareDBClient()
 
-# --- 示例 1: 获取股票日线数据 (增量更新策略) ---
-print("\n--- 获取股票日线数据 (ts_code='000001.SZ') ---")
-daily_df = client.get_data('daily', ts_code='000001.SZ', start_date='20230101', end_date='20230131')
-print(f"首次获取日线数据 (000001.SZ): {len(daily_df)} 行")
-print(daily_df.head())
+# 2. 使用封装好的 API 函数获取数据
+# 优先从本地数据库读取，如果数据不存在或不完整，则通过 Tushare API 获取并存入本地数据库
+try:
+    # 获取交易日历
+    trade_cal_df = api.trade_cal(client, start_date='20240101', end_date='20240715')
+    print("交易日历:")
+    print(trade_cal_df.head())
 
-# 再次获取相同数据 - 应从缓存加载 (增量更新)
-print("\n--- 再次获取股票日线数据 (应从缓存加载) ---")
-daily_df_cached = client.get_data('daily', ts_code='000001.SZ', start_date='20230101', end_date='20230131')
-print(f"再次获取日线数据 (000001.SZ): {len(daily_df_cached)} 行 (来自缓存)")
+    # 获取单只股票的前复权日线行情
+    # pro_bar 接口经过优化，即使一次传入多个 ts_code 也能正常工作
+    pro_bar_df = api.pro_bar(
+        client,
+        ts_code='000001.SZ',
+        adj='qfq',
+        start_date='20240701',
+        end_date=datetime.now().strftime('%Y%m%d')
+    )
+    print("\n平安银行前复权行情:")
+    print(pro_bar_df.head())
 
-# --- 示例 2: 获取股票基本信息 (带 TTL 的完全更新策略) ---
-print("\n--- 获取股票基本信息 ---")
-stock_basic_df = client.get_data('stock_basic', exchange='SSE', list_status='L')
-print(f"首次获取 stock_basic 数据: {len(stock_basic_df)} 行")
-print(stock_basic_df.head())
+    # 3. 使用通用 fetch 方法获取数据
+    # 对于 api.py 中未封装的接口，可以使用此方法
+    stock_basic_df = client.fetch(api_name='stock_basic', list_status='L', fields='ts_code,name,industry')
+    print("\n部分上市股票列表:")
+    print(stock_basic_df.head())
 
-# 再次获取 stock_basic - 如果在 TTL 内，应从缓存加载
-print("\n--- 再次获取股票基本信息 (应从缓存加载) ---")
-stock_basic_df_cached = client.get_data('stock_basic', exchange='SSE', list_status='L')
-print(f"再次获取 stock_basic 数据: {len(stock_basic_df_cached)} 行 (来自缓存)")
+finally:
+    # 4. 关闭数据库连接
+    client.close()
+    print("\n数据库连接已关闭。")
 
-# --- 示例 3: 使用 pro_bar 接口获取前复权行情 ---
-print("\n--- 使用 pro_bar 接口获取前复权行情 (000001.SZ) ---")
-pro_bar_qfq_df = client.get_data(
-    'pro_bar',
-    ts_code='000001.SZ',
-    start_date='20230101',
-    end_date='20230131',
-    adj=ProBarAdj.QFQ, # 前复权
-    freq=ProBarFreq.DAILY, # 日线数据
-    asset=ProBarAsset.STOCK # 股票资产
-)
-print(f"获取 000001.SZ 前复权行情: {len(pro_bar_qfq_df)} 行")
-print(pro_bar_qfq_df.head())
+```
 
-# --- 示例 4: 使用 pro_bar 接口获取上证指数行情 ---
-print("\n--- 使用 pro_bar 接口获取上证指数行情 (000001.SH) ---")
-pro_bar_index_df = client.get_data(
-    'pro_bar',
-    ts_code='000001.SH',
-    start_date='20230101',
-    end_date='20230131',
-    asset=ProBarAsset.INDEX # 指数资产
-)
-print(f"获取 000001.SH 指数行情: {len(pro_bar_index_df)} 行")
-print(pro_bar_index_df.head())
+## 项目结构
 
-# 关闭数据库连接
-client.close()
-print("\n数据库连接已关闭。")
+```
+.
+├───scripts/              # 存放可直接运行的数据初始化、更新脚本
+│   ├───init_data.py      # 全量数据初始化脚本
+│   └───update_daily.py   # 每日增量更新脚本
+├───src/
+│   └───tushare_db/       # 核心库代码
+│       ├───api.py        # 封装的 Tushare 常用接口
+│       ├───client.py     # 核心客户端，负责调度和数据获取
+│       ├───duckdb_manager.py # DuckDB 数据库操作封装
+│       ├───cache_policies.py # 缓存策略逻辑
+│       └───tushare_fetcher.py # Tushare API 数据拉取逻辑
+└───tests/                # 测试用例
+```
 
 ## 贡献
 
-欢迎贡献！请参考 `CONTRIBUTING.md` 获取贡献指南。
+欢迎对本项目进行贡献。如果您有任何改进建议或发现了 Bug，请随时提交 Pull Request 或创建 Issue。
 
 ## 许可证
 
-本项目采用 MIT 许可证 - 详情请参阅 `LICENSE` 文件。
+本项目采用 MIT 许可证。详情请参阅 `LICENSE` 文件。

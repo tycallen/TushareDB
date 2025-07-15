@@ -24,6 +24,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
     "cyq_chips": {"type": "incremental", "date_col": "trade_date"},
     "dc_member": {"type": "incremental", "date_col": "trade_date"},
     "dc_index": {"type": "incremental", "date_col": "trade_date"},
+    "stk_factor_pro": {"type": "incremental", "date_col": "trade_date"},
     # Add other API policies here...
 }
 

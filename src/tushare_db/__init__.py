@@ -21,7 +21,8 @@ from .api import (
     ProBarFreq,
     dc_index,
     get_top_n_sector_members,
-    
+    stk_factor_pro,
+    StkFactorPro,
 )
 
 __all__ = [
@@ -41,5 +42,7 @@ __all__ = [
     "ProBarAdj",
     "ProBarFreq",
     "dc_index",
-    "get_top_n_sector_members"
+    "get_top_n_sector_members",
+    "stk_factor_pro",
+    "StkFactorPro"
 ]

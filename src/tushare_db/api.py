@@ -585,3 +585,301 @@ def cyq_chips(
     }
     params = {k: v for k, v in params.items() if v is not None}
     return client.get_data('cyq_chips', **params)
+
+
+class StkFactorPro:
+    """
+    `stk_factor_pro` 接口返回的 DataFrame 的列名常量。 参考 https://tushare.pro/document/2?doc_id=328
+    """
+    TS_CODE = "ts_code"
+    TRADE_DATE = "trade_date"
+    OPEN = "open" # 开盘价
+    OPEN_HFQ = "open_hfq"
+    OPEN_QFQ = "open_qfq"
+    HIGH = "high"
+    HIGH_HFQ = "high_hfq"
+    HIGH_QFQ = "high_qfq"
+    LOW = "low"
+    LOW_HFQ = "low_hfq"
+    LOW_QFQ = "low_qfq"
+    CLOSE = "close"
+    CLOSE_HFQ = "close_hfq"
+    CLOSE_QFQ = "close_qfq"
+    PRE_CLOSE = "pre_close"
+    CHANGE = "change" # 涨跌额
+    PCT_CHG = "pct_chg"
+    VOL = "vol"
+    AMOUNT = "amount" # 成交额 （千元）
+    TURNOVER_RATE = "turnover_rate"
+    TURNOVER_RATE_F = "turnover_rate_f" # 换手率（自由流通股）
+    VOLUME_RATIO = "volume_ratio" # 量比
+    PE = "pe" # 市盈率（总市值/净利润， 亏损的PE为空）
+    PE_TTM = "pe_ttm" # 市盈率（TTM，亏损的PE为空）
+    PB = "pb" # 市净率（总市值/净资产）
+    PS = "ps" # 市销率
+    PS_TTM = "ps_ttm" # 市销率（TTM）
+    DV_RATIO = "dv_ratio" # 股息率 （%）
+    DV_TTM = "dv_ttm" # 股息率（TTM）
+    TOTAL_SHARE = "total_share" # 总股本 （万股）
+    FLOAT_SHARE = "float_share" # 流通股本 （万股）
+    FREE_SHARE = "free_share" # 自由流通股本 （万股）
+    TOTAL_MV = "total_mv" # 总市值 （万元）
+    CIRC_MV = "circ_mv" # 流通市值（万元）
+    ADJ_FACTOR = "adj_factor" # 复权因子
+    ASI_BFQ = "asi_bfq" # 振动升降指标-OPEN, CLOSE, HIGH, LOW, M1=26, M2=10
+    ASI_HFQ = "asi_hfq"
+    ASI_QFQ = "asi_qfq"
+    ASIT_BFQ = "asit_bfq" # 振动升降指标-OPEN, CLOSE, HIGH, LOW, M1=26, M2=10
+    ASIT_HFQ = "asit_hfq"
+    ASIT_QFQ = "asit_qfq"
+    ATR_BFQ = "atr_bfq" # 真实波动N日平均值-CLOSE, HIGH, LOW, N=20
+    ATR_HFQ = "atr_hfq"
+    ATR_QFQ = "atr_qfq"
+    BBI_BFQ = "bbi_bfq" # BBI多空指标-CLOSE, M1=3, M2=6, M3=12, M4=20
+    BBI_HFQ = "bbi_hfq"
+    BBI_QFQ = "bbi_qfq"
+    BIAS1_BFQ = "bias1_bfq" # BIAS乖离率-CLOSE, L1=6, L2=12, L3=24
+    BIAS1_HFQ = "bias1_hfq"
+    BIAS1_QFQ = "bias1_qfq"
+    BIAS2_BFQ = "bias2_bfq"
+    BIAS2_HFQ = "bias2_hfq"
+    BIAS2_QFQ = "bias2_qfq"
+    BIAS3_BFQ = "bias3_bfq"
+    BIAS3_HFQ = "bias3_hfq"
+    BIAS3_QFQ = "bias3_qfq"
+    BOLL_LOWER_BFQ = "boll_lower_bfq" # BOLL指标，布林带-CLOSE, N=20, P=2
+    BOLL_LOWER_HFQ = "boll_lower_hfq"
+    BOLL_LOWER_QFQ = "boll_lower_qfq"
+    BOLL_MID_BFQ = "boll_mid_bfq"
+    BOLL_MID_HFQ = "boll_mid_hfq"
+    BOLL_MID_QFQ = "boll_mid_qfq"
+    BOLL_UPPER_BFQ = "boll_upper_bfq"
+    BOLL_UPPER_HFQ = "boll_upper_hfq"
+    BOLL_UPPER_QFQ = "boll_upper_qfq"
+    BRAR_AR_BFQ = "brar_ar_bfq" # BRAR情绪指标-OPEN, CLOSE, HIGH, LOW, M1=26
+    BRAR_AR_HFQ = "brar_ar_hfq"
+    BRAR_AR_QFQ = "brar_ar_qfq"
+    BRAR_BR_BFQ = "brar_br_bfq"
+    BRAR_BR_HFQ = "brar_br_hfq"
+    BRAR_BR_QFQ = "brar_br_qfq"
+    CCI_BFQ = "cci_bfq" # 顺势指标又叫CCI指标-CLOSE, HIGH, LOW, N=14
+    CCI_HFQ = "cci_hfq"
+    CCI_QFQ = "cci_qfq"
+    CR_BFQ = "cr_bfq" # CR价格动量指标-CLOSE, HIGH, LOW, N=20
+    CR_HFQ = "cr_hfq"
+    CR_QFQ = "cr_qfq"
+    DFMA_DIF_BFQ = "dfma_dif_bfq" # 平行线差指标-CLOSE, N1=10, N2=50, M=10
+    DFMA_DIF_HFQ = "dfma_dif_hfq"
+    DFMA_DIF_QFQ = "dfma_dif_qfq"
+    DFMA_DIFMA_BFQ = "dfma_difma_bfq"
+    DFMA_DIFMA_HFQ = "dfma_difma_hfq"
+    DFMA_DIFMA_QFQ = "dfma_difma_qfq"
+    DMI_ADX_BFQ = "dmi_adx_bfq" # 动向指标-CLOSE, HIGH, LOW, M1=14, M2=6
+    DMI_ADX_HFQ = "dmi_adx_hfq"
+    DMI_ADX_QFQ = "dmi_adx_qfq"
+    DMI_ADXR_BFQ = "dmi_adxr_bfq"
+    DMI_ADXR_HFQ = "dmi_adxr_hfq"
+    DMI_ADXR_QFQ = "dmi_adxr_qfq"
+    DMI_MDI_BFQ = "dmi_mdi_bfq"
+    DMI_MDI_HFQ = "dmi_mdi_hfq"
+    DMI_MDI_QFQ = "dmi_mdi_qfq"
+    DMI_PDI_BFQ = "dmi_pdi_bfq"
+    DMI_PDI_HFQ = "dmi_pdi_hfq"
+    DMI_PDI_QFQ = "dmi_pdi_qfq"
+    DOWNDAYS = "downdays"
+    UPDAYS = "updays"
+    DPO_BFQ = "dpo_bfq" # 区间震荡线-CLOSE, M1=20, M2=10, M3=6
+    DPO_HFQ = "dpo_hfq"
+    DPO_QFQ = "dpo_qfq"
+    MADPO_BFQ = "madpo_bfq"
+    MADPO_HFQ = "madpo_hfq"
+    MADPO_QFQ = "madpo_qfq"
+    EMA_BFQ_10 = "ema_bfq_10" # 指数移动平均-N=10
+    EMA_BFQ_20 = "ema_bfq_20"
+    EMA_BFQ_250 = "ema_bfq_250"
+    EMA_BFQ_30 = "ema_bfq_30"
+    EMA_BFQ_5 = "ema_bfq_5"
+    EMA_BFQ_60 = "ema_bfq_60"
+    EMA_BFQ_90 = "ema_bfq_90"
+    EMA_HFQ_10 = "ema_hfq_10"
+    EMA_HFQ_20 = "ema_hfq_20"
+    EMA_HFQ_250 = "ema_hfq_250"
+    EMA_HFQ_30 = "ema_hfq_30"
+    EMA_HFQ_5 = "ema_hfq_5"
+    EMA_HFQ_60 = "ema_hfq_60"
+    EMA_HFQ_90 = "ema_hfq_90"
+    EMA_QFQ_10 = "ema_qfq_10"
+    EMA_QFQ_20 = "ema_qfq_20"
+    EMA_QFQ_250 = "ema_qfq_250"
+    EMA_QFQ_30 = "ema_qfq_30"
+    EMA_QFQ_5 = "ema_qfq_5"
+    EMA_QFQ_60 = "ema_qfq_60"
+    EMA_QFQ_90 = "ema_qfq_90"
+    EMV_BFQ = "emv_bfq" # 简易波动指标-HIGH, LOW, VOL, N=14, M=9
+    EMV_HFQ = "emv_hfq"
+    EMV_QFQ = "emv_qfq"
+    MAEMV_BFQ = "maemv_bfq"
+    MAEMV_HFQ = "maemv_hfq"
+    MAEMV_QFQ = "maemv_qfq"
+    EXPMA_12_BFQ = "expma_12_bfq" # EMA指数平均数指标-CLOSE, N1=12, N2=50
+    EXPMA_12_HFQ = "expma_12_hfq"
+    EXPMA_12_QFQ = "expma_12_qfq"
+    EXPMA_50_BFQ = "expma_50_bfq"
+    EXPMA_50_HFQ = "expma_50_hfq"
+    EXPMA_50_QFQ = "expma_50_qfq"
+    KDJ_BFQ = "kdj_bfq" # KDJ指标-CLOSE, HIGH, LOW, N=9, M1=3, M2=3
+    KDJ_HFQ = "kdj_hfq"
+    KDJ_QFQ = "kdj_qfq"
+    KDJ_D_BFQ = "kdj_d_bfq"
+    KDJ_D_HFQ = "kdj_d_hfq"
+    KDJ_D_QFQ = "kdj_d_qfq"
+    KDJ_K_BFQ = "kdj_k_bfq"
+    KDJ_K_HFQ = "kdj_k_hfq"
+    KDJ_K_QFQ = "kdj_k_qfq"
+    KTN_DOWN_BFQ = "ktn_down_bfq" # 肯特纳交易通道, N选20日，ATR选10日-CLOSE, HIGH, LOW, N=20, M=10
+    KTN_DOWN_HFQ = "ktn_down_hfq"
+    KTN_DOWN_QFQ = "ktn_down_qfq"
+    KTN_MID_BFQ = "ktn_mid_bfq"
+    KTN_MID_HFQ = "ktn_mid_hfq"
+    KTN_MID_QFQ = "ktn_mid_qfq"
+    KTN_UPPER_BFQ = "ktn_upper_bfq"
+    KTN_UPPER_HFQ = "ktn_upper_hfq"
+    KTN_UPPER_QFQ = "ktn_upper_qfq"
+    LOWDAYS = "lowdays" # LOWRANGE(LOW)表示当前最低价是近多少周期内最低价的最小值
+    TOPDAYS = "topdays" # TOPRANGE(HIGH)表示当前最高价是近多少周期内最高价的最大值
+    MA_BFQ_10 = "ma_bfq_10" # 简单移动平均-N=10
+    MA_BFQ_20 = "ma_bfq_20"
+    MA_BFQ_250 = "ma_bfq_250"
+    MA_BFQ_30 = "ma_bfq_30"
+    MA_BFQ_5 = "ma_bfq_5"
+    MA_BFQ_60 = "ma_bfq_60"
+    MA_BFQ_90 = "ma_bfq_90"
+    MA_HFQ_10 = "ma_hfq_10"
+    MA_HFQ_20 = "ma_hfq_20"
+    MA_HFQ_250 = "ma_hfq_250"
+    MA_HFQ_30 = "ma_hfq_30"
+    MA_HFQ_5 = "ma_hfq_5"
+    MA_HFQ_60 = "ma_hfq_60"
+    MA_HFQ_90 = "ma_hfq_90"
+    MA_QFQ_10 = "ma_qfq_10"
+    MA_QFQ_20 = "ma_qfq_20"
+    MA_QFQ_250 = "ma_qfq_250"
+    MA_QFQ_30 = "ma_qfq_30"
+    MA_QFQ_5 = "ma_qfq_5"
+    MA_QFQ_60 = "ma_qfq_60"
+    MA_QFQ_90 = "ma_qfq_90"
+    MACD_BFQ = "macd_bfq" # MACD指标-CLOSE, SHORT=12, LONG=26, M=9
+    MACD_HFQ = "macd_hfq"
+    MACD_QFQ = "macd_qfq"
+    MACD_DEA_BFQ = "macd_dea_bfq"
+    MACD_DEA_HFQ = "macd_dea_hfq"
+    MACD_DEA_QFQ = "macd_dea_qfq"
+    MACD_DIF_BFQ = "macd_dif_bfq"
+    MACD_DIF_HFQ = "macd_dif_hfq"
+    MACD_DIF_QFQ = "macd_dif_qfq"
+    MASS_BFQ = "mass_bfq" # 梅斯线-HIGH, LOW, N1=9, N2=25, M=6
+    MASS_HFQ = "mass_hfq"
+    MASS_QFQ = "mass_qfq"
+    MA_MASS_BFQ = "ma_mass_bfq"
+    MA_MASS_HFQ = "ma_mass_hfq"
+    MA_MASS_QFQ = "ma_mass_qfq"
+    MFI_BFQ = "mfi_bfq" # MFI指标是成交量的RSI指标-CLOSE, HIGH, LOW, VOL, N=14
+    MFI_HFQ = "mfi_hfq"
+    MFI_QFQ = "mfi_qfq"
+    MTM_BFQ = "mtm_bfq" # 动量指标-CLOSE, N=12, M=6
+    MTM_HFQ = "mtm_hfq"
+    MTM_QFQ = "mtm_qfq"
+    MTMMA_BFQ = "mtmma_bfq"
+    MTMMA_HFQ = "mtmma_hfq"
+    MTMMA_QFQ = "mtmma_qfq"
+    OBV_BFQ = "obv_bfq" # 能量潮指标-CLOSE, VOL
+    OBV_HFQ = "obv_hfq"
+    OBV_QFQ = "obv_qfq"
+    PSY_BFQ = "psy_bfq" # 投资者对股市涨跌产生心理波动的情绪指标-CLOSE, N=12, M=6
+    PSY_HFQ = "psy_hfq"
+    PSY_QFQ = "psy_qfq"
+    PSYMA_BFQ = "psyma_bfq"
+    PSYMA_HFQ = "psyma_hfq"
+    PSYMA_QFQ = "psyma_qfq"
+    ROC_BFQ = "roc_bfq" # 变动率指标-CLOSE, N=12, M=6
+    ROC_HFQ = "roc_hfq"
+    ROC_QFQ = "roc_qfq"
+    MAROC_BFQ = "maroc_bfq"
+    MAROC_HFQ = "maroc_hfq"
+    MAROC_QFQ = "maroc_qfq"
+    RSI_BFQ_12 = "rsi_bfq_12" # RSI指标-CLOSE, N=12
+    RSI_BFQ_24 = "rsi_bfq_24"
+    RSI_BFQ_6 = "rsi_bfq_6"
+    RSI_HFQ_12 = "rsi_hfq_12"
+    RSI_HFQ_24 = "rsi_hfq_24"
+    RSI_HFQ_6 = "rsi_hfq_6"
+    RSI_QFQ_12 = "rsi_qfq_12"
+    RSI_QFQ_24 = "rsi_qfq_24"
+    RSI_QFQ_6 = "rsi_qfq_6"
+    TAQ_DOWN_BFQ = "taq_down_bfq" # 唐安奇通道(海龟)交易指标-HIGH, LOW, 20
+    TAQ_DOWN_HFQ = "taq_down_hfq"
+    TAQ_DOWN_QFQ = "taq_down_qfq"
+    TAQ_MID_BFQ = "taq_mid_bfq"
+    TAQ_MID_HFQ = "taq_mid_hfq"
+    TAQ_MID_QFQ = "taq_mid_qfq"
+    TAQ_UP_BFQ = "taq_up_bfq"
+    TAQ_UP_HFQ = "taq_up_hfq"
+    TAQ_UP_QFQ = "taq_up_qfq"
+    TRIX_BFQ = "trix_bfq" # 三重指数平滑平均线-CLOSE, M1=12, M2=20
+    TRIX_HFQ = "trix_hfq"
+    TRIX_QFQ = "trix_qfq"
+    TRMA_BFQ = "trma_bfq"
+    TRMA_HFQ = "trma_hfq"
+    TRMA_QFQ = "trma_qfq"
+    VR_BFQ = "vr_bfq" # VR容量比率-CLOSE, VOL, M1=26
+    VR_HFQ = "vr_hfq"
+    VR_QFQ = "vr_qfq"
+    WR_BFQ = "wr_bfq" # W&R 威廉指标-CLOSE, HIGH, LOW, N=10, N1=6
+    WR_HFQ = "wr_hfq"
+    WR_QFQ = "wr_qfq"
+    WR1_BFQ = "wr1_bfq"
+    WR1_HFQ = "wr1_hfq"
+    WR1_QFQ = "wr1_qfq"
+    XSII_TD1_BFQ = "xsii_td1_bfq" # 薛斯通道II-CLOSE, HIGH, LOW, N=102, M=7
+    XSII_TD1_HFQ = "xsii_td1_hfq"
+    XSII_TD1_QFQ = "xsii_td1_qfq"
+    XSII_TD2_BFQ = "xsii_td2_bfq"
+    XSII_TD2_HFQ = "xsii_td2_hfq"
+    XSII_TD2_QFQ = "xsii_td2_qfq"
+    XSII_TD3_BFQ = "xsii_td3_bfq"
+    XSII_TD3_HFQ = "xsii_td3_hfq"
+    XSII_TD3_QFQ = "xsii_td3_qfq"
+    XSII_TD4_BFQ = "xsii_td4_bfq"
+    XSII_TD4_HFQ = "xsii_td4_hfq"
+    XSII_TD4_QFQ = "xsii_td4_qfq"
+
+
+def stk_factor_pro(
+    client: 'TushareDBClient',
+    ts_code: Optional[Union[str, List[str]]] = None,
+    trade_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取股票每日技术面因子数据。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 股票代码 (e.g. '600000.SH')
+    :param trade_date: 交易日期 (YYYYMMDD格式)
+    :param start_date: 开始日期 (YYYYMMDD格式)
+    :param end_date: 结束日期 (YYYYMMDD格式)
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "trade_date": trade_date,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('stk_factor_pro', **params)

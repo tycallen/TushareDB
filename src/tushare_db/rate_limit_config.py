@@ -53,6 +53,7 @@ STANDARD_PROFILE: Dict[str, Dict[str, Any]] = {
     "dc_index": {"limit": DATA_API_MINUTE_LIMIT_STANDARD, "period": "minute"},
     "cyq_perf": {"limit": 20000, "period": "day"},
     "cyq_chips": {"limit": 20000, "period": "day"},
+    "stk_factor_pro": {"limit": 30, "period": "minute"}
 }
 
 # --- Professional User Profile (e.g., 10000+ points) ---
