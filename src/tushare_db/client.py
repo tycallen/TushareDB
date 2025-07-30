@@ -1,8 +1,9 @@
-import os
 import logging
+import os
+import datetime
 import pandas as pd
 from typing import Any, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from tqdm import tqdm
 import math
 
@@ -203,6 +204,60 @@ class TushareDBClient:
         final_df = pd.concat(all_bar_data, ignore_index=True)
         logging.info(f"Successfully fetched QFQ daily bars for {len(ts_codes)} stocks, total {len(final_df)} rows.")
         return final_df
+
+    def get_latest_common_date(self, api_name: str, date_col: str = 'trade_date') -> Optional[str]:
+        """
+        获取某个接口的本地数据库中,大部分股票的最新数据日期。
+        通过计算每个ts_code的最新日期，然后返回出现次数最多的那个日期。
+
+        :param api_name: Tushare接口名称，也对应数据库中的表名。
+        :param date_col: 日期列的名称。
+        :return: 出现次数最多的最新日期字符串，如果表不存在或无数据则返回None。
+        """
+        if not self.duckdb_manager.table_exists(api_name):
+            logging.warning(f"表 '{api_name}' 不存在。")
+            return None
+
+        columns = self.duckdb_manager.get_table_columns(api_name)
+        if date_col not in columns:
+            # 常见的时间列
+            common_date_cols = ["trade_date", "end_date", "ann_date"]
+            actual_date_col = next((col for col in common_date_cols if col in columns), None)
+
+            if not actual_date_col:
+                logging.warning(f"在表 '{api_name}' 中未找到指定的日期列 '{date_col}' 或常见的日期列。")
+                return None
+            
+            logging.info(f"指定的日期列 '{date_col}' 不存在，将使用找到的日期列 '{actual_date_col}'。")
+            date_col = actual_date_col
+
+
+        query = f"""
+        WITH LatestDates AS (
+            SELECT MAX({date_col}) AS last_date
+            FROM {api_name}
+            GROUP BY ts_code
+        )
+        SELECT last_date
+        FROM LatestDates
+        WHERE last_date IS NOT NULL
+        GROUP BY last_date
+        ORDER BY COUNT(*) DESC
+        LIMIT 1;
+        """
+        try:
+            result = self.duckdb_manager.execute_query(query)
+            if result is not None and not result.empty:
+                latest_date = result.iloc[0, 0]
+                if isinstance(latest_date, (date, datetime)):
+                    return latest_date.strftime('%Y%m%d')
+                return str(latest_date)
+            else:
+                logging.info(f"在表 '{api_name}' 中没有找到符合条件的数据。")
+                return None
+        except Exception as e:
+            logging.error(f"为 '{api_name}' 获取最新通用日期时出错: {e}")
+            return None
 
     def close(self) -> None:
         """Closes the DuckDB database connection."""

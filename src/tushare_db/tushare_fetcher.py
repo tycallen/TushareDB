@@ -63,6 +63,18 @@ class TushareFetcher:
 
         logging.info(f"TushareFetcher initialized with rate limit config: {self.rate_limit_config}")
 
+    def _truncate_params_for_logging(self, params: dict, max_len: int = 10) -> str:
+        """Truncates the 'ts_code' in params for cleaner logging."""
+        params_copy = params.copy()
+        if 'ts_code' in params_copy:
+            ts_code = params_copy['ts_code']
+            if isinstance(ts_code, str) and ',' in ts_code:
+                ts_code = ts_code.split(',')
+            
+            if isinstance(ts_code, list) and len(ts_code) > max_len:
+                params_copy['ts_code'] = f"[{','.join(ts_code[:max_len])}, ... ({len(ts_code)} total)]"
+        return str(params_copy)
+
     def fetch(self, api_name: str, **params: Any) -> pd.DataFrame:
         """
         Fetches data from the Tushare Pro API, respecting per-API rate limits.
@@ -103,7 +115,8 @@ class TushareFetcher:
         self._wait_for_rate_limit(api_name)
 
         try:
-            logging.info(f"Fetching data for API: {api_name} with params: {params}")
+            params_for_log = self._truncate_params_for_logging(params)
+            logging.info(f"Fetching data for API: {api_name} with params: {params_for_log}")
             
             if api_name == 'pro_bar':
                 api_func = ts.pro_bar

@@ -23,6 +23,10 @@ from .api import (
     get_top_n_sector_members,
     stk_factor_pro,
     StkFactorPro,
+    cyq_perf,
+    CyqPerf,
+    CyqChips,
+    cyq_chips,
 )
 
 __all__ = [
@@ -44,5 +48,9 @@ __all__ = [
     "dc_index",
     "get_top_n_sector_members",
     "stk_factor_pro",
-    "StkFactorPro"
+    "StkFactorPro",
+    "cyq_perf",
+    "CyqPerf",
+    "CyqChips",
+    "cyq_chips",
 ]

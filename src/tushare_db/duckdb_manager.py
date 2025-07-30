@@ -2,6 +2,7 @@
 import duckdb
 import pandas as pd
 import logging
+import re
 from typing import TYPE_CHECKING, Optional, Union, List
 
 # Configure logging
@@ -55,6 +56,30 @@ class DuckDBManager:
             # For simplicity, we'll return False for any error during existence check.
             return False
 
+    def _truncate_query_for_logging(self, query: str, max_len: int = 200) -> str:
+        """Shortens long IN clauses in SQL queries for cleaner logging."""
+        # This regex looks for "IN (" followed by a list of items, especially quoted strings.
+        in_clause_pattern = re.compile(r"(IN\s*\()([^)]+)(\))", re.IGNORECASE)
+
+        def replacer(match):
+            prefix = match.group(1)  # "IN ("
+            content = match.group(2)
+            suffix = match.group(3)  # ")"
+
+            # Only truncate if the content inside parentheses is long
+            if len(content) > max_len:
+                items = content.split(',')
+                num_items = len(items)
+                # Heuristic to decide if it's a list of codes
+                if num_items > 5:
+                    # Take first 3 and last 2 items as a sample
+                    truncated_content = f"{','.join(items[:3])}, ... ,{','.join(items[-2:])} ({num_items} total)"
+                    return f"{prefix}{truncated_content}{suffix}"
+            # Return the original match if it's not long enough to truncate
+            return match.group(0)
+
+        return in_clause_pattern.sub(replacer, query)
+
     def execute_query(self, query: str) -> pd.DataFrame:
         """
         Executes a SQL query and returns the result as a Pandas DataFrame.
@@ -69,7 +94,8 @@ class DuckDBManager:
             DuckDBManagerError: If the query execution fails.
         """
         try:
-            logging.info(f"Executing query: {query:30}")
+            log_query = self._truncate_query_for_logging(query)
+            logging.info(f"Executing query: {log_query}")
             df = self.con.execute(query).fetchdf()
             return df
         except Exception as e:
@@ -204,14 +230,17 @@ class DuckDBManager:
             logging.error(f"Error getting latest date from {table_name}.{date_col}: {e}")
             raise DuckDBManagerError(f"Failed to get latest date: {e}") from e
 
-    def get_latest_date_for_stock(self, table_name: str, date_col: str, 
+    def _truncate_codes_for_logging(self, codes: List[str], max_len: int = 10) -> str:
+        """Truncates a list of codes for cleaner logging."""
+        if len(codes) > max_len:
+            return f"[{', '.join(codes[:max_len])}, ... ({len(codes)} total)]"
+        return str(codes)
+
+    def get_latest_date_for_stock(self, table_name: str, date_col: str,
                                 ts_code: Union[str, List[str]]) -> Optional[str]:
         """
-        For one or more stocks, finds the latest date for each, and then returns the
-        earliest (oldest) among these latest dates.
-
-        This is useful for determining the `start_date` for an incremental update
-        for a batch of stocks, ensuring no data is missed.
+        For one or more stocks, finds the most common latest date among them.
+        This avoids using a very old date from a delisted stock.
 
         Args:
             table_name: The name of the table to query.
@@ -219,7 +248,7 @@ class DuckDBManager:
             ts_code: A single stock code or a list of stock codes.
 
         Returns:
-            The earliest of the latest dates as a string (e.g., 'YYYYMMDD'), 
+            The most common latest date as a string (e.g., 'YYYYMMDD'),
             or None if no data is found for any of the given stocks.
 
         Raises:
@@ -238,31 +267,37 @@ class DuckDBManager:
             logging.warning("ts_code list is empty. Returning None.")
             return None
 
+        codes_for_log = self._truncate_codes_for_logging(codes)
+
         try:
-            # This query finds the latest date for each stock in the list,
-            # and then returns the minimum date among them.
-            # This ensures that when doing an incremental update for a batch of stocks,
-            # we start from a date that covers the stock with the "oldest" data.
+            # This query finds the latest date for each stock, then finds the
+            # most frequently occurring date among them. This avoids outliers
+            # from delisted stocks.
             query = f"""
-                SELECT MIN(max_date)
-                FROM (
-                    SELECT MAX({date_col}) AS max_date
+                WITH LatestDates AS (
+                    SELECT MAX({date_col}) AS last_date
                     FROM {table_name}
                     WHERE ts_code IN (SELECT * FROM UNNEST(?))
                     GROUP BY ts_code
                 )
+                SELECT last_date
+                FROM LatestDates
+                WHERE last_date IS NOT NULL
+                GROUP BY last_date
+                ORDER BY COUNT(*) DESC
+                LIMIT 1;
             """
             result = self.con.execute(query, [codes]).fetchone()
-            
+
             if result and result[0] is not None:
                 latest_date = str(result[0])
-                logging.info(f"Oldest latest date for stocks {codes} in {table_name}.{date_col}: {latest_date}")
+                logging.info(f"Most common latest date for stocks {codes_for_log} in {table_name}.{date_col}: {latest_date}")
                 return latest_date
             else:
-                logging.info(f"No data found for any of stocks {codes} in {table_name}. Returning None.")
+                logging.info(f"No data found for any of stocks {codes_for_log} in {table_name}. Returning None.")
                 return None
         except Exception as e:
-            logging.error(f"Error getting latest date for stocks {codes} from {table_name}.{date_col}: {e}")
+            logging.error(f"Error getting latest date for stocks {codes_for_log} from {table_name}.{date_col}: {e}")
             raise DuckDBManagerError(f"Failed to get latest date for stock(s): {e}") from e
 
     def close(self) -> None:
