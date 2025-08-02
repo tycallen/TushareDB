@@ -46,12 +46,36 @@ def init_pro_bar():
             print(f"获取 {ts_code} 数据时出错: {e}")
     print("所有股票的历史日线数据初始化完成。")
 
+
+def init_fina_indicator_vip():
+    """
+    初始化所有股票的财务指标数据（VIP接口）
+    从2000年至今，按季度获取。
+    """
+    print("开始初始化所有股票的财务指标数据...")
+    current_year = datetime.now().year
+    for year in range(2000, current_year + 1):
+        for quarter in ['0331', '0630', '0930', '1231']:
+            period = f"{year}{quarter}"
+            # 如果计算出的报告期在未来，则跳过
+            if datetime.strptime(period, '%Y%m%d') > datetime.now():
+                continue
+
+            print(f"正在获取 {period} 的财务指标数据...")
+            try:
+                client.api.fina_indicator_vip(period=period)
+            except Exception as e:
+                print(f"获取 {period} 财务指标数据时出错: {e}")
+    print("财务指标数据初始化完成。")
+
+
 def main():
     """主函数，执行所有初始化任务"""
     print("开始数据初始化...")
     init_trade_cal()
     # init_stock_basic()
     # init_pro_bar()
+    init_fina_indicator_vip()
     client.get_all_stock_qfq_daily_bar(start_date='20000101', end_date=datetime.now().strftime('%Y%m%d'))
     print("所有数据初始化任务完成！")
 
