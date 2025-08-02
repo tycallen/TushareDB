@@ -69,14 +69,29 @@ def init_fina_indicator_vip():
     print("财务指标数据初始化完成。")
 
 
+def init_index_basic():
+    """初始化所有指数的基本信息"""
+    print("开始初始化所有指数的基本信息...")
+    markets = ['MSCI', 'CSI', 'SSE', 'SZSE', 'CICC', 'SW', 'OTH']
+    for market in markets:
+        print(f"正在获取 {market} 的指数基本信息...")
+        try:
+            d = tushare_db.api.index_basic(client, market=market)
+            print(d.head())
+        except Exception as e:
+            print(f"获取 {market} 指数基本信息时出错: {e}")
+    print("所有指数的基本信息初始化完成。")
+
+
 def main():
     """主函数，执行所有初始化任务"""
     print("开始数据初始化...")
-    init_trade_cal()
+    # init_trade_cal()
+    init_index_basic()
     # init_stock_basic()
     # init_pro_bar()
-    init_fina_indicator_vip()
-    client.get_all_stock_qfq_daily_bar(start_date='20000101', end_date=datetime.now().strftime('%Y%m%d'))
+    # init_fina_indicator_vip()
+    # client.get_all_stock_qfq_daily_bar(start_date='20000101', end_date=datetime.now().strftime('%Y%m%d'))
     print("所有数据初始化任务完成！")
 
 if __name__ == "__main__":

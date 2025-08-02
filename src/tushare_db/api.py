@@ -253,6 +253,59 @@ def stock_company(
     return client.get_data('stock_company', **params)
 
 
+class IndexBasic:
+    """
+    `index_basic` 接口返回的 DataFrame 的列名常量。
+    """
+    TS_CODE = "ts_code"  # TS代码
+    NAME = "name"  # 简称
+    FULLNAME = "fullname"  # 指数全称
+    MARKET = "market"  # 市场
+    PUBLISHER = "publisher"  # 发布方
+    INDEX_TYPE = "index_type"  # 指数风格
+    CATEGORY = "category"  # 指数类别
+    BASE_DATE = "base_date"  # 基期
+    BASE_POINT = "base_point"  # 基点
+    LIST_DATE = "list_date"  # 发布日期
+    WEIGHT_RULE = "weight_rule"  # 加权方式
+    DESC = "desc"  # 描述
+    EXP_DATE = "exp_date"  # 终止日期
+
+
+def index_basic(
+    client: 'TushareDBClient',
+    ts_code: str = None,
+    name: str = None,
+    market: str = None,
+    publisher: str = None,
+    category: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取指数基础信息。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 指数代码
+    :param name: 指数简称
+    :param market: 交易所或服务商(默认SSE)
+    :param publisher: 发布商
+    :param category: 指数类别
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "name": name,
+        "market": market,
+        "publisher": publisher,
+        "category": category,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('index_basic', **params)
+
+
 class DcMember:
     """
     `dc_member` 接口返回的 DataFrame 的列名常量。
@@ -360,7 +413,7 @@ class ProBarFreq:
 :param start_date: 开始日期 (日线格式：YYYYMMDD，提取分钟数据请用2019-09-01 09:00:00这种格式)
 :param end_date: 结束日期 (日线格式：YYYYMMDD)
 :param asset: 资产类别：E股票 I沪深指数 C数字货币 FT期货 FD基金 O期权 CB可转债（v1.2.39），默认E
-:param adj: 复权类型(只针对股票)：None未复权 qfq前复权 hfq后复权 , 默认None，目前只���持日线复权，同时复权机制是根据设定的end_date参数动态复权，采用分红再投模式，具体请参考常见问题列表里的说明，如果获取跟行情软件一致的复权行情，可以参阅股票技术因子接口。
+:param adj: 复权类型(只针对股票)：None未复权 qfq前复权 hfq后复权 , 默认None，目前只支持日线复权，同时复权机制是根据设定的end_date参数动态复权，采用分红再投模式，具体请参考常见问题列表里的说明，如果获取跟行情软件一致的复权行情，可以参阅股票技术因子接口。
 :param freq: 数据频度 ：支持分钟(min)/日(D)/周(W)/月(M)K线，其中1min表示1分钟（类推1/5/15/30/60分钟） ，默认D。
 :param ma: 均线，支持任意合理int数值。注：均线是动态计算，要设置一定时间范围才能获得相应的均线，比如5日均线，开始和结束日期参数跨度必须要超过5日。目前只支持单一个股票提取均线，即需要输入ts_code参数。e.g: ma_5表示5日均价，ma_v_5表示5日均量
 :param factors: 股票因子（asset='E'有效）支持 tor换手率 vr量比
