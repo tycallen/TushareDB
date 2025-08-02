@@ -236,20 +236,22 @@ class DuckDBManager:
             return f"[{', '.join(codes[:max_len])}, ... ({len(codes)} total)]"
         return str(codes)
 
-    def get_latest_date_for_stock(self, table_name: str, date_col: str,
-                                ts_code: Union[str, List[str]]) -> Optional[str]:
+    def get_latest_date_for_partition(self, table_name: str, date_col: str,
+                                      partition_key_col: str,
+                                      partition_key_value: Union[str, List[str]]) -> Optional[str]:
         """
-        For one or more stocks, finds the most common latest date among them.
-        This avoids using a very old date from a delisted stock.
+        For one or more partition keys, finds the most common latest date among them.
+        This is useful for partitioned data (e.g., by ts_code, index_code).
 
         Args:
             table_name: The name of the table to query.
             date_col: The name of the date column (e.g., 'trade_date').
-            ts_code: A single stock code or a list of stock codes.
+            partition_key_col: The name of the column used for partitioning (e.g., 'ts_code').
+            partition_key_value: A single key value or a list of key values.
 
         Returns:
             The most common latest date as a string (e.g., 'YYYYMMDD'),
-            or None if no data is found for any of the given stocks.
+            or None if no data is found for any of the given keys.
 
         Raises:
             DuckDBManagerError: If there's an error during the query.
@@ -258,27 +260,26 @@ class DuckDBManager:
             logging.info(f"Table {table_name} does not exist. Returning None for latest date.")
             return None
 
-        if isinstance(ts_code, str):
-            codes = [ts_code]
+        if isinstance(partition_key_value, str):
+            keys = [partition_key_value]
         else:
-            codes = ts_code
+            keys = partition_key_value
 
-        if not codes:
-            logging.warning("ts_code list is empty. Returning None.")
+        if not keys:
+            logging.warning(f"{partition_key_col} list is empty. Returning None.")
             return None
 
-        codes_for_log = self._truncate_codes_for_logging(codes)
+        keys_for_log = self._truncate_codes_for_logging(keys)
 
         try:
-            # This query finds the latest date for each stock, then finds the
-            # most frequently occurring date among them. This avoids outliers
-            # from delisted stocks.
+            # This query finds the latest date for each key, then finds the
+            # most frequently occurring date among them. This avoids outliers.
             query = f"""
                 WITH LatestDates AS (
                     SELECT MAX({date_col}) AS last_date
                     FROM {table_name}
-                    WHERE ts_code IN (SELECT * FROM UNNEST(?))
-                    GROUP BY ts_code
+                    WHERE {partition_key_col} IN (SELECT * FROM UNNEST(?))
+                    GROUP BY {partition_key_col}
                 )
                 SELECT last_date
                 FROM LatestDates
@@ -287,18 +288,18 @@ class DuckDBManager:
                 ORDER BY COUNT(*) DESC
                 LIMIT 1;
             """
-            result = self.con.execute(query, [codes]).fetchone()
+            result = self.con.execute(query, [keys]).fetchone()
 
             if result and result[0] is not None:
                 latest_date = str(result[0])
-                logging.info(f"Most common latest date for stocks {codes_for_log} in {table_name}.{date_col}: {latest_date}")
+                logging.info(f"Most common latest date for partition '{partition_key_col}' with keys {keys_for_log} in {table_name}.{date_col}: {latest_date}")
                 return latest_date
             else:
-                logging.info(f"No data found for any of stocks {codes_for_log} in {table_name}. Returning None.")
+                logging.info(f"No data found for any of keys {keys_for_log} in {table_name}. Returning None.")
                 return None
         except Exception as e:
-            logging.error(f"Error getting latest date for stocks {codes_for_log} from {table_name}.{date_col}: {e}")
-            raise DuckDBManagerError(f"Failed to get latest date for stock(s): {e}") from e
+            logging.error(f"Error getting latest date for partition '{partition_key_col}' with keys {keys_for_log} from {table_name}.{date_col}: {e}")
+            raise DuckDBManagerError(f"Failed to get latest date for partition(s): {e}") from e
 
     def close(self) -> None:
         """

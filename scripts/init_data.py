@@ -101,12 +101,12 @@ def init_index_weight():
         '000688.SH',  # 科创50
         # '399102.SZ', # 创业板综合
     ]
-
+    MONTHs = 144
     for index_code in common_indices:
         print(f"正在获取指数 {index_code} 的权重...")
-        # 获取过去240个月的数据
-        for i in range(240):
-            target_date = today - timedelta(days=i * 30)
+        # 获取过去144个月的数据
+        for i in range(MONTHs):
+            target_date = today - timedelta(days=(MONTHs - i) * 30)
             year = target_date.year
             month = target_date.month
             print(f"  - 获取 {year}年{month}月 的数据...")

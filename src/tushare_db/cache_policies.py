@@ -90,15 +90,18 @@ class IncrementalCachePolicy(BaseCachePolicy):
         requested_end_date = params.get('end_date')
         
         if self.duckdb_manager.table_exists(self.table_name):
-            ts_code = params.get("ts_code")
             latest_date = None
-            if ts_code:
-                # For requests targeting specific stock(s)
-                latest_date = self.duckdb_manager.get_latest_date_for_stock(
-                    self.table_name, date_col, ts_code
+            # Check if the policy is partitioned
+            partition_key_col = self.policy_config.get("partition_key_col")
+            partition_key_value = params.get(partition_key_col) if partition_key_col else None
+
+            if partition_key_col and partition_key_value:
+                # Partitioned request (e.g., for a specific ts_code or index_code)
+                latest_date = self.duckdb_manager.get_latest_date_for_partition(
+                    self.table_name, date_col, partition_key_col, partition_key_value
                 )
             else:
-                # For general requests (e.g., trade_cal)
+                # Non-partitioned request (e.g., trade_cal)
                 latest_date = self.duckdb_manager.get_latest_date(self.table_name, date_col)
 
             if latest_date:
@@ -147,6 +150,14 @@ class IncrementalCachePolicy(BaseCachePolicy):
                 logging.debug("No new data to append after deduplication.")
 
         # Always return the full dataset satisfying the original query
+        if not self.duckdb_manager.table_exists(self.table_name):
+            logging.warning(
+                f"Table '{self.table_name}' does not exist after fetch attempt. "
+                "This can happen if the API returned no data for the given parameters. "
+                "Returning empty DataFrame."
+            )
+            return pd.DataFrame()
+        
         where_clause = self._build_where_clause(params)
         return self.duckdb_manager.execute_query(f"SELECT * FROM {self.table_name}{where_clause}")
 

@@ -17,17 +17,17 @@ from .rate_limit_config import PRESET_PROFILES, STANDARD_PROFILE
 DEFAULT_CACHE_POLICY_CONFIG = {
     "stock_basic": {"type": "full", "ttl": 60 * 60 * 24 * 7},  # 7 days
     "trade_cal": {"type": "incremental", "date_col": "cal_date"},
-    "daily": {"type": "incremental", "date_col": "trade_date"},
-    "pro_bar": {"type": "incremental", "date_col": "trade_date"},
+    "daily": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
+    "pro_bar": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "hs_const": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "stock_company": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
-    "cyq_perf": {"type": "incremental", "date_col": "trade_date"},
-    "cyq_chips": {"type": "incremental", "date_col": "trade_date"},
-    "dc_member": {"type": "incremental", "date_col": "trade_date"},
+    "cyq_perf": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
+    "cyq_chips": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
+    "dc_member": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "dc_index": {"type": "incremental", "date_col": "trade_date"},
-    "stk_factor_pro": {"type": "incremental", "date_col": "trade_date"},
+    "stk_factor_pro": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "index_basic": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
-    "index_weight": {"type": "full", "date_col": "trade_date"},
+    "index_weight": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "index_code"},
     # Add other API policies here...
 }
 

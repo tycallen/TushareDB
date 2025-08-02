@@ -24,7 +24,7 @@ DATA_API_MINUTE_LIMIT_PRO = 1000
 # --- Trial User Profile (e.g., 120 points) ---
 # Low limits, suitable for testing and basic usage.
 TRIAL_PROFILE: Dict[str, Dict[str, Any]] = {
-    "default": {"limit": 50, "period": "minute"},
+    "default": {"limit": META_API_MINUTE_LIMIT_TRIAL, "period": "minute"},
     # Metadata APIs
     "stock_basic": {"limit": META_API_MINUTE_LIMIT_TRIAL, "period": "minute"},
     "trade_cal": {"limit": META_API_MINUTE_LIMIT_TRIAL, "period": "minute"},
@@ -41,7 +41,7 @@ TRIAL_PROFILE: Dict[str, Dict[str, Any]] = {
 # --- Standard User Profile (e.g., 5000 points) ---
 # Increased limits for regular data analysis.
 STANDARD_PROFILE: Dict[str, Dict[str, Any]] = {
-    "default": {"limit": 200, "period": "minute"},
+    "default": {"limit": META_API_MINUTE_LIMIT_STANDARD, "period": "minute"},
     # Metadata APIs
     "stock_basic": {"limit": META_API_MINUTE_LIMIT_STANDARD, "period": "minute"},
     "trade_cal": {"limit": META_API_MINUTE_LIMIT_STANDARD, "period": "minute"},
@@ -59,7 +59,7 @@ STANDARD_PROFILE: Dict[str, Dict[str, Any]] = {
 # --- Professional User Profile (e.g., 10000+ points) ---
 # High limits for intensive data processing and applications.
 PRO_PROFILE: Dict[str, Dict[str, Any]] = {
-    "default": {"limit": 500, "period": "minute"},
+    "default": {"limit": META_API_MINUTE_LIMIT_PRO, "period": "minute"},
     # Metadata APIs
     "stock_basic": {"limit": META_API_MINUTE_LIMIT_PRO, "period": "minute"},
     "trade_cal": {"limit": META_API_MINUTE_LIMIT_PRO, "period": "minute"},
