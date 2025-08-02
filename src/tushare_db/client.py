@@ -27,6 +27,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
     "dc_index": {"type": "incremental", "date_col": "trade_date"},
     "stk_factor_pro": {"type": "incremental", "date_col": "trade_date"},
     "index_basic": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
+    "index_weight": {"type": "full", "date_col": "trade_date"},
     # Add other API policies here...
 }
 

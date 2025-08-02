@@ -306,6 +306,52 @@ def index_basic(
     return client.get_data('index_basic', **params)
 
 
+class IndexWeight:
+    """
+    `index_weight` 接口返回的 DataFrame 的列名常量。
+    """
+    INDEX_CODE = "index_code"  # 指数代码
+    CON_CODE = "con_code"  # 成分代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    WEIGHT = "weight"  # 权重
+
+
+def index_weight(
+    client: 'TushareDBClient',
+    index_code: str,
+    year: int,
+    month: int,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取各类指数成分和权重，月度数据。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param index_code: 指数代码
+    :param year: 年份 (e.g., 2018)
+    :param month: 月份 (e.g., 9)
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    import calendar
+    from datetime import date
+
+    # Calculate start_date and end_date
+    start_date = date(year, month, 1).strftime('%Y%m%d')
+    _, last_day = calendar.monthrange(year, month)
+    end_date = date(year, month, last_day).strftime('%Y%m%d')
+    # print(start_date, end_date)
+    params = {
+        "index_code": index_code,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('index_weight', **params)
+
+
 class DcMember:
     """
     `dc_member` 接口返回的 DataFrame 的列名常量。

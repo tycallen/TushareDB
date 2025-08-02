@@ -83,11 +83,47 @@ def init_index_basic():
     print("所有指数的基本信息初始化完成。")
 
 
+def init_index_weight():
+    """初始化主要指数的权重"""
+    print("开始初始化主要指数的权重...")
+    today = datetime.today()
+    # 常见指数列表
+    common_indices = [
+        '000001.SH',  # 上证指数
+        '000300.SH',  # 沪深300
+        '000016.SH',  # 上证50
+        '399001.SZ',  # 深圳成指
+        '000905.SH',  # 中证500
+        '399006.SZ',  # 创业板指
+        '000852.SH',  # 中证1000
+        '399303.SZ',  # 国证2000
+        '399191.SZ',  # 中小板综合
+        '000688.SH',  # 科创50
+        # '399102.SZ', # 创业板综合
+    ]
+
+    for index_code in common_indices:
+        print(f"正在获取指数 {index_code} 的权重...")
+        # 获取过去240个月的数据
+        for i in range(240):
+            target_date = today - timedelta(days=i * 30)
+            year = target_date.year
+            month = target_date.month
+            print(f"  - 获取 {year}年{month}月 的数据...")
+            try:
+                d = tushare_db.api.index_weight(client, index_code=index_code, year=year, month=month)
+                print(d.head())
+            except Exception as e:
+                print(f"获取 {index_code} 在 {year}-{month} 的权重数据时出错: {e}")
+    print("主要指数的权重初始化完成。")
+
+
 def main():
     """主函数，执行所有初始化任务"""
     print("开始数据初始化...")
     # init_trade_cal()
-    init_index_basic()
+    # init_index_basic()
+    init_index_weight()
     # init_stock_basic()
     # init_pro_bar()
     # init_fina_indicator_vip()
