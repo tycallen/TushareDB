@@ -2,6 +2,7 @@
 import os
 import warnings
 import tushare_db
+import pandas as pd
 from datetime import datetime, timedelta
 
 # 忽略来自 tushare 库内部的特定 FutureWarning
@@ -54,7 +55,8 @@ def init_fina_indicator_vip():
     """
     print("开始初始化所有股票的财务指标数据...")
     current_year = datetime.now().year
-    for year in range(2000, current_year + 1):
+    # for year in range(1990, current_year + 1):
+    for year in range(current_year + 1, 1990, -1):
         for quarter in ['0331', '0630', '0930', '1231']:
             period = f"{year}{quarter}"
             # 如果计算出的报告期在未来，则跳过
@@ -63,7 +65,8 @@ def init_fina_indicator_vip():
 
             print(f"正在获取 {period} 的财务指标数据...")
             try:
-                client.api.fina_indicator_vip(period=period)
+                d = tushare_db.api.fina_indicator_vip(client, period=period)
+                print(d.head())
             except Exception as e:
                 print(f"获取 {period} 财务指标数据时出错: {e}")
     print("财务指标数据初始化完成。")
@@ -97,9 +100,11 @@ def init_index_weight():
         '399006.SZ',  # 创业板指
         '000852.SH',  # 中证1000
         '399303.SZ',  # 国证2000
-        '399191.SZ',  # 中小板综合
         '000688.SH',  # 科创50
-        # '399102.SZ', # 创业板综合
+        '399102.SZ', # 创业板综合
+        '399005.SZ',  # 中小板指数
+        '399101.SZ',  # 中小板综合
+        # '932000.SH',  # 中证2000
     ]
     MONTHs = 144
     for index_code in common_indices:
@@ -118,15 +123,39 @@ def init_index_weight():
     print("主要指数的权重初始化完成。")
 
 
+def init_daily_basic():
+    """初始化所有股票的每日基本面指标"""
+    print("开始初始化所有股票的每日基本面指标...")
+    # 获取所有A股上市公司列表
+    all_stocks = tushare_db.api.stock_basic(client, market='主板')
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='创业板')])
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='科创板')])
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='北交所')])
+    
+    today = datetime.now().strftime('%Y%m%d')
+
+    for _, stock in all_stocks.iterrows():
+        ts_code = stock['ts_code']
+        list_date = stock['list_date']
+        # print(f"正在获取 {ts_code} (上市日期: {list_date}) 的每日基本面指标...")
+        try:
+            d = tushare_db.api.daily_basic(client, ts_code=ts_code, start_date=list_date, end_date=today)
+            print(d.head())
+        except Exception as e:
+            print(f"获取 {ts_code} 数据时出错: {e}")
+    print("所有股票的每日基本面指标初始化完成。")
+
+
 def main():
     """主函数，执行所有初始化任务"""
     print("开始数据初始化...")
     # init_trade_cal()
-    # init_index_basic()
-    init_index_weight()
     # init_stock_basic()
     # init_pro_bar()
-    # init_fina_indicator_vip()
+    init_fina_indicator_vip()
+    # init_index_basic()
+    # init_index_weight()
+    # init_daily_basic()
     # client.get_all_stock_qfq_daily_bar(start_date='20000101', end_date=datetime.now().strftime('%Y%m%d'))
     print("所有数据初始化任务完成！")
 

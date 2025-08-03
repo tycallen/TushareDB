@@ -352,6 +352,61 @@ def index_weight(
     return client.get_data('index_weight', **params)
 
 
+class DailyBasic:
+    """
+    `daily_basic` 接口返回的 DataFrame 的列名常量。
+    """
+    TS_CODE = "ts_code"  # TS股票代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    CLOSE = "close"  # 当日收盘价
+    TURNOVER_RATE = "turnover_rate"  # 换手率（%）
+    TURNOVER_RATE_F = "turnover_rate_f"  # 换手率（自由流通股）
+    VOLUME_RATIO = "volume_ratio"  # 量比
+    PE = "pe"  # 市盈率
+    PE_TTM = "pe_ttm"  # 市盈率（TTM）
+    PB = "pb"  # 市净率
+    PS = "ps"  # 市销率
+    PS_TTM = "ps_ttm"  # 市销率（TTM）
+    DV_RATIO = "dv_ratio"  # 股息率（%）
+    DV_TTM = "dv_ttm"  # 股息率（TTM）（%）
+    TOTAL_SHARE = "total_share"  # 总股本 （万股）
+    FLOAT_SHARE = "float_share"  # 流通股本 （万股）
+    FREE_SHARE = "free_share"  # 自由流通股本 （万）
+    TOTAL_MV = "total_mv"  # 总市值 （万元）
+    CIRC_MV = "circ_mv"  # 流通市值（万元）
+
+
+def daily_basic(
+    client: 'TushareDBClient',
+    ts_code: Optional[Union[str, List[str]]] = None,
+    trade_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取全部股票每日重要的基本面指标，可用于选股分析、报表展示等。
+    数据将首先尝试从本地缓存获取，如果缓存中不存在，则通过Tushare API获取并存入缓存。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 股票代码 (e.g. '000001.SZ')
+    :param trade_date: 交易日期 (YYYYMMDD格式)
+    :param start_date: 开始日期 (YYYYMMDD格式)
+    :param end_date: 结束日期 (YYYYMMDD格式)
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    params = {
+        "ts_code": ts_code,
+        "trade_date": trade_date,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('daily_basic', **params)
+
+
 class DcMember:
     """
     `dc_member` 接口返回的 DataFrame 的列名常量。
@@ -984,7 +1039,7 @@ def stk_factor_pro(
     return client.get_data('stk_factor_pro', **params)
 
 def fina_indicator_vip(
-        self,
+        client: 'TushareDBClient',
         period: str,
         ann_date: str = None,
         start_date: str = None,
@@ -1169,16 +1224,17 @@ def fina_indicator_vip(
         if not period:
             raise ValueError("The 'period' parameter is required for fina_indicator_vip.")
         if "ts_code" in kwargs:
-            logger.warning(
-                "The 'ts_code' parameter is not applicable for the 'fina_indicator_vip' API and will be ignored."
-            )
+            # logger.warning(
+            #     "The 'ts_code' parameter is not applicable for the 'fina_indicator_vip' API and will be ignored."
+            # )
             del kwargs["ts_code"]
 
-        return self.client.fetch(
+        return client.get_data(
             "fina_indicator_vip",
             ann_date=ann_date,
             start_date=start_date,
-            end_date=end_date,
+            end_date=period,
             period=period,
+            ts_code='',
             **kwargs,
         )

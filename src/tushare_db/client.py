@@ -9,7 +9,7 @@ import math
 
 from .tushare_fetcher import TushareFetcher, TushareClientError
 from .duckdb_manager import DuckDBManager, DuckDBManagerError
-from .cache_policies import BaseCachePolicy, FullCachePolicy, IncrementalCachePolicy
+from .cache_policies import BaseCachePolicy, FullCachePolicy, IncrementalCachePolicy, DiscreteCachePolicy
 from .rate_limit_config import PRESET_PROFILES, STANDARD_PROFILE
 
 # Default cache policies if none are provided by the user.
@@ -18,6 +18,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
     "stock_basic": {"type": "full", "ttl": 60 * 60 * 24 * 7},  # 7 days
     "trade_cal": {"type": "incremental", "date_col": "cal_date"},
     "daily": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
+    "daily_basic": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "pro_bar": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "hs_const": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "stock_company": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
@@ -26,6 +27,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
     "dc_member": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "dc_index": {"type": "incremental", "date_col": "trade_date"},
     "stk_factor_pro": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
+    "fina_indicator_vip": {"type": "discrete", "discrete_col": "end_date", "ttl": 60 * 60 * 24 * 25}, # 30 days
     "index_basic": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "index_weight": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "index_code"},
     # Add other API policies here...
@@ -35,6 +37,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
 CACHE_POLICY_MAPPING = {
     "full": FullCachePolicy,
     "incremental": IncrementalCachePolicy,
+    "discrete": DiscreteCachePolicy,  # Added new mapping
 }
 
 class TushareDBClientError(Exception):

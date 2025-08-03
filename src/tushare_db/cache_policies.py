@@ -275,3 +275,60 @@ class IncrementalCachePolicy(BaseCachePolicy):
                 logging.warning(f"Invalid date format: {latest_date}. Using original date.")
                 return latest_date
 
+
+class DiscreteCachePolicy(BaseCachePolicy):
+    """
+    Implements a caching strategy for APIs that are updated based on discrete values (e.g., quarterly/annual reports).
+    It fetches data for missing discrete values or refreshes existing values if the data is older than a specified TTL.
+    """
+
+    def get_data(self, **params: Any) -> pd.DataFrame:
+        discrete_col = self.policy_config.get("discrete_col") # Renamed from date_col to discrete_col
+        if not discrete_col:
+            raise ValueError(f"DiscreteCachePolicy for '{self.api_name}' requires a 'discrete_col'.")
+
+        requested_value = params.get(discrete_col)
+        if not requested_value:
+            logging.warning(f"No '{discrete_col}' specified for '{self.api_name}'. Fetching all available data.")
+            return self._refresh_cache(**params)
+
+        if self.duckdb_manager.table_exists(self.table_name):
+            cached_data = self.duckdb_manager.execute_query(
+                f"SELECT * FROM {self.table_name} WHERE {discrete_col} = '{requested_value}'"
+            )
+            if not cached_data.empty:
+                logging.info(f"'{self.api_name}' data for {discrete_col}={requested_value} found in cache.")
+                return cached_data
+
+        logging.info(f"'{self.api_name}' data for {discrete_col}={requested_value} not found. Fetching from API.")
+        return self._refresh_cache(**params)
+
+    def _refresh_cache(self, **params: Any) -> pd.DataFrame:
+        """Fetches new data and replaces/appends to the cache for the specific discrete value."""
+        new_data_df = self._fetch_from_api(**params)
+        if not new_data_df.empty:
+            # Handle potential type conversion issues for 'extra_item' column
+            # for numeric_cols in ['ebitda', 'extra_item', 'profit_dedt']:
+            #     if numeric_cols in new_data_df.columns:
+            #         try:
+            #             # Convert 'extra_item' to float64 to prevent INT32 overflow
+            #             new_data_df[numeric_cols] = pd.to_numeric(new_data_df[numeric_cols], errors='coerce').astype('float64')
+            #             logging.debug(f"Converted '{numeric_cols}' column to float64 for {self.api_name}.")
+            #         except Exception as e:
+            #             logging.warning(f"Could not convert '{numeric_cols}' column to float64 for {self.api_name}: {e}")
+
+            discrete_col = self.policy_config.get("discrete_col")
+            if self.duckdb_manager.table_exists(self.table_name) and discrete_col and discrete_col in new_data_df.columns:
+                existing_values = self.duckdb_manager.execute_query(
+                    f"SELECT DISTINCT {discrete_col} FROM {self.table_name}"
+                )
+                if not existing_values.empty:
+                    new_data_df = new_data_df[~new_data_df[discrete_col].isin(existing_values[discrete_col])]
+
+            if not new_data_df.empty:
+                self.duckdb_manager.write_dataframe(new_data_df, self.table_name, mode="append")
+                logging.info(f"Appended {len(new_data_df)} new rows to '{self.table_name}'.")
+            else:
+                logging.debug("No new data to append after deduplication for discrete values.")
+        return new_data_df
+
