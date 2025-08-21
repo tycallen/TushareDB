@@ -180,7 +180,11 @@ class DuckDBManager:
                     logging.info(f"Table {table_name} does not exist. Creating it before appending.")
                     self.con.execute(f"CREATE TABLE {table_name} AS SELECT * FROM df_temp")
                 else:
-                    self.con.execute(f"INSERT INTO {table_name} SELECT * FROM df_temp")
+                    # Special handling for pro_bar to avoid duplicates
+                    if table_name == 'pro_bar':
+                        self.con.execute(f"INSERT INTO {table_name} SELECT * FROM df_temp ON CONFLICT (ts_code, trade_date) DO NOTHING")
+                    else:
+                        self.con.execute(f"INSERT INTO {table_name} SELECT * FROM df_temp")
             
             logging.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
 

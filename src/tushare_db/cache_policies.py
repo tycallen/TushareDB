@@ -136,18 +136,8 @@ class IncrementalCachePolicy(BaseCachePolicy):
         new_data_df = self._fetch_from_api(**updated_params)
 
         if not new_data_df.empty:
-            # Deduplicate before writing
-            if self.duckdb_manager.table_exists(self.table_name) and latest_date:
-                # Get the latest date from local_data_df to filter new_data_df
-                new_data_df[date_col] = new_data_df[date_col].astype(str)
-                new_data_df = new_data_df[new_data_df[date_col] > latest_date]
-                logging.debug(f"Filtered new data to exclude dates <= {latest_date}.")
-
-            if not new_data_df.empty:
-                self.duckdb_manager.write_dataframe(new_data_df, self.table_name, mode="append")
-                logging.info(f"Appended {len(new_data_df)} new rows to '{self.table_name}'.")
-            else:
-                logging.debug("No new data to append after deduplication.")
+            self.duckdb_manager.write_dataframe(new_data_df, self.table_name, mode="append")
+            logging.info(f"Appended {len(new_data_df)} new rows to '{self.table_name}'.")
 
         # Always return the full dataset satisfying the original query
         if not self.duckdb_manager.table_exists(self.table_name):
