@@ -38,13 +38,15 @@ def init_pro_bar():
     """初始化所有股票的历史日线数据"""
     print("开始初始化所有股票的历史日线数据...")
     # 获取所有股票代码
-    all_stocks = tushare_db.api.stock_basic(list_status='L')
-    for ts_code in all_stocks['ts_code']:
-        print(f"正在获取 {ts_code} 的历史数据...")
-        try:
-            tushare_db.api.pro_bar(ts_code=ts_code, asset='E', freq='D', start_date='19900101')
-        except Exception as e:
-            print(f"获取 {ts_code} 数据时出错: {e}")
+    for status in ['L', 'D', 'P']:
+        print(f"正在初始化 {status} 状态的股票数据...")
+        all_stocks = tushare_db.api.stock_basic(client, list_status=status)
+        for ts_code in all_stocks['ts_code']:
+            print(f"正在获取 {ts_code} 的历史数据...")
+            try:
+                tushare_db.api.pro_bar(client=client, ts_code=ts_code, asset='E', freq='D', start_date='20000101')
+            except Exception as e:
+                print(f"获取 {ts_code} 数据时出错: {e}")
     print("所有股票的历史日线数据初始化完成。")
 
 
@@ -151,8 +153,8 @@ def main():
     print("开始数据初始化...")
     # init_trade_cal()
     # init_stock_basic()
-    # init_pro_bar()
-    init_fina_indicator_vip()
+    init_pro_bar()
+    # init_fina_indicator_vip()
     # init_index_basic()
     # init_index_weight()
     # init_daily_basic()

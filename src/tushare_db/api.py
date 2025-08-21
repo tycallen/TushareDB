@@ -527,10 +527,8 @@ def pro_bar(
     start_date: str = None,
     end_date: str = None,
     asset: str = 'E',
-    adj: str = None,
     freq: str = 'D',
     ma: list = None,
-    factors: list = None,
     adjfactor: bool = False,
 ) -> pd.DataFrame:
     # 如果 ts_code 为 None，则直接查询数据库中的全部 pro_bar 数据
@@ -544,10 +542,10 @@ def pro_bar(
         "start_date": start_date,
         "end_date": end_date,
         "asset": asset,
-        "adj": adj,
+        "adj": None,
         "freq": freq,
         "ma": ma,
-        "factors": factors,
+        "factors": ['tor', 'vr'],
         "adjfactor": adjfactor,
     }
     # 过滤掉值为 None 的参数
