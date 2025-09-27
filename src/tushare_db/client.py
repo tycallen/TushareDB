@@ -9,7 +9,7 @@ import math
 
 from .tushare_fetcher import TushareFetcher, TushareClientError
 from .duckdb_manager import DuckDBManager, DuckDBManagerError
-from .cache_policies import BaseCachePolicy, FullCachePolicy, IncrementalCachePolicy, DiscreteCachePolicy
+from .cache_policies import BaseCachePolicy, FullCachePolicy, IncrementalCachePolicy, DiscreteCachePolicy, AdjFactorCachePolicy
 from .rate_limit_config import PRESET_PROFILES, STANDARD_PROFILE
 
 # Default cache policies if none are provided by the user.
@@ -20,6 +20,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
     "daily": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "daily_basic": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "pro_bar": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
+    "adj_factor": {"type": "adj_factor"},
     "hs_const": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "stock_company": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "cyq_perf": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
@@ -38,6 +39,7 @@ CACHE_POLICY_MAPPING = {
     "full": FullCachePolicy,
     "incremental": IncrementalCachePolicy,
     "discrete": DiscreteCachePolicy,  # Added new mapping
+    "adj_factor": AdjFactorCachePolicy,
 }
 
 class TushareDBClientError(Exception):

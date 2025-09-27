@@ -1236,3 +1236,46 @@ def fina_indicator_vip(
             ts_code='',
             **kwargs,
         )
+
+
+class AdjFactor:
+    """
+    `adj_factor` 接口返回的 DataFrame 的列名常量。
+    """
+    TS_CODE = "ts_code"  # 股票代码
+    TRADE_DATE = "trade_date"  # 交易日期
+    ADJ_FACTOR = "adj_factor"  # 复权因子
+
+
+def adj_factor(
+    client: 'TushareDBClient',
+    ts_code: Optional[Union[str, List[str]]] = None,
+    trade_date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    fields: str = None
+) -> pd.DataFrame:
+    """
+    获取股票复权因子，可提取单只股票全部历史复权因子，也可以提取单日全部股票的复权因子。
+    数据将首先尝试从本地缓存获取，如果缓存策略发现复权因子变动，会自动触发全量更新。
+
+    :param client: 'TushareDBClient' 实例。
+    :param ts_code: 股票代码 (e.g. '000001.SZ')
+    :param trade_date: 交易日期 (YYYYMMDD格式)
+    :param start_date: 开始日期 (YYYYMMDD格式)
+    :param end_date: 结束日期 (YYYYMMDD格式)
+    :param fields: 需要返回的字段，默认返回所有字段。
+    :return: 一个 pandas.DataFrame，包含了查询结果。
+    """
+    if not ts_code and not trade_date:
+        raise ValueError("Either 'ts_code' or 'trade_date' must be provided.")
+
+    params = {
+        "ts_code": ts_code,
+        "trade_date": trade_date,
+        "start_date": start_date,
+        "end_date": end_date,
+        "fields": fields
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    return client.get_data('adj_factor', **params)

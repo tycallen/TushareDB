@@ -3,7 +3,7 @@ import pandas as pd
 import logging
 import re
 import time
-from typing import TYPE_CHECKING, Optional, Union, List
+from typing import TYPE_CHECKING, Optional, Union, List, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
@@ -17,6 +17,7 @@ TABLE_PRIMARY_KEYS = {
     "pro_bar": ["ts_code", "trade_date"],
     "daily": ["ts_code", "trade_date"],
     "daily_basic": ["ts_code", "trade_date"],
+    "adj_factor": ["ts_code", "trade_date"],
     "cyq_perf": ["ts_code", "trade_date"],
     "cyq_chips": ["ts_code", "trade_date"],
     "dc_member": ["ts_code", "trade_date", "con_code"],
@@ -87,12 +88,13 @@ class DuckDBManager:
 
         return in_clause_pattern.sub(replacer, query)
 
-    def execute_query(self, query: str) -> pd.DataFrame:
+    def execute_query(self, query: str, params: Optional[List[Any]] = None) -> pd.DataFrame:
         """
         Executes a SQL query and returns the result as a Pandas DataFrame.
 
         Args:
             query: The SQL query string to execute.
+            params: A list of parameters to bind to the query placeholders.
 
         Returns:
             A Pandas DataFrame containing the query results.
@@ -103,10 +105,16 @@ class DuckDBManager:
         try:
             log_query = self._truncate_query_for_logging(query)
             logging.info(f"Executing query: {log_query}")
-            df = self.con.execute(query).fetchdf()
+            
+            # Execute with parameters if they are provided
+            if params:
+                df = self.con.execute(query, params).fetchdf()
+            else:
+                df = self.con.execute(query).fetchdf()
+            
             return df
         except Exception as e:
-            logging.error(f"Error executing query '{query}': {e}")
+            logging.error(f"Error executing query '{query}' with params {params}: {e}")
             raise DuckDBManagerError(f"Failed to execute query: {e}") from e
 
     def get_table_columns(self, table_name: str) -> List[str]:
@@ -300,3 +308,41 @@ class DuckDBManager:
         except Exception as e:
             logging.error(f"Error updating cache metadata for {table_name}: {e}")
             raise DuckDBManagerError(f"Failed to update cache metadata: {e}") from e
+
+    def delete_data(self, table_name: str, where_clause: str) -> int:
+        """
+        Deletes data from a table based on a WHERE clause.
+
+        Args:
+            table_name: The name of the table from which to delete data.
+            where_clause: The SQL WHERE clause to identify rows for deletion.
+
+        Returns:
+            The number of rows deleted.
+
+        Raises:
+            DuckDBManagerError: If the deletion fails.
+        """
+        if not self.table_exists(table_name):
+            logging.warning(f"Table {table_name} does not exist. No data deleted.")
+            return 0
+        if not where_clause:
+            raise ValueError("A WHERE clause is required to prevent accidental full-table deletion.")
+
+        try:
+            # Use a CTE to count the rows to be deleted first
+            count_query = f"SELECT count(*) FROM {table_name} WHERE {where_clause}"
+            rows_to_delete = self.con.execute(count_query).fetchone()[0]
+
+            if rows_to_delete > 0:
+                delete_query = f"DELETE FROM {table_name} WHERE {where_clause}"
+                logging.info(f"Executing delete: {delete_query}")
+                self.con.execute(delete_query)
+                logging.info(f"Successfully deleted {rows_to_delete} rows from {table_name} where {where_clause}.")
+            else:
+                logging.info(f"No rows matched the criteria for deletion in {table_name} where {where_clause}.")
+            
+            return rows_to_delete
+        except Exception as e:
+            logging.error(f"Error deleting data from {table_name} with condition '{where_clause}': {e}")
+            raise DuckDBManagerError(f"Failed to delete data: {e}") from e

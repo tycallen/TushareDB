@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 # Tushare 库使用了即将被废弃的 pandas 功能，此代码可以在不修改库源码的情况下抑制警告
 warnings.filterwarnings("ignore", category=FutureWarning, module="tushare.pro.data_pro")
 
+today = datetime.now().strftime('%Y%m%d')
 
 # 初始化 Tushare Pro API
 # 请确保您已经设置了 TUSHARE_TOKEN 环境变量
@@ -125,6 +126,9 @@ def init_index_weight():
     print("主要指数的权重初始化完成。")
 
 
+from tqdm import tqdm
+
+
 def init_daily_basic():
     """初始化所有股票的每日基本面指标"""
     print("开始初始化所有股票的每日基本面指标...")
@@ -134,7 +138,6 @@ def init_daily_basic():
     all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='科创板')])
     all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='北交所')])
     
-    today = datetime.now().strftime('%Y%m%d')
 
     for _, stock in all_stocks.iterrows():
         ts_code = stock['ts_code']
@@ -148,12 +151,34 @@ def init_daily_basic():
     print("所有股票的每日基本面指标初始化完成。")
 
 
+def init_adj_factor_data():
+    """初始化所有股票的历史复权因子数据"""
+    print("开始初始化所有股票的历史复权因子数据...")
+    
+    # 获取所有股票代码
+    all_stocks = tushare_db.api.stock_basic(client, list_status='L')
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='D')])
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='P')])
+    
+    ts_codes = all_stocks["ts_code"].unique().tolist()
+    
+    for ts_code in tqdm(ts_codes, desc="正在初始化复权因子"):
+        try:
+            tushare_db.api.adj_factor(client=client, ts_code=ts_code, start_date='20000101', end_date=today)
+            print(f"获取 {ts_code} 复权因子数据成功")
+        except Exception as e:
+            print(f"获取 {ts_code} 复权因子数据时出错: {e}")
+            
+    print("所有股票的历史复权因子数据初始化完成。")
+
+
 def main():
     """主函数，执行所有初始化任务"""
     print("开始数据初始化...")
     # init_trade_cal()
     # init_stock_basic()
-    init_pro_bar()
+    # init_pro_bar()
+    init_adj_factor_data()
     # init_fina_indicator_vip()
     # init_index_basic()
     # init_index_weight()
