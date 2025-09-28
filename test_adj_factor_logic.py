@@ -61,12 +61,15 @@ def test_adj_factor_logic():
     # 合并数据
     df_merged = pd.merge(df_daily_no_adj, df_adj_factor, on=['ts_code', 'trade_date'])
     
-    print("\n--- 步骤 3: 本地计算后复权价格 ---")
+    print("\n--- 步骤 3: 本地计算后复权OHLC价格 ---")
     # 根据 Tushare pro_bar(adj='hfq') 接口的实际返回，其计算方式为：不复权价 * 复权因子
     # 这与 adj_factor 文档中描述的后复权公式（需要除以最新因子）不一致，但为了与接口保持一致，我们采用直接相乘
+    df_merged['open_hfq_manual'] = df_merged['open'] * df_merged['adj_factor']
+    df_merged['high_hfq_manual'] = df_merged['high'] * df_merged['adj_factor']
+    df_merged['low_hfq_manual'] = df_merged['low'] * df_merged['adj_factor']
     df_merged['close_hfq_manual'] = df_merged['close'] * df_merged['adj_factor']
     print("本地计算完成。")
-    # print(df_merged[['trade_date', 'close', 'adj_factor', 'close_hfq_manual']].head())
+    # print(df_merged[['trade_date', 'open', 'high', 'low', 'close', 'adj_factor']].head())
 
     print(f"\n--- 步骤 4: 直接从接口获取后复权日线数据 ---")
     df_daily_hfq_api = client.get_data(
@@ -78,39 +81,46 @@ def test_adj_factor_logic():
         freq='D'
     )
     print(f"获取到 {len(df_daily_hfq_api)} 条后复权数据。")
-    # print(df_daily_hfq_api[['trade_date', 'close']].head())
+    # print(df_daily_hfq_api[['trade_date', 'open', 'high', 'low', 'close']].head())
 
     print("\n--- 步骤 5: 对比验证 ---")
     # 将接口返回的后复权数据合并到主数据框
     df_final = pd.merge(
         df_merged,
-        df_daily_hfq_api[['trade_date', 'close']],
+        df_daily_hfq_api[['trade_date', 'open', 'high', 'low', 'close']],
         on='trade_date',
         suffixes=('', '_hfq_api')
     )
-    df_final.rename(columns={'close_hfq_api': 'close_hfq_api'}, inplace=True)
 
     # 计算差异
     # 由于浮点数精度问题，我们检查差异是否在一个很小的范围内
-    df_final['diff'] = abs(df_final['close_hfq_manual'] - df_final['close_hfq_api'])
-    
+    df_final['open_diff'] = abs(df_final['open_hfq_manual'] - df_final['open_hfq_api'])
+    df_final['high_diff'] = abs(df_final['high_hfq_manual'] - df_final['high_hfq_api'])
+    df_final['low_diff'] = abs(df_final['low_hfq_manual'] - df_final['low_hfq_api'])
+    df_final['close_diff'] = abs(df_final['close_hfq_manual'] - df_final['close_hfq_api'])
+
     # 设置一个很小的阈值来判断是否相等
     tolerance = 1e-2
     
     # 找出差异大于阈值的记录
-    diff_records = df_final[df_final['diff'] > tolerance]
+    diff_records = df_final[
+        (df_final['open_diff'] > tolerance) |
+        (df_final['high_diff'] > tolerance) |
+        (df_final['low_diff'] > tolerance) |
+        (df_final['close_diff'] > tolerance)
+    ]
 
     if diff_records.empty:
-        print("\n✅ 验证通过！本地计算的后复权价格与接口返回的后复权价格完全一致。")
+        print("\n✅ 验证通过！本地计算的后复权OHLC价格与接口返回的后复权OHLC价格完全一致。")
     else:
         print("\n❌ 验证失败！发现差异：")
-        print(diff_records[[ 
+        print(diff_records[[
             'trade_date',
-            'close',
             'adj_factor',
-            'close_hfq_manual',
-            'close_hfq_api',
-            'diff'
+            'open_hfq_manual', 'open_hfq_api', 'open_diff',
+            'high_hfq_manual', 'high_hfq_api', 'high_diff',
+            'low_hfq_manual', 'low_hfq_api', 'low_diff',
+            'close_hfq_manual', 'close_hfq_api', 'close_diff'
         ]])
 
     # 清理测试数据库

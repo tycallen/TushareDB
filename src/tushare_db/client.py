@@ -20,7 +20,7 @@ DEFAULT_CACHE_POLICY_CONFIG = {
     "daily": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "daily_basic": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "pro_bar": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
-    "adj_factor": {"type": "adj_factor"},
+    "adj_factor": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
     "hs_const": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "stock_company": {"type": "full", "ttl": 60 * 60 * 24 * 30}, # 30 days
     "cyq_perf": {"type": "incremental", "date_col": "trade_date", "partition_key_col": "ts_code"},
