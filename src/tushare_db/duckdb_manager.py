@@ -19,7 +19,7 @@ TABLE_PRIMARY_KEYS = {
     "daily_basic": ["ts_code", "trade_date"],
     "adj_factor": ["ts_code", "trade_date"],
     "cyq_perf": ["ts_code", "trade_date"],
-    "cyq_chips": ["ts_code", "trade_date"],
+    # "cyq_chips": ["ts_code", "trade_date", "price"],
     "dc_member": ["ts_code", "trade_date", "con_code"],
     "dc_index": ["ts_code", "trade_date"],
     "stk_factor_pro": ["ts_code", "trade_date"],
@@ -169,7 +169,7 @@ class DuckDBManager:
                 self.con.execute(f"DROP TABLE IF EXISTS {table_name}")
 
             if not self.table_exists(table_name):
-                logging.info(f"Table {table_name} does not exist. Creating it.")
+                logging.info(f"Table {table_name} does not exist. Creating it...")
                 schema_str = self._get_sql_schema_from_df(df)
                 pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
                 create_sql = f"CREATE TABLE {table_name} ({schema_str}"
@@ -180,6 +180,7 @@ class DuckDBManager:
                     pk_str = ", ".join([f'"{col}"' for col in pk_columns])
                     create_sql += f", PRIMARY KEY ({pk_str})"
                 create_sql += ")"
+                logging.error(f"Executing create SQL: {create_sql}")
                 self.con.execute(create_sql)
                 self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
                 logging.info(f"Table '{table_name}' created with {len(df)} rows.")
@@ -198,7 +199,7 @@ class DuckDBManager:
             
             logging.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
         except Exception as e:
-            logging.error(f"Error writing DataFrame to table {table_name} in {mode} mode: {e}")
+            logging.error(f"Error writing DataFrame to table {table_name} in {mode} mode: ", e, exc_info=True)
             raise DuckDBManagerError(f"Failed to write DataFrame to DuckDB: {e}") from e
         finally:
             self.con.unregister(temp_view_name)

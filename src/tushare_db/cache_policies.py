@@ -44,6 +44,43 @@ class BaseCachePolicy(ABC):
         logging.debug(f"Fetching '{self.api_name}' from API with params: {params}")
         return self.tushare_fetcher.fetch(self.api_name, **params)
 
+    def _build_where_clause(self, params: Dict[str, Any]) -> str:
+        """
+        Builds a SQL WHERE clause from query parameters, but only for columns
+        that actually exist in the target table.
+        """
+        conditions = []
+        # Get the actual columns of the table to prevent errors
+        table_columns = self.duckdb_manager.get_table_columns(self.table_name)
+        if not table_columns:
+            return "" # Return empty if table doesn't exist or has no columns
+
+        for key, value in params.items():
+            # Only include parameters that are actual columns in the table
+            if key not in table_columns:
+                continue
+
+            if value is None:
+                continue
+
+            if isinstance(value, str):
+                conditions.append(f"{key} = '{value}'")
+            elif isinstance(value, list):
+                if not value: continue # Skip empty lists
+                str_values = [f"'{v}'" for v in value]
+                conditions.append(f"{key} IN ({', '.join(str_values)})")
+            elif isinstance(value, (int, float)):
+                conditions.append(f"{key} = {value}")
+        
+        # Handle date range separately, as they are for filtering the final result
+        if 'start_date' in params and self.policy_config.get('date_col') in table_columns:
+            conditions.append(f"{self.policy_config['date_col']} >= '{params['start_date']}'")
+        if 'end_date' in params and self.policy_config.get('date_col') in table_columns:
+            conditions.append(f"{self.policy_config['date_col']} <= '{params['end_date']}'")
+
+        return " WHERE " + " AND ".join(conditions) if conditions else ""
+
+
 
 class FullCachePolicy(BaseCachePolicy):
     """
@@ -60,7 +97,8 @@ class FullCachePolicy(BaseCachePolicy):
         last_updated = self.duckdb_manager.get_cache_metadata(self.table_name)
         if last_updated and (time.time() - last_updated) < ttl:
             logging.info(f"'{self.api_name}' cache is fresh (TTL: {ttl}s). Loading from DuckDB.")
-            return self.duckdb_manager.execute_query(f"SELECT * FROM {self.table_name}")
+            where_clause = self._build_where_clause(params) # Use the new where clause
+            return self.duckdb_manager.execute_query(f"SELECT * FROM {self.table_name}{where_clause}")
 
         logging.info(f"'{self.api_name}' cache is stale or missing. Refreshing from API.")
         return self._refresh_cache(**params)

@@ -40,6 +40,9 @@ class TushareFetcher:
         self.token: str = token
         self.pro: ts.pro_api = ts.pro_api(self.token)
         ts.set_token(self.token)
+        df = self.pro.user(token=self.token)
+        
+        logging.info(f"User with token {self.token}, credit info: {df}")
 
         self._lock: threading.Lock = threading.Lock()
         self._api_call_timestamps: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)

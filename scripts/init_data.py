@@ -172,13 +172,35 @@ def init_adj_factor_data():
     print("所有股票的历史复权因子数据初始化完成。")
 
 
+def init_cyq_chips():
+    """初始化所有股票的历史筹码分布数据"""
+    print("开始初始化所有股票的历史筹码分布数据...")
+
+    # 获取所有股票代码
+    all_stocks = tushare_db.api.stock_basic(client, list_status='L')
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='D')])
+    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='P')])
+
+    ts_codes = all_stocks["ts_code"].unique().tolist()
+
+    for ts_code in tqdm(ts_codes, desc="正在初始化筹码分布"):
+        try:
+            tushare_db.api.cyq_chips(client=client, ts_code=ts_code, start_date='20000101', end_date=today)
+            print(f"获取 {ts_code} 筹码分布数据成功")
+        except Exception as e:
+            print(f"获取 {ts_code} 筹码分布数据时出错: {e}")
+
+    print("所有股票的历史筹码分布数据初始化完成。")
+
+
 def main():
     """主函数，执行所有初始化任务"""
     print("开始数据初始化...")
     # init_trade_cal()
     # init_stock_basic()
     # init_pro_bar()
-    init_adj_factor_data()
+    # init_adj_factor_data()
+    init_cyq_chips()
     # init_fina_indicator_vip()
     # init_index_basic()
     # init_index_weight()

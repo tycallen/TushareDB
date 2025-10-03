@@ -52,7 +52,7 @@ STANDARD_PROFILE: Dict[str, Dict[str, Any]] = {
     "dc_member": {"limit": DATA_API_MINUTE_LIMIT_STANDARD, "period": "minute"},
     "dc_index": {"limit": DATA_API_MINUTE_LIMIT_STANDARD, "period": "minute"},
     "cyq_perf": {"limit": 20000, "period": "day"},
-    "cyq_chips": {"limit": 20000, "period": "day"},
+    "cyq_chips": {"limit": 200, "period": "minute"},
     "stk_factor_pro": {"limit": 30, "period": "minute"}
 }
 
@@ -70,7 +70,7 @@ PRO_PROFILE: Dict[str, Dict[str, Any]] = {
     "dc_member": {"limit": DATA_API_MINUTE_LIMIT_PRO, "period": "minute"},
     "dc_index": {"limit": DATA_API_MINUTE_LIMIT_PRO, "period": "minute"},
     "cyq_perf": {"limit": 200000, "period": "day"},
-    "cyq_chips": {"limit": 200000, "period": "day"},
+    "cyq_chips": {"limit": 200, "period": "minute"},
 }
 
 # A mapping of profile names to profile configurations for easy selection.
