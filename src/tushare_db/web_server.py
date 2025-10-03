@@ -11,6 +11,7 @@ from fastapi.responses import ORJSONResponse # Import ORJSONResponse
 from typing import Optional, List
 import pandas as pd
 import orjson # Import orjson
+import json
 
 from . import api
 from .client import TushareDBClient
@@ -318,7 +319,8 @@ async def get_daily_basic(
 @app.get("/api/dc_member")
 async def get_dc_member(
     ts_code: Optional[str] = None,
-    name: Optional[str] = None,
+    con_code: Optional[str] = None,
+    trade_date: Optional[str] = None,
     fields: Optional[str] = None
 ):
     """
@@ -330,7 +332,8 @@ async def get_dc_member(
         df = api.dc_member(
             client=client,
             ts_code=ts_code,
-            name=name,
+            con_code=con_code,
+            trade_date=trade_date,
             fields=fields
         )
         return df_to_json_response(df)
@@ -367,9 +370,11 @@ async def get_dc_index(
 
 @app.get("/api/get_top_n_sector_members")
 async def get_top_n_sector_members(
-    trade_date: str,
-    n: int,
-    fields: Optional[str] = None
+    start_date: str,
+    end_date: str,
+    top_n: int = 5,
+    sort_by: str = 'pct_change',
+    ascending: bool = False
 ):
     """
     API endpoint for the get_top_n_sector_members interface.
@@ -380,11 +385,14 @@ async def get_top_n_sector_members(
     try:
         df = api.get_top_n_sector_members(
             client=client,
-            trade_date=trade_date,
-            n=n,
-            fields=fields
+            start_date=start_date,
+            end_date=end_date,
+            top_n=top_n,
+            sort_by=sort_by,
+            ascending=ascending,
         )
-        return df_to_json_response(df)
+        print(type(df))
+        return json.dumps(df)#df_to_json_response(df) #
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -200,11 +200,11 @@ def main():
     # init_stock_basic()
     # init_pro_bar()
     # init_adj_factor_data()
-    init_cyq_chips()
+    # init_cyq_chips()
     # init_fina_indicator_vip()
     # init_index_basic()
     # init_index_weight()
-    # init_daily_basic()
+    init_daily_basic()
     # client.get_all_stock_qfq_daily_bar(start_date='20000101', end_date=datetime.now().strftime('%Y%m%d'))
     print("所有数据初始化任务完成！")
 

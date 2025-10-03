@@ -16,7 +16,9 @@ pandas.DataFrame 的列名定义为大写的类属性（字符串常量）。
 import pandas as pd
 from typing import TYPE_CHECKING, Optional, Union, List, Dict
 from datetime import datetime, timedelta
-
+import logging
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
 if TYPE_CHECKING:
     from .client import TushareDBClient
 
@@ -1222,9 +1224,9 @@ def fina_indicator_vip(
         if not period:
             raise ValueError("The 'period' parameter is required for fina_indicator_vip.")
         if "ts_code" in kwargs:
-            # logger.warning(
-            #     "The 'ts_code' parameter is not applicable for the 'fina_indicator_vip' API and will be ignored."
-            # )
+            logging.warning(
+                "The 'ts_code' parameter is not applicable for the 'fina_indicator_vip' API and will be ignored."
+            )
             del kwargs["ts_code"]
 
         return client.get_data(
