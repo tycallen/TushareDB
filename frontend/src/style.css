@@ -65,7 +65,7 @@ button:focus-visible {
 #app {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
   text-align: center;
   /* 确保 #app 能够占据可用宽度，并且在需要时可以扩展 */
   width: 100%;
