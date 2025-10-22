@@ -26,6 +26,8 @@ env/
 *.log
 *.sqlite3
 *.db
+*.csv
+*.wal
 
 # OS generated files
 .DS_Store
@@ -43,3 +45,4 @@ Thumbs.db
 play.ipynb
 view_data.ipynb
 GEMINI.md
+frontend/package-lock.json

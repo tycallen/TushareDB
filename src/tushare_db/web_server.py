@@ -25,6 +25,7 @@ app = FastAPI(
 )
 
 # Configure CORS (Cross-Origin Resource Sharing)
+# 命令：uvicorn src.tushare_db.web_server:app --host 0.0.0.0 --port 8000
 # This allows the frontend (running on a different port) to communicate with this backend.
 origins = [
     "http://localhost:5173",  # Default Vite dev server port

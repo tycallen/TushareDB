@@ -554,7 +554,13 @@ def pro_bar(
     params = {k: v for k, v in params.items() if v is not None}
 
     # 通过 client 获取数据
-    return client.get_data('pro_bar', **params)
+    df = client.get_data('pro_bar', **params)
+
+    # 确保返回的数据按 ts_code 和 trade_date 排序
+    if not df.empty and ProBar.TS_CODE in df.columns and ProBar.TRADE_DATE in df.columns:
+        df.sort_values(by=[ProBar.TS_CODE, ProBar.TRADE_DATE], inplace=True)
+        
+    return df
 
 
 class DcIndex:
