@@ -124,6 +124,15 @@ class TushareDBClient:
         Returns:
             A pandas DataFrame with the requested data.
         """
+        # Enforce that 'pro_bar' only supports unadjusted data
+        if api_name == 'pro_bar':
+            adj_param = params.get('adj')
+            if adj_param is not None:
+                raise TushareDBClientError(
+                    f"The 'pro_bar' API in TushareDBClient only supports unadjusted data (adj=None). "
+                    f"Please fetch unadjusted data and adj_factor separately to calculate adjusted prices."
+                )
+
         policy_info = self.cache_policy_config.get(api_name)
         if not policy_info:
             raise TushareDBClientError(f"No cache policy configured for API: '{api_name}'")

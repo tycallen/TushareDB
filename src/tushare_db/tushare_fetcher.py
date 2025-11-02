@@ -6,6 +6,8 @@ import time
 import threading
 import collections
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor # 导入 ThreadPoolExecutor
 from typing import Any, Deque, Dict, Optional
 
 # Configure logging
@@ -64,6 +66,7 @@ class TushareFetcher:
         if "default" not in self.rate_limit_config:
             raise ValueError("rate_limit_config must contain a 'default' key.")
 
+        self.pro_bar_executor = ThreadPoolExecutor(max_workers=10) # 可以根据需要调整 max_workers
         logging.info(f"TushareFetcher initialized with rate limit config: {self.rate_limit_config}")
 
     def _truncate_params_for_logging(self, params: dict, max_len: int = 10) -> str:
@@ -100,13 +103,21 @@ class TushareFetcher:
                 ts_codes = ts_codes.split(',')
             
             if isinstance(ts_codes, list) and len(ts_codes) > 1:
-                logging.info(f"Fetching 'pro_bar' for {len(ts_codes)} stocks in a loop.")
+                logging.info(f"Fetching 'pro_bar' for {len(ts_codes)} stocks using ThreadPoolExecutor.")
                 all_data = []
                 base_params = params.copy()
-                for code in ts_codes:
-                    base_params['ts_code'] = code
-                    # We call the main fetch method recursively, which will handle rate limiting for each call
-                    df_single = self.fetch(api_name, **base_params)
+                
+                # 定义一个辅助函数，用于在线程中调用 fetch
+                def fetch_single_pro_bar(code):
+                    single_params = base_params.copy()
+                    single_params['ts_code'] = code
+                    return self.fetch(api_name, **single_params)
+
+                # 使用线程池并发执行
+                futures = [self.pro_bar_executor.submit(fetch_single_pro_bar, code) for code in ts_codes]
+                
+                for future in futures:
+                    df_single = future.result() # 获取每个线程的结果
                     if not df_single.empty:
                         all_data.append(df_single)
                 
