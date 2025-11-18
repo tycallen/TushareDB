@@ -13,14 +13,13 @@ import pandas as pd
 import orjson # Import orjson
 import json
 
-from . import api
-from .client import TushareDBClient
+from .reader import DataReader
 
 # Create a FastAPI app instance
 app = FastAPI(
     title="Tushare-DuckDB API",
-    description="A web API for accessing Tushare data stored in DuckDB.",
-    version="0.1.0",
+    description="A web API for accessing Tushare data stored in DuckDB (New Architecture - High Performance).",
+    version="2.0.0",  # New architecture version
     default_response_class=ORJSONResponse # Set default response class to ORJSONResponse
 )
 
@@ -51,17 +50,16 @@ async def read_root():
 
 # --- API Endpoints will be added below ---
 
-# Create a single, reusable client instance to manage the database connection
-# This is more efficient than creating a new client for each request.
+# Create a single, reusable DataReader instance (read-only, high performance)
+# This is more efficient than creating a new reader for each request.
 try:
-    # It's good practice to wrap this in a try...except block
-    # in case initialization fails (e.g., missing config, DB connection error)
-    client = TushareDBClient()
+    # DataReader is lightweight and read-only, no network overhead
+    reader = DataReader()
+    print("✓ DataReader initialized successfully (New Architecture - High Performance Mode)")
 except Exception as e:
-    # If the client fails to initialize, the app can't function.
-    # We can log the error and potentially exit or handle it gracefully.
-    print(f"FATAL: Failed to initialize TushareDBClient: {e}")
-    client = None
+    # If the reader fails to initialize, the app can't function.
+    print(f"FATAL: Failed to initialize DataReader: {e}")
+    reader = None
 
 
 def df_to_json_response(df):
@@ -79,29 +77,16 @@ def df_to_json_response(df):
 @app.get("/api/stock_basic")
 async def get_stock_basic(
     ts_code: Optional[str] = None,
-    name: Optional[str] = None,
-    market: Optional[str] = None,
-    list_status: Optional[str] = 'L',
-    exchange: Optional[str] = None,
-    is_hs: Optional[str] = None,
-    fields: Optional[str] = 'ts_code,symbol,name,area,industry,list_date,market,list_status'
+    list_status: Optional[str] = 'L'
 ):
     """
-    API endpoint for the stock_basic interface.
+    API endpoint for stock_basic - get stock list.
+    Note: Simplified parameters in new architecture. Use custom SQL for complex queries.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.stock_basic(
-            client=client,
-            ts_code=ts_code,
-            name=name,
-            market=market,
-            list_status=list_status,
-            exchange=exchange,
-            is_hs=is_hs,
-            fields=fields
-        )
+        df = reader.get_stock_basic(ts_code=ts_code, list_status=list_status)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -118,17 +103,30 @@ async def get_cyq_chips(
     """
     API endpoint for the cyq_chips interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.cyq_chips(
-            client=client,
-            ts_code=ts_code,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            fields=fields
-        )
+        # Build SQL query
+        conditions = []
+        params = []
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        if start_date:
+            conditions.append("trade_date >= ?")
+            params.append(start_date)
+        if end_date:
+            conditions.append("trade_date <= ?")
+            params.append(end_date)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM cyq_chips WHERE {where_clause}"
+
+        df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -145,17 +143,48 @@ async def get_stk_factor_pro(
     """
     API endpoint for the stk_factor_pro interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.stk_factor_pro(
-            client=client,
-            ts_code=ts_code,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            fields=fields
-        )
+        # Handle trade_date parameter
+        if trade_date:
+            query_start = trade_date
+            query_end = trade_date
+        else:
+            query_start = start_date
+            query_end = end_date
+
+        # If ts_code is not provided, use custom SQL
+        if not ts_code:
+            conditions = []
+            params = []
+            if query_start:
+                conditions.append("trade_date >= ?")
+                params.append(query_start)
+            if query_end:
+                conditions.append("trade_date <= ?")
+                params.append(query_end)
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            field_list = fields if fields else "*"
+            sql = f"SELECT {field_list} FROM stk_factor_pro WHERE {where_clause}"
+            df = reader.query(sql, params if params else None)
+        else:
+            # Use DataReader method when ts_code is specified
+            if not query_start:
+                raise HTTPException(status_code=400, detail="start_date or trade_date is required")
+            df = reader.get_stk_factor_pro(
+                ts_code=ts_code,
+                start_date=query_start,
+                end_date=query_end
+            )
+            # Apply field filtering if specified
+            if fields and not df.empty:
+                field_list = [f.strip() for f in fields.split(',')]
+                available_fields = [f for f in field_list if f in df.columns]
+                if available_fields:
+                    df = df[available_fields]
+
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -172,17 +201,23 @@ async def get_trade_cal(
     """
     API endpoint for the trade_cal interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.trade_cal(
-            client=client,
-            exchange=exchange,
+        df = reader.get_trade_calendar(
             start_date=start_date,
             end_date=end_date,
-            is_open=is_open,
-            fields=fields
+            is_open=is_open
         )
+        # Apply field filtering if specified
+        if fields and not df.empty:
+            field_list = [f.strip() for f in fields.split(',')]
+            available_fields = [f for f in field_list if f in df.columns]
+            if available_fields:
+                df = df[available_fields]
+        # Apply exchange filter if specified
+        if exchange and not df.empty and 'exchange' in df.columns:
+            df = df[df['exchange'] == exchange]
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -198,15 +233,20 @@ async def get_hs_const(
     API endpoint for the hs_const interface.
     Note: `hs_type` is required for this endpoint.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.hs_const(
-            client=client,
-            hs_type=hs_type,
-            is_new=is_new,
-            fields=fields
-        )
+        conditions = ["hs_type = ?"]
+        params = [hs_type]
+        if is_new:
+            conditions.append("is_new = ?")
+            params.append(is_new)
+
+        where_clause = " AND ".join(conditions)
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM hs_const WHERE {where_clause}"
+
+        df = reader.query(sql, params)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -221,15 +261,34 @@ async def get_stock_company(
     """
     API endpoint for the stock_company interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.stock_company(
-            client=client,
-            ts_code=ts_code,
-            exchange=exchange,
-            fields=fields
-        )
+        # If ts_code is not provided, use custom SQL to query by exchange or get all
+        if not ts_code:
+            conditions = []
+            params = []
+            if exchange:
+                conditions.append("exchange = ?")
+                params.append(exchange)
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            field_list = fields if fields else "*"
+            sql = f"SELECT {field_list} FROM stock_company WHERE {where_clause}"
+            df = reader.query(sql, params if params else None)
+        else:
+            # Use DataReader method when ts_code is specified
+            df = reader.get_stock_company(ts_code=ts_code)
+            # Apply exchange filter if specified
+            if exchange and not df.empty and 'exchange' in df.columns:
+                df = df[df['exchange'] == exchange]
+            # Apply field filtering if specified
+            if fields and not df.empty:
+                field_list = [f.strip() for f in fields.split(',')]
+                available_fields = [f for f in field_list if f in df.columns]
+                if available_fields:
+                    df = df[available_fields]
+
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -247,18 +306,32 @@ async def get_index_basic(
     """
     API endpoint for the index_basic interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.index_basic(
-            client=client,
-            ts_code=ts_code,
-            name=name,
-            market=market,
-            publisher=publisher,
-            category=category,
-            fields=fields
-        )
+        conditions = []
+        params = []
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if name:
+            conditions.append("name LIKE ?")
+            params.append(f"%{name}%")
+        if market:
+            conditions.append("market = ?")
+            params.append(market)
+        if publisher:
+            conditions.append("publisher = ?")
+            params.append(publisher)
+        if category:
+            conditions.append("category = ?")
+            params.append(category)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM index_basic WHERE {where_clause}"
+
+        df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -275,16 +348,20 @@ async def get_index_weight(
     API endpoint for the index_weight interface.
     Note: `index_code`, `year`, and `month` are required for this endpoint.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.index_weight(
-            client=client,
-            index_code=index_code,
-            year=year,
-            month=month,
-            fields=fields
-        )
+        # Construct trade_date from year and month (first day of the month)
+        trade_date = f"{year}{month:02d}01"
+
+        field_list = fields if fields else "*"
+        sql = f"""
+            SELECT {field_list} FROM index_weight
+            WHERE index_code = ?
+            AND trade_date LIKE ?
+        """
+
+        df = reader.query(sql, [index_code, f"{year}{month:02d}%"])
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -301,17 +378,48 @@ async def get_daily_basic(
     """
     API endpoint for the daily_basic interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.daily_basic(
-            client=client,
-            ts_code=ts_code,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            fields=fields
-        )
+        # Handle trade_date parameter (convert to start_date/end_date)
+        if trade_date:
+            query_start = trade_date
+            query_end = trade_date
+        else:
+            query_start = start_date
+            query_end = end_date
+
+        # If ts_code is not provided, use custom SQL to get all stocks
+        if not ts_code:
+            conditions = []
+            params = []
+            if query_start:
+                conditions.append("trade_date >= ?")
+                params.append(query_start)
+            if query_end:
+                conditions.append("trade_date <= ?")
+                params.append(query_end)
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            field_list = fields if fields else "*"
+            sql = f"SELECT {field_list} FROM daily_basic WHERE {where_clause}"
+            df = reader.query(sql, params if params else None)
+        else:
+            # Use DataReader method when ts_code is specified
+            if not query_start:
+                raise HTTPException(status_code=400, detail="start_date or trade_date is required")
+            df = reader.get_daily_basic(
+                ts_code=ts_code,
+                start_date=query_start,
+                end_date=query_end
+            )
+            # Apply field filtering if specified
+            if fields and not df.empty:
+                field_list = [f.strip() for f in fields.split(',')]
+                available_fields = [f for f in field_list if f in df.columns]
+                if available_fields:
+                    df = df[available_fields]
+
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -327,16 +435,26 @@ async def get_dc_member(
     """
     API endpoint for the dc_member interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.dc_member(
-            client=client,
-            ts_code=ts_code,
-            con_code=con_code,
-            trade_date=trade_date,
-            fields=fields
-        )
+        conditions = []
+        params = []
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if con_code:
+            conditions.append("con_code = ?")
+            params.append(con_code)
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM dc_member WHERE {where_clause}"
+
+        df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -353,17 +471,29 @@ async def get_dc_index(
     """
     API endpoint for the dc_index interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.dc_index(
-            client=client,
-            ts_code=ts_code,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            fields=fields
-        )
+        conditions = []
+        params = []
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        if start_date:
+            conditions.append("trade_date >= ?")
+            params.append(start_date)
+        if end_date:
+            conditions.append("trade_date <= ?")
+            params.append(end_date)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM dc_index WHERE {where_clause}"
+
+        df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -379,21 +509,27 @@ async def get_top_n_sector_members(
 ):
     """
     API endpoint for the get_top_n_sector_members interface.
-    Note: `trade_date` and `n` are required for this endpoint.
+    Note: This endpoint requires custom implementation in DataReader.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.get_top_n_sector_members(
-            client=client,
-            start_date=start_date,
-            end_date=end_date,
-            top_n=top_n,
-            sort_by=sort_by,
-            ascending=ascending,
-        )
-        print(type(df))
-        return json.dumps(df)#df_to_json_response(df) #
+        # Check if reader has this method
+        if hasattr(reader, 'get_top_n_sector_members'):
+            result = reader.get_top_n_sector_members(
+                start_date=start_date,
+                end_date=end_date,
+                top_n=top_n,
+                sort_by=sort_by,
+                ascending=ascending
+            )
+            return json.dumps(result)
+        else:
+            # Fallback: simple custom SQL query
+            raise HTTPException(
+                status_code=501,
+                detail="get_top_n_sector_members not implemented in DataReader yet"
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -409,17 +545,29 @@ async def get_cyq_perf(
     """
     API endpoint for the cyq_perf interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.cyq_perf(
-            client=client,
-            ts_code=ts_code,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            fields=fields
-        )
+        conditions = []
+        params = []
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        if start_date:
+            conditions.append("trade_date >= ?")
+            params.append(start_date)
+        if end_date:
+            conditions.append("trade_date <= ?")
+            params.append(end_date)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM cyq_perf WHERE {where_clause}"
+
+        df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -437,18 +585,32 @@ async def get_fina_indicator_vip(
     """
     API endpoint for the fina_indicator_vip interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.fina_indicator_vip(
-            client=client,
-            ts_code=ts_code,
-            ann_date=ann_date,
-            start_date=start_date,
-            end_date=end_date,
-            period=period,
-            fields=fields
-        )
+        conditions = []
+        params = []
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if ann_date:
+            conditions.append("ann_date = ?")
+            params.append(ann_date)
+        if start_date:
+            conditions.append("ann_date >= ?")
+            params.append(start_date)
+        if end_date:
+            conditions.append("ann_date <= ?")
+            params.append(end_date)
+        if period:
+            conditions.append("period = ?")
+            params.append(period)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        field_list = fields if fields else "*"
+        sql = f"SELECT {field_list} FROM fina_indicator_vip WHERE {where_clause}"
+
+        df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -465,17 +627,48 @@ async def get_adj_factor(
     """
     API endpoint for the adj_factor interface.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        df = api.adj_factor(
-            client=client,
-            ts_code=ts_code,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            fields=fields
-        )
+        # Handle trade_date parameter
+        if trade_date:
+            query_start = trade_date
+            query_end = trade_date
+        else:
+            query_start = start_date
+            query_end = end_date
+
+        # If ts_code is not provided, use custom SQL
+        if not ts_code:
+            conditions = []
+            params = []
+            if query_start:
+                conditions.append("trade_date >= ?")
+                params.append(query_start)
+            if query_end:
+                conditions.append("trade_date <= ?")
+                params.append(query_end)
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            field_list = fields if fields else "*"
+            sql = f"SELECT {field_list} FROM adj_factor WHERE {where_clause}"
+            df = reader.query(sql, params if params else None)
+        else:
+            # Use DataReader method when ts_code is specified
+            if not query_start:
+                raise HTTPException(status_code=400, detail="start_date or trade_date is required")
+            df = reader.get_adj_factor(
+                ts_code=ts_code,
+                start_date=query_start,
+                end_date=query_end
+            )
+            # Apply field filtering if specified
+            if fields and not df.empty:
+                field_list = [f.strip() for f in fields.split(',')]
+                available_fields = [f for f in field_list if f in df.columns]
+                if available_fields:
+                    df = df[available_fields]
+
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -496,21 +689,31 @@ async def get_pro_bar(
     """
     API endpoint for the pro_bar interface.
     Note: `ts_code` is required for this endpoint.
+    New architecture: Uses DataReader for query-only operations.
     """
-    if not client:
-        raise HTTPException(status_code=503, detail="Database client is not available.")
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        # The api.pro_bar function expects a list for 'ma'
-        df = api.pro_bar(
-            client=client,
+        # Determine adjustment type based on adjfactor parameter
+        # In old architecture: adjfactor=True meant apply adjustment
+        # In new architecture: adj='qfq' for forward adjustment
+        adj = 'qfq' if adjfactor else None
+
+        # Get stock daily data using DataReader
+        df = reader.get_stock_daily(
             ts_code=ts_code,
             start_date=start_date,
             end_date=end_date,
-            asset=asset,
-            freq=freq,
-            ma=ma,
-            adjfactor=adjfactor
+            adj=adj
         )
+
+        # Calculate moving averages if requested
+        if ma and not df.empty:
+            # Sort by trade_date to ensure correct MA calculation
+            df = df.sort_values('trade_date')
+            for window in ma:
+                df[f'ma{window}'] = df['close'].rolling(window=window).mean()
+
         return df_to_json_response(df)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
