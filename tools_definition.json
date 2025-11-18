@@ -1,0 +1,122 @@
+{
+  "tools": [
+    {
+      "name": "query_stock_daily",
+      "description": "查询股票日线数据（OHLCV），支持前复权/后复权",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ts_code": {
+            "type": "string",
+            "description": "股票代码，如 '000001.SZ'（深圳）或 '600000.SH'（上海）"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "开始日期，格式 YYYYMMDD，如 '20230101'"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "结束日期，格式 YYYYMMDD，如 '20231231'"
+          },
+          "adj": {
+            "type": "string",
+            "enum": ["qfq", "hfq", null],
+            "description": "复权类型：'qfq'=前复权（推荐），'hfq'=后复权，null=不复权"
+          }
+        },
+        "required": ["ts_code", "start_date", "end_date"]
+      }
+    },
+    {
+      "name": "query_stock_basic",
+      "description": "查询股票列表和基本信息",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ts_code": {
+            "type": "string",
+            "description": "股票代码（可选），如 '000001.SZ'"
+          },
+          "list_status": {
+            "type": "string",
+            "enum": ["L", "D", "P"],
+            "description": "上市状态：'L'=上市，'D'=退市，'P'=暂停上市"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "query_trade_calendar",
+      "description": "查询交易日历，判断某天是否交易日",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "description": "开始日期，格式 YYYYMMDD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "结束日期，格式 YYYYMMDD"
+          },
+          "is_open": {
+            "type": "string",
+            "enum": ["0", "1"],
+            "description": "'1'=仅返回交易日，'0'=仅返回非交易日，null=全部"
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "query_daily_basic",
+      "description": "查询每日指标数据（市盈率、市值等）",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ts_code": {
+            "type": "string",
+            "description": "股票代码，如 '000001.SZ'"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "开始日期，格式 YYYYMMDD"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "结束日期，格式 YYYYMMDD"
+          }
+        },
+        "required": ["ts_code", "start_date", "end_date"]
+      }
+    },
+    {
+      "name": "custom_sql_query",
+      "description": "执行自定义SQL查询（高级用法）",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "description": "SQL查询语句，使用 ? 作为参数占位符"
+          },
+          "params": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "SQL参数列表（可选）"
+          }
+        },
+        "required": ["sql"]
+      }
+    }
+  ],
+  "usage_notes": {
+    "installation": "项目路径: /Users/allen/workspace/python/stock/Tushare-DuckDB",
+    "import": "from tushare_db import DataReader",
+    "initialization": "reader = DataReader(db_path='tushare.db')",
+    "cleanup": "reader.close()  # 使用完毕后关闭连接",
+    "date_format": "所有日期使用 YYYYMMDD 格式，如 '20230101'",
+    "stock_code_format": "深圳股票以 .SZ 结尾，上海股票以 .SH 结尾"
+  }
+}
