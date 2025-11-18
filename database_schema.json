@@ -1,0 +1,3300 @@
+{
+  "tables": {
+    "_tushare_cache_metadata": {
+      "columns": [
+        "table_name",
+        "last_updated_timestamp"
+      ],
+      "column_details": [
+        {
+          "column_name": "table_name",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "last_updated_timestamp",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "adj_factor": {
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "adj_factor",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "cyq_chips": {
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "price",
+        "percent"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "price",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "percent",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "cyq_perf": {
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "his_low",
+        "his_high",
+        "cost_5pct",
+        "cost_15pct",
+        "cost_50pct",
+        "cost_85pct",
+        "cost_95pct",
+        "weight_avg",
+        "winner_rate"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "his_low",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "his_high",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cost_5pct",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cost_15pct",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cost_50pct",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cost_85pct",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cost_95pct",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "weight_avg",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "winner_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "daily_basic": {
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "close",
+        "turnover_rate",
+        "turnover_rate_f",
+        "volume_ratio",
+        "pe",
+        "pe_ttm",
+        "pb",
+        "ps",
+        "ps_ttm",
+        "dv_ratio",
+        "dv_ttm",
+        "total_share",
+        "float_share",
+        "free_share",
+        "total_mv",
+        "circ_mv"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "close",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turnover_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turnover_rate_f",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "volume_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pe",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pe_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pb",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ps_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dv_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dv_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "total_share",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "float_share",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "free_share",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "total_mv",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "circ_mv",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "dc_index": {
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "name",
+        "leading",
+        "leading_code",
+        "pct_change",
+        "leading_pct",
+        "total_mv",
+        "turnover_rate",
+        "up_num",
+        "down_num"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "leading",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "leading_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pct_change",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "leading_pct",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "total_mv",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turnover_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "up_num",
+          "data_type": "BIGINT",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "down_num",
+          "data_type": "BIGINT",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "dc_member": {
+      "columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "name"
+      ],
+      "column_details": [
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "con_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "fina_indicator_vip": {
+      "columns": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "eps",
+        "dt_eps",
+        "total_revenue_ps",
+        "revenue_ps",
+        "capital_rese_ps",
+        "surplus_rese_ps",
+        "undist_profit_ps",
+        "extra_item",
+        "profit_dedt",
+        "gross_margin",
+        "current_ratio",
+        "quick_ratio",
+        "cash_ratio",
+        "ar_turn",
+        "ca_turn",
+        "fa_turn",
+        "assets_turn",
+        "op_income",
+        "ebit",
+        "ebitda",
+        "fcff",
+        "fcfe",
+        "current_exint",
+        "noncurrent_exint",
+        "interestdebt",
+        "netdebt",
+        "tangible_asset",
+        "working_capital",
+        "networking_capital",
+        "invest_capital",
+        "retained_earnings",
+        "diluted2_eps",
+        "bps",
+        "ocfps",
+        "retainedps",
+        "cfps",
+        "ebit_ps",
+        "fcff_ps",
+        "fcfe_ps",
+        "netprofit_margin",
+        "grossprofit_margin",
+        "cogs_of_sales",
+        "expense_of_sales",
+        "profit_to_gr",
+        "saleexp_to_gr",
+        "adminexp_of_gr",
+        "finaexp_of_gr",
+        "impai_ttm",
+        "gc_of_gr",
+        "op_of_gr",
+        "ebit_of_gr",
+        "roe",
+        "roe_waa",
+        "roe_dt",
+        "roa",
+        "npta",
+        "roic",
+        "roe_yearly",
+        "roa2_yearly",
+        "debt_to_assets",
+        "assets_to_eqt",
+        "dp_assets_to_eqt",
+        "ca_to_assets",
+        "nca_to_assets",
+        "tbassets_to_totalassets",
+        "int_to_talcap",
+        "eqt_to_talcapital",
+        "currentdebt_to_debt",
+        "longdeb_to_debt",
+        "ocf_to_shortdebt",
+        "debt_to_eqt",
+        "eqt_to_debt",
+        "eqt_to_interestdebt",
+        "tangibleasset_to_debt",
+        "tangasset_to_intdebt",
+        "tangibleasset_to_netdebt",
+        "ocf_to_debt",
+        "turn_days",
+        "roa_yearly",
+        "roa_dp",
+        "fixed_assets",
+        "profit_to_op",
+        "q_saleexp_to_gr",
+        "q_gc_to_gr",
+        "q_roe",
+        "q_dt_roe",
+        "q_npta",
+        "q_ocf_to_sales",
+        "basic_eps_yoy",
+        "dt_eps_yoy",
+        "cfps_yoy",
+        "op_yoy",
+        "ebt_yoy",
+        "netprofit_yoy",
+        "dt_netprofit_yoy",
+        "ocf_yoy",
+        "roe_yoy",
+        "bps_yoy",
+        "assets_yoy",
+        "eqt_yoy",
+        "tr_yoy",
+        "or_yoy",
+        "q_sales_yoy",
+        "q_op_qoq",
+        "equity_yoy",
+        "update_flag"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ann_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "end_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "eps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dt_eps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "total_revenue_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "revenue_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "capital_rese_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "surplus_rese_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "undist_profit_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "extra_item",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "profit_dedt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "gross_margin",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "current_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "quick_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cash_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ar_turn",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ca_turn",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "fa_turn",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "assets_turn",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "op_income",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ebit",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ebitda",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "fcff",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "fcfe",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "current_exint",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "noncurrent_exint",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "interestdebt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "netdebt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "tangible_asset",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "working_capital",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "networking_capital",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "invest_capital",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "retained_earnings",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "diluted2_eps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ocfps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "retainedps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cfps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ebit_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "fcff_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "fcfe_ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "netprofit_margin",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "grossprofit_margin",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cogs_of_sales",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expense_of_sales",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "profit_to_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "saleexp_to_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "adminexp_of_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "finaexp_of_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "impai_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "gc_of_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "op_of_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ebit_of_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roe",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roe_waa",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roe_dt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roa",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "npta",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roic",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roe_yearly",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roa2_yearly",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "debt_to_assets",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "assets_to_eqt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dp_assets_to_eqt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ca_to_assets",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "nca_to_assets",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "tbassets_to_totalassets",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "int_to_talcap",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "eqt_to_talcapital",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "currentdebt_to_debt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "longdeb_to_debt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ocf_to_shortdebt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "debt_to_eqt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "eqt_to_debt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "eqt_to_interestdebt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "tangibleasset_to_debt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "tangasset_to_intdebt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "tangibleasset_to_netdebt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ocf_to_debt",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turn_days",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roa_yearly",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roa_dp",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "fixed_assets",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "profit_to_op",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_saleexp_to_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_gc_to_gr",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_roe",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_dt_roe",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_npta",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_ocf_to_sales",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "basic_eps_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dt_eps_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cfps_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "op_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ebt_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "netprofit_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dt_netprofit_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ocf_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roe_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bps_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "assets_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "eqt_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "tr_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "or_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_sales_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "q_op_qoq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "equity_yoy",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "update_flag",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "hs_const": {
+      "columns": [
+        "ts_code",
+        "hs_type",
+        "in_date",
+        "out_date",
+        "is_new"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "hs_type",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "in_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "out_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "is_new",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "index_basic": {
+      "columns": [
+        "ts_code",
+        "name",
+        "market",
+        "publisher",
+        "category",
+        "base_date",
+        "base_point",
+        "list_date"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "market",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "publisher",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "category",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "base_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "base_point",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "list_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "index_weight": {
+      "columns": [
+        "index_code",
+        "con_code",
+        "trade_date",
+        "weight"
+      ],
+      "column_details": [
+        {
+          "column_name": "index_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "con_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "weight",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "moneyflow_cnt_ths": {
+      "columns": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "lead_stock",
+        "close_price",
+        "pct_change",
+        "industry_index",
+        "company_num",
+        "pct_change_stock",
+        "net_buy_amount",
+        "net_sell_amount",
+        "net_amount"
+      ],
+      "column_details": [
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "lead_stock",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "close_price",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pct_change",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "industry_index",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "company_num",
+          "data_type": "BIGINT",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pct_change_stock",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "net_buy_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "net_sell_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "net_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "moneyflow_ind_dc": {
+      "columns": [
+        "trade_date",
+        "content_type",
+        "ts_code",
+        "name",
+        "pct_change",
+        "close",
+        "net_amount",
+        "net_amount_rate",
+        "buy_elg_amount",
+        "buy_elg_amount_rate",
+        "buy_lg_amount",
+        "buy_lg_amount_rate",
+        "buy_md_amount",
+        "buy_md_amount_rate",
+        "buy_sm_amount",
+        "buy_sm_amount_rate",
+        "buy_sm_amount_stock",
+        "rank"
+      ],
+      "column_details": [
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "content_type",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pct_change",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "close",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "net_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "net_amount_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_elg_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_elg_amount_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_lg_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_lg_amount_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_md_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_md_amount_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_sm_amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_sm_amount_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "buy_sm_amount_stock",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rank",
+          "data_type": "BIGINT",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "pro_bar": {
+      "columns": [
+        "trade_date",
+        "ts_code",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change",
+        "pct_chg",
+        "vol",
+        "amount",
+        "turnover_rate",
+        "volume_ratio"
+      ],
+      "column_details": [
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "open",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "high",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "low",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "close",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pre_close",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "change",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pct_chg",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "vol",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turnover_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "volume_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "stk_factor_pro": {
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "open_hfq",
+        "open_qfq",
+        "high",
+        "high_hfq",
+        "high_qfq",
+        "low",
+        "low_hfq",
+        "low_qfq",
+        "close",
+        "close_hfq",
+        "close_qfq",
+        "pre_close",
+        "change",
+        "pct_chg",
+        "vol",
+        "amount",
+        "turnover_rate",
+        "turnover_rate_f",
+        "volume_ratio",
+        "pe",
+        "pe_ttm",
+        "pb",
+        "ps",
+        "ps_ttm",
+        "dv_ratio",
+        "dv_ttm",
+        "total_share",
+        "float_share",
+        "free_share",
+        "total_mv",
+        "circ_mv",
+        "adj_factor",
+        "asi_bfq",
+        "asi_hfq",
+        "asi_qfq",
+        "asit_bfq",
+        "asit_hfq",
+        "asit_qfq",
+        "atr_bfq",
+        "atr_hfq",
+        "atr_qfq",
+        "bbi_bfq",
+        "bbi_hfq",
+        "bbi_qfq",
+        "bias1_bfq",
+        "bias1_hfq",
+        "bias1_qfq",
+        "bias2_bfq",
+        "bias2_hfq",
+        "bias2_qfq",
+        "bias3_bfq",
+        "bias3_hfq",
+        "bias3_qfq",
+        "boll_lower_bfq",
+        "boll_lower_hfq",
+        "boll_lower_qfq",
+        "boll_mid_bfq",
+        "boll_mid_hfq",
+        "boll_mid_qfq",
+        "boll_upper_bfq",
+        "boll_upper_hfq",
+        "boll_upper_qfq",
+        "brar_ar_bfq",
+        "brar_ar_hfq",
+        "brar_ar_qfq",
+        "brar_br_bfq",
+        "brar_br_hfq",
+        "brar_br_qfq",
+        "cci_bfq",
+        "cci_hfq",
+        "cci_qfq",
+        "cr_bfq",
+        "cr_hfq",
+        "cr_qfq",
+        "dfma_dif_bfq",
+        "dfma_dif_hfq",
+        "dfma_dif_qfq",
+        "dfma_difma_bfq",
+        "dfma_difma_hfq",
+        "dfma_difma_qfq",
+        "dmi_adx_bfq",
+        "dmi_adx_hfq",
+        "dmi_adx_qfq",
+        "dmi_adxr_bfq",
+        "dmi_adxr_hfq",
+        "dmi_adxr_qfq",
+        "dmi_mdi_bfq",
+        "dmi_mdi_hfq",
+        "dmi_mdi_qfq",
+        "dmi_pdi_bfq",
+        "dmi_pdi_hfq",
+        "dmi_pdi_qfq",
+        "downdays",
+        "updays",
+        "dpo_bfq",
+        "dpo_hfq",
+        "dpo_qfq",
+        "madpo_bfq",
+        "madpo_hfq",
+        "madpo_qfq",
+        "ema_bfq_10",
+        "ema_bfq_20",
+        "ema_bfq_250",
+        "ema_bfq_30",
+        "ema_bfq_5",
+        "ema_bfq_60",
+        "ema_bfq_90",
+        "ema_hfq_10",
+        "ema_hfq_20",
+        "ema_hfq_250",
+        "ema_hfq_30",
+        "ema_hfq_5",
+        "ema_hfq_60",
+        "ema_hfq_90",
+        "ema_qfq_10",
+        "ema_qfq_20",
+        "ema_qfq_250",
+        "ema_qfq_30",
+        "ema_qfq_5",
+        "ema_qfq_60",
+        "ema_qfq_90",
+        "emv_bfq",
+        "emv_hfq",
+        "emv_qfq",
+        "maemv_bfq",
+        "maemv_hfq",
+        "maemv_qfq",
+        "expma_12_bfq",
+        "expma_12_hfq",
+        "expma_12_qfq",
+        "expma_50_bfq",
+        "expma_50_hfq",
+        "expma_50_qfq",
+        "kdj_bfq",
+        "kdj_hfq",
+        "kdj_qfq",
+        "kdj_d_bfq",
+        "kdj_d_hfq",
+        "kdj_d_qfq",
+        "kdj_k_bfq",
+        "kdj_k_hfq",
+        "kdj_k_qfq",
+        "ktn_down_bfq",
+        "ktn_down_hfq",
+        "ktn_down_qfq",
+        "ktn_mid_bfq",
+        "ktn_mid_hfq",
+        "ktn_mid_qfq",
+        "ktn_upper_bfq",
+        "ktn_upper_hfq",
+        "ktn_upper_qfq",
+        "lowdays",
+        "topdays",
+        "ma_bfq_10",
+        "ma_bfq_20",
+        "ma_bfq_250",
+        "ma_bfq_30",
+        "ma_bfq_5",
+        "ma_bfq_60",
+        "ma_bfq_90",
+        "ma_hfq_10",
+        "ma_hfq_20",
+        "ma_hfq_250",
+        "ma_hfq_30",
+        "ma_hfq_5",
+        "ma_hfq_60",
+        "ma_hfq_90",
+        "ma_qfq_10",
+        "ma_qfq_20",
+        "ma_qfq_250",
+        "ma_qfq_30",
+        "ma_qfq_5",
+        "ma_qfq_60",
+        "ma_qfq_90",
+        "macd_bfq",
+        "macd_hfq",
+        "macd_qfq",
+        "macd_dea_bfq",
+        "macd_dea_hfq",
+        "macd_dea_qfq",
+        "macd_dif_bfq",
+        "macd_dif_hfq",
+        "macd_dif_qfq",
+        "mass_bfq",
+        "mass_hfq",
+        "mass_qfq",
+        "ma_mass_bfq",
+        "ma_mass_hfq",
+        "ma_mass_qfq",
+        "mfi_bfq",
+        "mfi_hfq",
+        "mfi_qfq",
+        "mtm_bfq",
+        "mtm_hfq",
+        "mtm_qfq",
+        "mtmma_bfq",
+        "mtmma_hfq",
+        "mtmma_qfq",
+        "obv_bfq",
+        "obv_hfq",
+        "obv_qfq",
+        "psy_bfq",
+        "psy_hfq",
+        "psy_qfq",
+        "psyma_bfq",
+        "psyma_hfq",
+        "psyma_qfq",
+        "roc_bfq",
+        "roc_hfq",
+        "roc_qfq",
+        "maroc_bfq",
+        "maroc_hfq",
+        "maroc_qfq",
+        "rsi_bfq_12",
+        "rsi_bfq_24",
+        "rsi_bfq_6",
+        "rsi_hfq_12",
+        "rsi_hfq_24",
+        "rsi_hfq_6",
+        "rsi_qfq_12",
+        "rsi_qfq_24",
+        "rsi_qfq_6",
+        "taq_down_bfq",
+        "taq_down_hfq",
+        "taq_down_qfq",
+        "taq_mid_bfq",
+        "taq_mid_hfq",
+        "taq_mid_qfq",
+        "taq_up_bfq",
+        "taq_up_hfq",
+        "taq_up_qfq",
+        "trix_bfq",
+        "trix_hfq",
+        "trix_qfq",
+        "trma_bfq",
+        "trma_hfq",
+        "trma_qfq",
+        "vr_bfq",
+        "vr_hfq",
+        "vr_qfq",
+        "wr_bfq",
+        "wr_hfq",
+        "wr_qfq",
+        "wr1_bfq",
+        "wr1_hfq",
+        "wr1_qfq",
+        "xsii_td1_bfq",
+        "xsii_td1_hfq",
+        "xsii_td1_qfq",
+        "xsii_td2_bfq",
+        "xsii_td2_hfq",
+        "xsii_td2_qfq",
+        "xsii_td3_bfq",
+        "xsii_td3_hfq",
+        "xsii_td3_qfq",
+        "xsii_td4_bfq",
+        "xsii_td4_hfq",
+        "xsii_td4_qfq"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "open",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "open_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "open_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "high",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "high_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "high_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "low",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "low_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "low_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "close",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "close_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "close_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pre_close",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "change",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pct_chg",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "vol",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "amount",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turnover_rate",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "turnover_rate_f",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "volume_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pe",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pe_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pb",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ps",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ps_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dv_ratio",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dv_ttm",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "total_share",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "float_share",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "free_share",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "total_mv",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "circ_mv",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "adj_factor",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "asi_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "asi_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "asi_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "asit_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "asit_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "asit_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "atr_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "atr_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "atr_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bbi_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bbi_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bbi_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias1_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias1_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias1_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias2_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias2_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias2_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias3_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias3_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "bias3_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_lower_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_lower_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_lower_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_mid_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_mid_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_mid_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_upper_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_upper_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "boll_upper_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "brar_ar_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "brar_ar_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "brar_ar_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "brar_br_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "brar_br_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "brar_br_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cci_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cci_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cci_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cr_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cr_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cr_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dfma_dif_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dfma_dif_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dfma_dif_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dfma_difma_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dfma_difma_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dfma_difma_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_adx_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_adx_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_adx_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_adxr_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_adxr_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_adxr_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_mdi_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_mdi_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_mdi_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_pdi_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_pdi_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dmi_pdi_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "downdays",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "updays",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dpo_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dpo_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "dpo_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "madpo_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "madpo_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "madpo_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_10",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_20",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_250",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_30",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_5",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_60",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_bfq_90",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_10",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_20",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_250",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_30",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_5",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_60",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_hfq_90",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_10",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_20",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_250",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_30",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_5",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_60",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ema_qfq_90",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "emv_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "emv_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "emv_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "maemv_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "maemv_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "maemv_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expma_12_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expma_12_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expma_12_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expma_50_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expma_50_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "expma_50_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_d_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_d_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_d_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_k_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_k_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "kdj_k_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_down_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_down_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_down_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_mid_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_mid_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_mid_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_upper_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_upper_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ktn_upper_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "lowdays",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "topdays",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_10",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_20",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_250",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_30",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_5",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_60",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_bfq_90",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_10",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_20",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_250",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_30",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_5",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_60",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_hfq_90",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_10",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_20",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_250",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_30",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_5",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_60",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_qfq_90",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_dea_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_dea_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_dea_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_dif_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_dif_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "macd_dif_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mass_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mass_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mass_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_mass_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_mass_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "ma_mass_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mfi_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mfi_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mfi_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mtm_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mtm_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mtm_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mtmma_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mtmma_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "mtmma_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "obv_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "obv_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "obv_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "psy_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "psy_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "psy_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "psyma_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "psyma_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "psyma_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roc_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roc_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "roc_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "maroc_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "maroc_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "maroc_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_bfq_12",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_bfq_24",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_bfq_6",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_hfq_12",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_hfq_24",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_hfq_6",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_qfq_12",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_qfq_24",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "rsi_qfq_6",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_down_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_down_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_down_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_mid_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_mid_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_mid_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_up_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_up_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "taq_up_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trix_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trix_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trix_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trma_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trma_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "trma_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "vr_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "vr_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "vr_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "wr_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "wr_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "wr_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "wr1_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "wr1_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "wr1_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td1_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td1_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td1_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td2_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td2_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td2_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td3_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td3_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td3_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td4_bfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td4_hfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "xsii_td4_qfq",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "stock_basic": {
+      "columns": [
+        "ts_code",
+        "list_date",
+        "market",
+        "name"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "list_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "market",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "stock_company": {
+      "columns": [
+        "ts_code",
+        "com_name",
+        "com_id",
+        "exchange",
+        "chairman",
+        "manager",
+        "secretary",
+        "reg_capital",
+        "setup_date",
+        "province",
+        "city",
+        "website",
+        "email",
+        "employees",
+        "main_business"
+      ],
+      "column_details": [
+        {
+          "column_name": "ts_code",
+          "data_type": "VARCHAR",
+          "is_nullable": "NO"
+        },
+        {
+          "column_name": "com_name",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "com_id",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "exchange",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "chairman",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "manager",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "secretary",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "reg_capital",
+          "data_type": "DOUBLE",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "setup_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "province",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "city",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "website",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "email",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "employees",
+          "data_type": "BIGINT",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "main_business",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    },
+    "trade_cal": {
+      "columns": [
+        "exchange",
+        "cal_date",
+        "is_open",
+        "pretrade_date"
+      ],
+      "column_details": [
+        {
+          "column_name": "exchange",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "cal_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "is_open",
+          "data_type": "BIGINT",
+          "is_nullable": "YES"
+        },
+        {
+          "column_name": "pretrade_date",
+          "data_type": "VARCHAR",
+          "is_nullable": "YES"
+        }
+      ]
+    }
+  },
+  "reader_methods": [
+    {
+      "name": "close",
+      "params": [
+        "self"
+      ],
+      "doc": "关闭数据库连接"
+    },
+    {
+      "name": "get_adj_factor",
+      "params": [
+        "self",
+        "ts_code",
+        "start_date",
+        "end_date"
+      ],
+      "doc": "查询复权因子\n\n        Args:\n            ts_code: 股票代码\n            start_date: 开始日期\n            end_date: 结束日期\n\n        Returns:\n            复权因子 DataFrame"
+    },
+    {
+      "name": "get_cyq_perf",
+      "params": [
+        "self",
+        "ts_code",
+        "start_date",
+        "end_date"
+      ],
+      "doc": "查询筹码平均成本"
+    },
+    {
+      "name": "get_daily_basic",
+      "params": [
+        "self",
+        "ts_code",
+        "start_date",
+        "end_date"
+      ],
+      "doc": "查询每日基本面指标\n\n        Args:\n            ts_code: 股票代码\n            start_date: 开始日期\n            end_date: 结束日期\n\n        Returns:\n            每日基本面数据 DataFrame (包含 PE、PB、市值等)"
+    },
+    {
+      "name": "get_moneyflow_ind_dc",
+      "params": [
+        "self",
+        "start_date",
+        "end_date",
+        "ts_code"
+      ],
+      "doc": "查询董财板块资金流向\n\n        Args:\n            start_date: 开始日期\n            end_date: 结束日期\n            ts_code: 板块代码（可选）\n\n        Returns:\n            资金流向数据"
+    },
+    {
+      "name": "get_multiple_stocks_daily",
+      "params": [
+        "self",
+        "ts_codes",
+        "start_date",
+        "end_date",
+        "adj"
+      ],
+      "doc": "批量查询多只股票的日线数据\n\n        Args:\n            ts_codes: 股票代码列表\n            start_date: 开始日期\n            end_date: 结束日期\n            adj: 复权类型\n\n        Returns:\n            合并后的日线数据 DataFrame"
+    },
+    {
+      "name": "get_stk_factor_pro",
+      "params": [
+        "self",
+        "ts_code",
+        "start_date",
+        "end_date"
+      ],
+      "doc": "查询技术因子"
+    },
+    {
+      "name": "get_stock_basic",
+      "params": [
+        "self",
+        "ts_code",
+        "list_status"
+      ],
+      "doc": "查询股票基础信息\n\n        Args:\n            ts_code: 股票代码（可选），不指定则返回所有\n            list_status: 上市状态 ('L'=上市, 'D'=退市, 'P'=暂停)，如果表中没有此字段则忽略\n\n        Returns:\n            股票基础信息 DataFrame"
+    },
+    {
+      "name": "get_stock_company",
+      "params": [
+        "self",
+        "ts_code"
+      ],
+      "doc": "查询上市公司基本信息"
+    },
+    {
+      "name": "get_stock_daily",
+      "params": [
+        "self",
+        "ts_code",
+        "start_date",
+        "end_date",
+        "adj"
+      ],
+      "doc": "查询股票日线数据\n\n        Args:\n            ts_code: 股票代码 (如 '000001.SZ')\n            start_date: 开始日期 (YYYYMMDD)\n            end_date: 结束日期 (YYYYMMDD)，默认为今天\n            adj: 复权类型 (None=不复权, 'qfq'=前复权, 'hfq'=后复权)\n\n        Returns:\n            日线数据 DataFrame，包含 open/high/low/close/vol 等字段"
+    },
+    {
+      "name": "get_table_info",
+      "params": [
+        "self",
+        "table_name"
+      ],
+      "doc": "获取表结构信息"
+    },
+    {
+      "name": "get_trade_calendar",
+      "params": [
+        "self",
+        "start_date",
+        "end_date",
+        "is_open"
+      ],
+      "doc": "查询交易日历\n\n        Args:\n            start_date: 开始日期 (YYYYMMDD)\n            end_date: 结束日期 (YYYYMMDD)，默认为今天\n            is_open: 是否交易日 ('1'=是, '0'=否)，不指定则返回所有\n\n        Returns:\n            交易日历 DataFrame"
+    },
+    {
+      "name": "query",
+      "params": [
+        "self",
+        "sql",
+        "params"
+      ],
+      "doc": "执行自定义 SQL 查询\n\n        Args:\n            sql: SQL 查询语句\n            params: 参数列表（用于参数化查询）\n\n        Returns:\n            查询结果 DataFrame\n\n        Example:\n            >>> reader.query(\"SELECT * FROM stock_basic WHERE name LIKE ?\", ['%科技%'])"
+    },
+    {
+      "name": "table_exists",
+      "params": [
+        "self",
+        "table_name"
+      ],
+      "doc": "检查表是否存在"
+    }
+  ],
+  "web_endpoints": [
+    "/",
+    "/api/stock_basic",
+    "/api/cyq_chips",
+    "/api/stk_factor_pro",
+    "/api/trade_cal",
+    "/api/hs_const",
+    "/api/stock_company",
+    "/api/index_basic",
+    "/api/index_weight",
+    "/api/daily_basic",
+    "/api/dc_member",
+    "/api/dc_index",
+    "/api/get_top_n_sector_members",
+    "/api/cyq_perf",
+    "/api/fina_indicator_vip",
+    "/api/adj_factor",
+    "/api/pro_bar"
+  ]
+}

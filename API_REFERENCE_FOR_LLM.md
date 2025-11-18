@@ -105,8 +105,8 @@ reader = DataReader(
 
 # === Basic Info ===
 # Get stock list
-stocks = reader.get_stock_basic(list_status='L')
-print(stocks[['ts_code', 'name', 'industry']])
+stocks = reader.get_stock_basic()
+print(stocks[['ts_code', 'name', 'list_date', 'market']])
 
 # Get trading calendar
 cal = reader.get_trade_calendar('20230101', '20231231', is_open='1')
@@ -277,9 +277,10 @@ from tushare_db import DataReader
 
 reader = DataReader()
 
-# Get all banks
+# Get all banks (note: current DB version doesn't have 'industry' field)
+# Use name matching instead
 banks = reader.query(
-    "SELECT ts_code, name FROM stock_basic WHERE industry = '银行'",
+    "SELECT ts_code, name FROM stock_basic WHERE name LIKE '%银行%'",
 )
 
 # Load their data
@@ -304,12 +305,11 @@ reader.close()
 | Column | Type | Description |
 |--------|------|-------------|
 | ts_code | VARCHAR | Stock code (e.g., '000001.SZ') |
-| symbol | VARCHAR | Stock symbol (e.g., '000001') |
 | name | VARCHAR | Stock name (e.g., '平安银行') |
-| industry | VARCHAR | Industry (e.g., '银行') |
-| list_status | VARCHAR | Status ('L'=listed, 'D'=delisted) |
 | list_date | VARCHAR | List date (YYYYMMDD) |
-| market | VARCHAR | Market (e.g., '主板', '创业板') |
+| market | VARCHAR | Market (e.g., '主板', '创业板', '北交所') |
+
+**Note**: Current database version does not include `industry` (industry sector) or `list_status` (listing status) fields. Use other data sources or tables if these fields are needed.
 
 ### Table: pro_bar (daily bars, unadjusted)
 | Column | Type | Description |

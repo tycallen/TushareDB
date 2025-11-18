@@ -40,9 +40,9 @@ reader.close()
 ```python
 reader = DataReader()
 
-# 获取所有上市股票
-stocks = reader.get_stock_basic(list_status='L')
-# 返回列: ts_code, name, industry, list_date, market
+# 获取所有上市股票（注意：当前数据库版本无 list_status 字段）
+stocks = reader.get_stock_basic()
+# 返回列: ts_code, name, list_date, market
 
 # 查找特定股票
 banks = reader.query("SELECT * FROM stock_basic WHERE name LIKE '%银行%'")
@@ -80,11 +80,13 @@ reader.close()
 
 | 表名 | 说明 | 主要字段 |
 |------|------|---------|
-| `stock_basic` | 股票列表 | ts_code, name, industry, list_date |
+| `stock_basic` | 股票列表 | ts_code, name, list_date, market |
 | `pro_bar` | 日线数据（未复权） | ts_code, trade_date, open, high, low, close, vol |
 | `adj_factor` | 复权因子 | ts_code, trade_date, adj_factor |
 | `daily_basic` | 每日指标 | ts_code, trade_date, pe, pb, total_mv, circ_mv |
 | `trade_cal` | 交易日历 | cal_date, is_open, pretrade_date |
+
+**注意**: `stock_basic` 表在当前数据库版本中不包含 `industry`（行业）和 `list_status`（上市状态）字段。如需这些信息，可使用其他数据源或表。
 
 ## 常见代码格式
 
