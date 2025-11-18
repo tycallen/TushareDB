@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING, Optional, Union, List, Any
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
+logging.basicConfig(level=logging.CRITICAL, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
 
 class DuckDBManagerError(Exception):
     """Custom exception for DuckDBManager errors."""
