@@ -1,56 +1,23 @@
-# -*- coding: utf-8 -*-
-"""
-tushare_db - A local cache for Tushare data.
-"""
+# src/tushare_db/__init__.py
 
+# 新架构：推荐使用
+from .downloader import DataDownloader
+from .reader import DataReader
+
+# 旧架构：保持向后兼容（将来会废弃）
 from .client import TushareDBClient
-from .duckdb_manager import DuckDBManager
-from .api import (
-    trade_cal,
-    TradeCal,
-    stock_basic,
-    StockBasic,
-    hs_const,
-    HsConst,
-    stock_company,
-    StockCompany,
-    pro_bar,
-    ProBar,
-    ProBarAsset,
-    ProBarAdj,
-    ProBarFreq,
-    dc_index,
-    get_top_n_sector_members,
-    stk_factor_pro,
-    StkFactorPro,
-    cyq_perf,
-    CyqPerf,
-    CyqChips,
-    cyq_chips,
-)
 
+# 工具
+from .logger import setup_logging, get_logger
+
+# Define what is exposed when a user does 'from tushare_db import *'
 __all__ = [
-    "TushareDBClient",
-    "DuckDBManager",
-    "stock_basic",
-    "StockBasic",
-    "trade_cal",
-    "TradeCal",
-    "hs_const",
-    "HsConst",
-    "stock_company",
-    "StockCompany",
-    "pro_bar",
-    "ProBar",
-    "ProBarAsset",
-    "ProBarAdj",
-    "ProBarFreq",
-    "dc_index",
-    "get_top_n_sector_members",
-    "stk_factor_pro",
-    "StkFactorPro",
-    "cyq_perf",
-    "CyqPerf",
-    "CyqChips",
-    "cyq_chips",
+    # 新架构（推荐）
+    'DataDownloader',
+    'DataReader',
+    # 旧架构（兼容）
+    'TushareDBClient',
+    # 工具
+    'setup_logging',
+    'get_logger',
 ]

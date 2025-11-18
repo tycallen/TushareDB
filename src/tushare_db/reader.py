@@ -1,0 +1,480 @@
+# -*- coding: utf-8 -*-
+"""
+数据查询模块
+
+职责：只从 DuckDB 读取数据，不触发任何网络请求
+设计理念：高性能、零开销、假设数据已经存在
+"""
+import pandas as pd
+from typing import Optional, List
+from datetime import datetime
+
+from .logger import get_logger
+from .duckdb_manager import DuckDBManager
+
+logger = get_logger(__name__)
+
+
+class DataReaderError(Exception):
+    """数据查询器异常"""
+    pass
+
+
+class DataReader:
+    """
+    数据查询器：专门负责从 DuckDB 读取数据
+
+    特点：
+    - 只读模式：不会触发任何网络请求或数据写入
+    - 高性能：直接 SQL 查询，毫秒级响应
+    - 简单直接：如果数据不存在，返回空 DataFrame 或抛出异常
+
+    使用场景：
+    - 回测系统（高频读取）
+    - Web API 服务（实时查询）
+    - 数据分析（探索性分析）
+    """
+
+    def __init__(self, db_path: str = "tushare.db", strict_mode: bool = False):
+        """
+        初始化查询器
+
+        Args:
+            db_path: DuckDB 数据库文件路径
+            strict_mode: 严格模式，数据不存在时抛出异常而不是返回空 DataFrame
+        """
+        self.db = DuckDBManager(db_path)
+        self.strict_mode = strict_mode
+        logger.info(f"DataReader 初始化完成: db={db_path}, strict_mode={strict_mode}")
+
+    # ==================== 基础信息查询 ====================
+
+    def get_stock_basic(
+        self,
+        ts_code: Optional[str] = None,
+        list_status: Optional[str] = 'L'
+    ) -> pd.DataFrame:
+        """
+        查询股票基础信息
+
+        Args:
+            ts_code: 股票代码（可选），不指定则返回所有
+            list_status: 上市状态 ('L'=上市, 'D'=退市, 'P'=暂停)，如果表中没有此字段则忽略
+
+        Returns:
+            股票基础信息 DataFrame
+        """
+        # 检查表中是否有 list_status 字段（兼容旧数据）
+        has_list_status = 'list_status' in self.db.get_table_columns('stock_basic')
+
+        if ts_code:
+            if has_list_status and list_status:
+                query = "SELECT * FROM stock_basic WHERE ts_code = ? AND list_status = ?"
+                params = [ts_code, list_status]
+            else:
+                query = "SELECT * FROM stock_basic WHERE ts_code = ?"
+                params = [ts_code]
+        else:
+            if has_list_status and list_status:
+                query = "SELECT * FROM stock_basic WHERE list_status = ?"
+                params = [list_status]
+            else:
+                query = "SELECT * FROM stock_basic"
+                params = []
+
+        df = self.db.execute_query(query, params if params else None)
+        self._check_empty(df, f"stock_basic(ts_code={ts_code}, list_status={list_status})")
+        return df
+
+    def get_trade_calendar(
+        self,
+        start_date: str,
+        end_date: Optional[str] = None,
+        is_open: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询交易日历
+
+        Args:
+            start_date: 开始日期 (YYYYMMDD)
+            end_date: 结束日期 (YYYYMMDD)，默认为今天
+            is_open: 是否交易日 ('1'=是, '0'=否)，不指定则返回所有
+
+        Returns:
+            交易日历 DataFrame
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        if is_open:
+            query = """
+                SELECT * FROM trade_cal
+                WHERE cal_date BETWEEN ? AND ?
+                AND (is_open = ? OR CAST(is_open AS VARCHAR) = ?)
+                ORDER BY cal_date
+            """
+            params = [start_date, end_date, is_open, is_open]
+        else:
+            query = """
+                SELECT * FROM trade_cal
+                WHERE cal_date BETWEEN ? AND ?
+                ORDER BY cal_date
+            """
+            params = [start_date, end_date]
+
+        return self.db.execute_query(query, params)
+
+    # ==================== 行情数据查询 ====================
+
+    def get_stock_daily(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: Optional[str] = None,
+        adj: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询股票日线数据
+
+        Args:
+            ts_code: 股票代码 (如 '000001.SZ')
+            start_date: 开始日期 (YYYYMMDD)
+            end_date: 结束日期 (YYYYMMDD)，默认为今天
+            adj: 复权类型 (None=不复权, 'qfq'=前复权, 'hfq'=后复权)
+
+        Returns:
+            日线数据 DataFrame，包含 open/high/low/close/vol 等字段
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        # 1. 查询原始日线数据
+        query = """
+            SELECT * FROM pro_bar
+            WHERE ts_code = ?
+            AND trade_date BETWEEN ? AND ?
+            ORDER BY trade_date
+        """
+        df = self.db.execute_query(query, [ts_code, start_date, end_date])
+
+        self._check_empty(df, f"pro_bar(ts_code={ts_code}, {start_date}-{end_date})")
+
+        # 2. 如果需要复权，动态计算
+        if adj in ['qfq', 'hfq'] and not df.empty:
+            df = self._apply_adjustment(df, ts_code, start_date, end_date, adj)
+
+        return df
+
+    def get_multiple_stocks_daily(
+        self,
+        ts_codes: List[str],
+        start_date: str,
+        end_date: Optional[str] = None,
+        adj: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        批量查询多只股票的日线数据
+
+        Args:
+            ts_codes: 股票代码列表
+            start_date: 开始日期
+            end_date: 结束日期
+            adj: 复权类型
+
+        Returns:
+            合并后的日线数据 DataFrame
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        if not ts_codes:
+            return pd.DataFrame()
+
+        # 使用 IN 查询批量获取
+        placeholders = ','.join(['?'] * len(ts_codes))
+        query = f"""
+            SELECT * FROM pro_bar
+            WHERE ts_code IN ({placeholders})
+            AND trade_date BETWEEN ? AND ?
+            ORDER BY ts_code, trade_date
+        """
+        params = ts_codes + [start_date, end_date]
+        df = self.db.execute_query(query, params)
+
+        # 如果需要复权
+        if adj in ['qfq', 'hfq'] and not df.empty:
+            # 批量获取复权因子
+            adj_query = f"""
+                SELECT ts_code, trade_date, adj_factor FROM adj_factor
+                WHERE ts_code IN ({placeholders})
+                AND trade_date BETWEEN ? AND ?
+            """
+            adj_params = ts_codes + [start_date, end_date]
+            adj_df = self.db.execute_query(adj_query, adj_params)
+
+            if not adj_df.empty:
+                df = df.merge(adj_df, on=['ts_code', 'trade_date'], how='left')
+                df = self._adjust_prices(df, adj)
+
+        return df
+
+    def get_daily_basic(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询每日基本面指标
+
+        Args:
+            ts_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            每日基本面数据 DataFrame (包含 PE、PB、市值等)
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        query = """
+            SELECT * FROM daily_basic
+            WHERE ts_code = ?
+            AND trade_date BETWEEN ? AND ?
+            ORDER BY trade_date
+        """
+        return self.db.execute_query(query, [ts_code, start_date, end_date])
+
+    # ==================== 复权因子查询 ====================
+
+    def get_adj_factor(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询复权因子
+
+        Args:
+            ts_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+
+        Returns:
+            复权因子 DataFrame
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        query = """
+            SELECT * FROM adj_factor
+            WHERE ts_code = ?
+            AND trade_date BETWEEN ? AND ?
+            ORDER BY trade_date
+        """
+        return self.db.execute_query(query, [ts_code, start_date, end_date])
+
+    # ==================== 其他常用接口 ====================
+
+    def get_stock_company(self, ts_code: str) -> pd.DataFrame:
+        """查询上市公司基本信息"""
+        query = "SELECT * FROM stock_company WHERE ts_code = ?"
+        return self.db.execute_query(query, [ts_code])
+
+    def get_cyq_perf(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """查询筹码平均成本"""
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        query = """
+            SELECT * FROM cyq_perf
+            WHERE ts_code = ?
+            AND trade_date BETWEEN ? AND ?
+            ORDER BY trade_date
+        """
+        return self.db.execute_query(query, [ts_code, start_date, end_date])
+
+    def get_stk_factor_pro(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """查询技术因子"""
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        query = """
+            SELECT * FROM stk_factor_pro
+            WHERE ts_code = ?
+            AND trade_date BETWEEN ? AND ?
+            ORDER BY trade_date
+        """
+        return self.db.execute_query(query, [ts_code, start_date, end_date])
+
+    def get_moneyflow_ind_dc(
+        self,
+        start_date: str,
+        end_date: Optional[str] = None,
+        ts_code: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询董财板块资金流向
+
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            ts_code: 板块代码（可选）
+
+        Returns:
+            资金流向数据
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        if ts_code:
+            query = """
+                SELECT * FROM moneyflow_ind_dc
+                WHERE ts_code = ?
+                AND trade_date BETWEEN ? AND ?
+                ORDER BY trade_date
+            """
+            params = [ts_code, start_date, end_date]
+        else:
+            query = """
+                SELECT * FROM moneyflow_ind_dc
+                WHERE trade_date BETWEEN ? AND ?
+                ORDER BY trade_date, ts_code
+            """
+            params = [start_date, end_date]
+
+        return self.db.execute_query(query, params)
+
+    # ==================== 自定义 SQL 查询 ====================
+
+    def query(self, sql: str, params: Optional[List] = None) -> pd.DataFrame:
+        """
+        执行自定义 SQL 查询
+
+        Args:
+            sql: SQL 查询语句
+            params: 参数列表（用于参数化查询）
+
+        Returns:
+            查询结果 DataFrame
+
+        Example:
+            >>> reader.query("SELECT * FROM stock_basic WHERE name LIKE ?", ['%科技%'])
+        """
+        return self.db.execute_query(sql, params)
+
+    # ==================== 辅助方法 ====================
+
+    def _apply_adjustment(
+        self,
+        df: pd.DataFrame,
+        ts_code: str,
+        start_date: str,
+        end_date: str,
+        adj_type: str
+    ) -> pd.DataFrame:
+        """
+        对日线数据应用复权计算
+
+        Args:
+            df: 原始日线数据
+            ts_code: 股票代码
+            start_date: 开始日期
+            end_date: 结束日期
+            adj_type: 复权类型 ('qfq' 或 'hfq')
+
+        Returns:
+            复权后的数据
+        """
+        # 查询复权因子
+        adj_query = """
+            SELECT trade_date, adj_factor FROM adj_factor
+            WHERE ts_code = ?
+            AND trade_date BETWEEN ? AND ?
+        """
+        adj_df = self.db.execute_query(adj_query, [ts_code, start_date, end_date])
+
+        if adj_df.empty:
+            logger.warning(f"未找到复权因子: {ts_code}，返回不复权数据")
+            return df
+
+        # 合并复权因子
+        df = df.merge(adj_df, on='trade_date', how='left')
+
+        # 应用复权
+        return self._adjust_prices(df, adj_type)
+
+    def _adjust_prices(self, df: pd.DataFrame, adj_type: str) -> pd.DataFrame:
+        """
+        对价格字段应用复权因子
+
+        Args:
+            df: 包含 adj_factor 列的 DataFrame
+            adj_type: 复权类型
+
+        Returns:
+            复权后的 DataFrame
+        """
+        if 'adj_factor' not in df.columns:
+            return df
+
+        # 需要复权的价格字段
+        price_cols = ['open', 'high', 'low', 'close', 'pre_close']
+
+        if adj_type == 'qfq':
+            # 前复权：价格 * 复权因子
+            for col in price_cols:
+                if col in df.columns:
+                    df[col] = df[col] * df['adj_factor']
+
+        elif adj_type == 'hfq':
+            # 后复权：价格 * (复权因子 / 最新复权因子)
+            if not df.empty:
+                latest_factor = df['adj_factor'].iloc[-1]
+                for col in price_cols:
+                    if col in df.columns:
+                        df[col] = df[col] * (df['adj_factor'] / latest_factor)
+
+        return df
+
+    def _check_empty(self, df: pd.DataFrame, query_desc: str):
+        """
+        检查查询结果是否为空
+
+        Args:
+            df: 查询结果
+            query_desc: 查询描述（用于错误提示）
+
+        Raises:
+            DataReaderError: 如果启用了严格模式且结果为空
+        """
+        if df.empty and self.strict_mode:
+            raise DataReaderError(
+                f"数据不存在: {query_desc}\n"
+                f"提示：请先使用 DataDownloader 下载数据"
+            )
+
+    def table_exists(self, table_name: str) -> bool:
+        """检查表是否存在"""
+        return self.db.table_exists(table_name)
+
+    def get_table_info(self, table_name: str) -> pd.DataFrame:
+        """获取表结构信息"""
+        return self.db.execute_query(f"PRAGMA table_info('{table_name}')")
+
+    def close(self):
+        """关闭数据库连接"""
+        self.db.close()
+        logger.info("DataReader 已关闭")
