@@ -276,6 +276,154 @@ class DataReader:
         """
         return self.db.execute_query(query, [ts_code, start_date, end_date])
 
+    # ==================== 上市首日信息查询 ====================
+
+    def get_all_listing_first_day_info(
+        self,
+        list_status: Optional[str] = None,
+        market: Optional[str] = None,
+        include_no_data: bool = False
+    ) -> pd.DataFrame:
+        """
+        获取所有股票的上市首日信息（股票基本信息 + 上市首日交易数据）
+
+        Args:
+            list_status: 上市状态筛选 ('L'=上市, 'D'=退市, 'P'=暂停)。None 表示所有状态
+            market: 市场筛选（如 '主板', '创业板', '科创板', '北交所'）。None 表示所有市场
+            include_no_data: 是否包含没有上市首日交易数据的股票
+
+        Returns:
+            包含以下字段的 DataFrame:
+            - ts_code: 股票代码
+            - name: 股票名称
+            - list_date: 上市日期
+            - market: 市场
+            - list_status: 上市状态
+            - open, high, low, close: 上市首日价格
+            - vol, amount: 上市首日成交量、成交额
+        """
+        # 检查必要的表是否存在
+        if not self.db.table_exists('stock_basic'):
+            logger.warning(
+                "stock_basic 表不存在。请先使用 DataDownloader 下载数据：\n"
+                "示例代码：\n"
+                "  from tushare_db import DataDownloader\n"
+                "  downloader = DataDownloader()\n"
+                "  downloader.download_stock_basic('L')  # 下载股票列表\n"
+                "  downloader.download_all_stocks_listing_first_day('L')  # 下载首日数据\n"
+                "  downloader.close()"
+            )
+            return pd.DataFrame()
+        
+        # 构建 WHERE 条件
+        conditions = ["s.list_date IS NOT NULL"]
+        params = []
+
+        if list_status:
+            # 检查是否有 list_status 字段
+            has_list_status = 'list_status' in self.db.get_table_columns('stock_basic')
+            if has_list_status:
+                conditions.append("s.list_status = ?")
+                params.append(list_status)
+
+        if market:
+            conditions.append("s.market = ?")
+            params.append(market)
+
+        where_clause = " AND ".join(conditions)
+
+        # SQL 查询：左连接 stock_basic 和 pro_bar
+        query = f"""
+            SELECT 
+                s.ts_code,
+                s.name,
+                s.list_date,
+                s.market,
+                {'s.list_status,' if 'list_status' in self.db.get_table_columns('stock_basic') else ''}
+                p.open,
+                p.high,
+                p.low,
+                p.close,
+                p.pre_close,
+                p.vol,
+                p.amount
+            FROM stock_basic s
+            LEFT JOIN pro_bar p ON s.ts_code = p.ts_code AND s.list_date = p.trade_date
+            WHERE {where_clause}
+            ORDER BY s.list_date DESC
+        """
+
+        df = self.db.execute_query(query, params if params else None)
+
+        # 如果不包含无交易数据的股票，过滤掉
+        if not include_no_data and not df.empty:
+            df = df[df['close'].notna()]
+
+        # 友好提示：如果结果为空，提醒用户下载数据
+        if df.empty:
+            logger.warning(
+                "未找到上市首日数据。请先使用 DataDownloader 下载数据：\n"
+                "示例代码：\n"
+                "  from tushare_db import DataDownloader\n"
+                "  downloader = DataDownloader()\n"
+                "  downloader.download_stock_basic('L')  # 下载股票列表\n"
+                "  downloader.download_all_stocks_listing_first_day('L')  # 下载首日数据\n"
+                "  downloader.close()"
+            )
+
+        return df
+
+    def get_listing_first_day_info(
+        self,
+        ts_code: str
+    ) -> pd.DataFrame:
+        """
+        获取单只股票的上市首日信息
+
+        Args:
+            ts_code: 股票代码
+
+        Returns:
+            包含股票基本信息和上市首日交易数据的 DataFrame
+        """
+        # 检查必要的表是否存在
+        if not self.db.table_exists('stock_basic'):
+            logger.warning(
+                f"stock_basic 表不存在。请先使用 DataDownloader 下载股票列表数据。"
+            )
+            return pd.DataFrame()
+        
+        query = """
+            SELECT 
+                s.*,
+                p.open,
+                p.high,
+                p.low,
+                p.close,
+                p.pre_close,
+                p.vol,
+                p.amount
+            FROM stock_basic s
+            LEFT JOIN pro_bar p ON s.ts_code = p.ts_code AND s.list_date = p.trade_date
+            WHERE s.ts_code = ?
+        """
+
+        df = self.db.execute_query(query, [ts_code])
+        
+        # 友好提示：如果结果为空，提醒用户下载数据
+        if df.empty:
+            logger.warning(
+                f"未找到股票 {ts_code} 的信息。请先使用 DataDownloader 下载数据：\n"
+                "示例代码：\n"
+                "  from tushare_db import DataDownloader\n"
+                "  downloader = DataDownloader()\n"
+                "  downloader.download_stock_basic('L')  # 下载股票列表\n"
+                f"  downloader.download_stock_daily('{ts_code}', start_date, end_date)  # 下载行情\n"
+                "  downloader.close()"
+            )
+
+        return df
+
     # ==================== 其他常用接口 ====================
 
     def get_stock_company(self, ts_code: str) -> pd.DataFrame:
@@ -434,18 +582,20 @@ class DataReader:
         price_cols = ['open', 'high', 'low', 'close', 'pre_close']
 
         if adj_type == 'qfq':
-            # 前复权：价格 * 复权因子
-            for col in price_cols:
-                if col in df.columns:
-                    df[col] = df[col] * df['adj_factor']
-
-        elif adj_type == 'hfq':
-            # 后复权：价格 * (复权因子 / 最新复权因子)
+            # 前复权：价格 × (最新复权因子 / 当日复权因子)
+            # 特点：最新日期的价格不变，等于真实市场价格
             if not df.empty:
                 latest_factor = df['adj_factor'].iloc[-1]
                 for col in price_cols:
                     if col in df.columns:
-                        df[col] = df[col] * (df['adj_factor'] / latest_factor)
+                        df[col] = df[col] * (latest_factor / df['adj_factor'])
+
+        elif adj_type == 'hfq':
+            # 后复权：价格 × 复权因子
+            # 特点：历史某时点价格不变，最新价格会被调整
+            for col in price_cols:
+                if col in df.columns:
+                    df[col] = df[col] * df['adj_factor']
 
         return df
 
