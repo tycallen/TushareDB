@@ -235,4 +235,4 @@ def run_backtest(start_date_str, end_date_str):
 
 if __name__ == "__main__":
     # Define the backtest period
-    run_backtest(start_date_str='20251025', end_date_str='20251031')
+    run_backtest(start_date_str='20250125', end_date_str='20251031')
