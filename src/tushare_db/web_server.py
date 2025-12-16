@@ -719,3 +719,51 @@ async def get_pro_bar(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/listing_first_day_info")
+async def get_listing_first_day_info(
+    ts_code: Optional[str] = None,
+    list_status: Optional[str] = None,
+    market: Optional[str] = None,
+    include_no_data: bool = False
+):
+    """
+    API endpoint to get listing first day information for stocks.
+    
+    - If ts_code is provided, returns info for that specific stock
+    - Otherwise, returns info for all stocks (with optional filtering)
+    
+    Args:
+        ts_code: Stock code (optional). If provided, returns single stock info.
+        list_status: Listing status filter ('L'=listed, 'D'=delisted, 'P'=paused)
+        market: Market filter (e.g., '主板', '创业板', '科创板', '北交所')
+        include_no_data: Whether to include stocks without first day trading data
+    
+    Returns:
+        JSON array containing:
+        - ts_code: Stock code
+        - name: Stock name
+        - list_date: Listing date
+        - market: Market type
+        - list_status: Listing status
+        - open, high, low, close: First day prices
+        - vol, amount: First day volume and amount
+    """
+    if not reader:
+        raise HTTPException(status_code=503, detail="Database reader is not available.")
+    
+    try:
+        if ts_code:
+            # Get info for specific stock
+            df = reader.get_listing_first_day_info(ts_code=ts_code)
+        else:
+            # Get info for all stocks
+            df = reader.get_all_listing_first_day_info(
+                list_status=list_status,
+                market=market,
+                include_no_data=include_no_data
+            )
+        
+        return df_to_json_response(df)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

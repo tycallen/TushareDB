@@ -322,6 +322,76 @@ class DataDownloader:
 
         logger.info(f"批量下载完成: 成功 {success_count}")
 
+    def download_all_stocks_listing_first_day(
+        self,
+        list_status: str = 'L',
+        include_adj_factor: bool = True
+    ):
+        """
+        批量下载所有股票的上市首日数据（优化稀疏数据场景）
+
+        这个方法专门用于只需要上市首日数据的场景，避免下载完整历史数据。
+        
+        Args:
+            list_status: 股票状态筛选 ('L'=上市, 'D'=退市, 'P'=暂停)
+            include_adj_factor: 是否同时下载复权因子（建议开启）
+        """
+        # 检查表中是否有 list_status 字段
+        has_list_status = 'list_status' in self.db.get_table_columns('stock_basic')
+
+        if has_list_status:
+            stocks_df = self.db.execute_query(
+                """
+                SELECT ts_code, name, list_date FROM stock_basic 
+                WHERE list_status = ? AND list_date IS NOT NULL
+                ORDER BY list_date
+                """,
+                [list_status]
+            )
+        else:
+            logger.warning(f"stock_basic 表中没有 list_status 字段，将查询所有股票")
+            stocks_df = self.db.execute_query(
+                "SELECT ts_code, name, list_date FROM stock_basic WHERE list_date IS NOT NULL ORDER BY list_date"
+            )
+
+        if stocks_df.empty:
+            logger.warning(f"未找到股票列表，请先运行 download_stock_basic('{list_status}')")
+            return
+
+        total_stocks = len(stocks_df)
+        logger.info(f"开始批量下载 {total_stocks} 只股票的上市首日数据")
+
+        success_count = 0
+        fail_count = 0
+
+        for _, stock in tqdm(stocks_df.iterrows(), total=total_stocks, desc="下载上市首日数据"):
+            ts_code = stock['ts_code']
+            list_date = stock['list_date']
+            
+            try:
+                # 下载上市首日行情
+                rows = self.download_stock_daily(ts_code, list_date, list_date)
+                
+                # 同时下载复权因子（如果需要）
+                if include_adj_factor:
+                    self.download_adj_factor(ts_code, list_date, list_date)
+                
+                if rows > 0:
+                    success_count += 1
+                else:
+                    logger.debug(f"{ts_code} ({stock['name']}) 上市首日 {list_date} 无数据")
+                    
+            except Exception as e:
+                logger.error(f"下载失败: {ts_code}, 错误: {e}")
+                fail_count += 1
+
+        logger.info(f"批量下载上市首日数据完成: 成功 {success_count}, 失败 {fail_count}")
+        return {
+            'total': total_stocks,
+            'success': success_count,
+            'fail': fail_count
+        }
+
     # ==================== 按日期下载（适合每日更新）====================
 
     def download_daily_data_by_date(self, trade_date: str):
@@ -380,7 +450,81 @@ class DataDownloader:
             self.db.write_dataframe(df_basic, 'daily_basic', mode='append')
             logger.info(f"每日基本面: {len(df_basic)} 行")
 
+
         logger.info(f"按日期下载完成: {trade_date}")
+
+    def download_cyq_perf(self, trade_date: str) -> int:
+        """
+        下载筹码分布（每日获利筹码）数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载筹码分布: {trade_date}")
+        df = self.fetcher.fetch(
+            'cyq_perf',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无筹码分布数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'cyq_perf', mode='append')
+        logger.info(f"筹码分布数据: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+    def download_dc_member(self, trade_date: str) -> int:
+        """
+        下载龙虎榜机构席位交易明细数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载龙虎榜机构席位: {trade_date}")
+        df = self.fetcher.fetch(
+            'dc_member',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无龙虎榜机构席位数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'dc_member', mode='append')
+        logger.info(f"龙虎榜机构席位数据: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+    def download_moneyflow_ind_dc(self, trade_date: str) -> int:
+        """
+        下载行业资金流向（沪深通）数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载行业资金流向: {trade_date}")
+        df = self.fetcher.fetch(
+            'moneyflow_ind_dc',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无行业资金流向数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'moneyflow_ind_dc', mode='append')
+        logger.info(f"行业资金流向数据: {len(df)} 行 ({trade_date})")
+        return len(df)
+
 
     # ==================== 数据完整性验证 ====================
 
