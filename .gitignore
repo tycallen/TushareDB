@@ -24,6 +24,7 @@ env/
 
 # Logs and databases
 *.log
+nohup.out
 *.sqlite3
 *.db
 *.csv
