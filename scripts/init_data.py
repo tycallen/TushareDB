@@ -192,20 +192,116 @@ def init_cyq_chips():
 
     print("所有股票的历史筹码分布数据初始化完成。")
 
+# python3 scripts/init_data.py --moneyflow-cnt-ths --start-date 20200101 --end-date 20251031
+def init_moneyflow_cnt_ths(start_date: str, end_date: str):
+    """
+    初始化同花顺概念板块资金流向数据。
+    按天循环获取指定日期范围内的数据。
+    """
+    print(f"开始初始化同花顺概念板块资金流向数据，从 {start_date} 到 {end_date}...")
+    
+    # 1. 获取指定范围内的所有交易日
+    try:
+        trade_cal_df = tushare_db.api.trade_cal(client, start_date=start_date, end_date=end_date, is_open='1')
+        # 按日期升序排序
+        trade_cal_df = trade_cal_df.sort_values('cal_date', ascending=True)
+        trade_dates = trade_cal_df['cal_date'].tolist()
+        if not trade_dates:
+            print("指定日期范围内没有交易日，任务结束。")
+            return
+    except Exception as e:
+        print(f"获取交易日历失败: {e}")
+        return
+
+    # 2. 遍历每个交易日，获取资金流向数据
+    for trade_date in tqdm(trade_dates, desc="正在初始化同花顺概念资金流向"):
+        try:
+            df = tushare_db.api.moneyflow_cnt_ths(client=client, trade_date=trade_date)
+            print(f"获取 {trade_date} 的资金流向数据成功，共 {len(df)} 条记录。")
+        except Exception as e:
+            print(f"获取 {trade_date} 的资金流向数据时出错: {e}")
+            # 如果某一天出错，可以选择跳过继续
+            continue
+    print("同花顺概念板块资金流向数据初始化完成。")
+
+# python3 scripts/init_data.py --moneyflow-ind-dc --start-date 20200101 --end-date 20251031
+def init_moneyflow_ind_dc(start_date: str, end_date: str):
+    """
+    初始化东方财富概念及行业板块资金流向数据。
+    按天循环获取指定日期范围内的数据。
+    """
+    print(f"开始初始化东方财富概念及行业板块资金流向数据，从 {start_date} 到 {end_date}...")
+    
+    # 1. 获取指定范围内的所有交易日
+    try:
+        trade_cal_df = tushare_db.api.trade_cal(client, start_date=start_date, end_date=end_date, is_open='1')
+        # 按日期升序排序
+        trade_cal_df = trade_cal_df.sort_values('cal_date', ascending=True)
+        trade_dates = trade_cal_df['cal_date'].tolist()
+        if not trade_dates:
+            print("指定日期范围内没有交易日，任务结束。")
+            return
+    except Exception as e:
+        print(f"获取交易日历失败: {e}")
+        return
+
+    # 2. 遍历每个交易日，获取资金流向数据
+    for trade_date in tqdm(trade_dates, desc="正在初始化东方财富概念及行业资金流向"):
+        try:
+            df = tushare_db.api.moneyflow_ind_dc(client=client, trade_date=trade_date)
+            print(f"获取 {trade_date} 的资金流向数据成功，共 {len(df)} 条记录。")
+        except Exception as e:
+            print(f"获取 {trade_date} 的资金流向数据时出错: {e}")
+            # 如果某一天出错，可以选择跳过继续
+            continue
+    print("东方财富概念及行业板块资金流向数据初始化完成。")
+
 
 def main():
     """主函数，执行所有初始化任务"""
+    import argparse
+    parser = argparse.ArgumentParser(description="Tushare-DuckDB 数据初始化脚本")
+    parser.add_argument('--trade-cal', action='store_true', help='初始化交易日历')
+    parser.add_argument('--stock-basic', action='store_true', help='初始化股票列表')
+    parser.add_argument('--pro-bar', action='store_true', help='初始化所有股票的历史日线数据')
+    parser.add_argument('--adj-factor', action='store_true', help='初始化所有股票的历史复权因子数据')
+    parser.add_argument('--cyq-chips', action='store_true', help='初始化所有股票的历史筹码分布数据')
+    parser.add_argument('--fina-indicator-vip', action='store_true', help='初始化所有股票的财务指标数据 (VIP)')
+    parser.add_argument('--index-basic', action='store_true', help='初始化所有指数的基本信息')
+    parser.add_argument('--index-weight', action='store_true', help='初始化主要指数的权重')
+    parser.add_argument('--daily-basic', action='store_true', help='初始化所有股票的每日基本面指标')
+    parser.add_argument('--moneyflow-cnt-ths', action='store_true', help='初始化同花顺概念板块资金流向')
+    parser.add_argument('--moneyflow-ind-dc', action='store_true', help='初始化东方财富概念及行业板块资金流向')
+    parser.add_argument('--start-date', type=str, default='20200101', help='通用开始日期 (YYYYMMDD)')
+    parser.add_argument('--end-date', type=str, default=today, help='通用结束日期 (YYYYMMDD)')
+    
+    args = parser.parse_args()
+
     print("开始数据初始化...")
-    # init_trade_cal()
-    # init_stock_basic()
-    # init_pro_bar()
-    # init_adj_factor_data()
-    # init_cyq_chips()
-    # init_fina_indicator_vip()
-    # init_index_basic()
-    # init_index_weight()
-    init_daily_basic()
-    # client.get_all_stock_qfq_daily_bar(start_date='20000101', end_date=datetime.now().strftime('%Y%m%d'))
+    
+    if args.trade_cal:
+        init_trade_cal()
+    if args.stock_basic:
+        init_stock_basic()
+    if args.pro_bar:
+        init_pro_bar()
+    if args.adj_factor:
+        init_adj_factor_data()
+    if args.cyq_chips:
+        init_cyq_chips()
+    if args.fina_indicator_vip:
+        init_fina_indicator_vip()
+    if args.index_basic:
+        init_index_basic()
+    if args.index_weight:
+        init_index_weight()
+    if args.daily_basic:
+        init_daily_basic()
+    if args.moneyflow_cnt_ths:
+        init_moneyflow_cnt_ths(start_date=args.start_date, end_date=args.end_date)
+    if args.moneyflow_ind_dc:
+        init_moneyflow_ind_dc(start_date="20240102", end_date=today)
+
     print("所有数据初始化任务完成！")
 
 if __name__ == "__main__":
