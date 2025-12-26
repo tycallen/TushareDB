@@ -569,6 +569,56 @@ class DataDownloader:
         logger.info(f"个股资金流向数据: {len(df)} 行")
         return len(df)
 
+    def download_index_classify(
+        self,
+        index_code: Optional[str] = None,
+        level: Optional[str] = None,
+        parent_code: Optional[str] = None,
+        src: Optional[str] = None
+    ) -> int:
+        """
+        下载申万行业分类数据
+
+        数据说明：
+        - 获取申万行业分类列表
+        - 支持L1/L2/L3三个层级
+        - 支持SW2014和SW2021两个版本
+
+        Args:
+            index_code: 指数代码（可选）
+            level: 行业分级 L1/L2/L3（可选）
+            parent_code: 父级代码，一级为0（可选）
+            src: 指数来源 SW2014/SW2021（可选）
+
+        Returns:
+            下载的行数
+
+        Examples:
+            >>> # 获取申万一级行业列表
+            >>> downloader.download_index_classify(level='L1', src='SW2021')
+            >>>
+            >>> # 获取申万二级行业列表
+            >>> downloader.download_index_classify(level='L2', src='SW2021')
+        """
+        logger.debug(f"下载申万行业分类: level={level}, src={src}, "
+                    f"index_code={index_code}, parent_code={parent_code}")
+
+        df = self.fetcher.fetch(
+            'index_classify',
+            index_code=index_code,
+            level=level,
+            parent_code=parent_code,
+            src=src
+        )
+
+        if df.empty:
+            logger.debug(f"无行业分类数据")
+            return 0
+
+        self.db.write_dataframe(df, 'index_classify', mode='append')
+        logger.info(f"行业分类数据: {len(df)} 行")
+        return len(df)
+
 
     # ==================== 数据完整性验证 ====================
 

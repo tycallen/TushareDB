@@ -31,6 +31,7 @@ TABLE_PRIMARY_KEYS = {
     "index_basic": ["ts_code"],
     "fina_indicator_vip": ["ts_code", "end_date"],
     "moneyflow_dc": ["ts_code", "trade_date"],
+    "index_classify": ["industry_code"],
 }
 
 class DuckDBManager:

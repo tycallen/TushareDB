@@ -588,6 +588,75 @@ class DataReader:
 
         return self.db.execute_query(query, params)
 
+    def get_index_classify(
+        self,
+        index_code: Optional[str] = None,
+        level: Optional[str] = None,
+        parent_code: Optional[str] = None,
+        src: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询申万行业分类数据
+
+        数据说明：
+        - 申万行业分类数据，支持申万2014版和申万2021版
+        - 包含L1（一级）、L2（二级）、L3（三级）三个层级
+        - 每个层级都有对应的行业代码和行业名称
+
+        Args:
+            index_code: 指数代码（可选）
+            level: 行业等级（L1/L2/L3）（可选）
+            parent_code: 父级代码（可选），L1的父级代码为0
+            src: 来源（SW2014/SW2021）（可选）
+
+        Returns:
+            申万行业分类数据，包含以下字段：
+            - index_code: 指数代码
+            - industry_name: 行业名称
+            - parent_code: 父级代码
+            - level: 行业级别（L1/L2/L3）
+            - industry_code: 行业代码（唯一标识）
+            - is_pub: 是否发布指数（1=是，0=否）
+            - src: 分类来源（SW）
+
+        Examples:
+            >>> # 获取所有L1一级行业
+            >>> df = reader.get_index_classify(level='L1')
+            >>>
+            >>> # 获取申万2021版的所有行业
+            >>> df = reader.get_index_classify(src='SW2021')
+            >>>
+            >>> # 获取特定一级行业下的二级行业
+            >>> df = reader.get_index_classify(level='L2', parent_code='801010')
+        """
+        conditions = []
+        params = []
+
+        # 添加各种查询条件
+        if index_code:
+            conditions.append("index_code = ?")
+            params.append(index_code)
+
+        if level:
+            conditions.append("level = ?")
+            params.append(level)
+
+        if parent_code:
+            conditions.append("parent_code = ?")
+            params.append(parent_code)
+
+        if src:
+            conditions.append("src = ?")
+            params.append(src)
+
+        # 构建查询语句
+        query = "SELECT * FROM index_classify"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY level, industry_code"
+
+        return self.db.execute_query(query, params if params else None)
+
     # ==================== 自定义 SQL 查询 ====================
 
     def query(self, sql: str, params: Optional[List] = None) -> pd.DataFrame:
