@@ -47,3 +47,7 @@ play.ipynb
 view_data.ipynb
 GEMINI.md
 frontend/package-lock.json
+
+# Market width analysis output files
+market_width_*.png
+test_chinese*.png
