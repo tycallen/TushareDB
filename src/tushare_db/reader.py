@@ -505,6 +505,89 @@ class DataReader:
 
         return self.db.execute_query(query, params)
 
+    def get_moneyflow_dc(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询个股资金流向数据（东方财富DC接口）
+
+        数据说明：
+        - 包含主力资金、超大单、大单、中单、小单的净流入额和占比
+        - 每日盘后更新
+        - 数据开始于20230911
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            个股资金流向数据，包含以下字段：
+            - trade_date: 交易日期
+            - ts_code: 股票代码
+            - name: 股票名称
+            - pct_change: 涨跌幅
+            - close: 最新价
+            - net_amount: 今日主力净流入额（万元）
+            - net_amount_rate: 今日主力净流入净占比（%）
+            - buy_elg_amount: 今日超大单净流入额（万元）
+            - buy_elg_amount_rate: 今日超大单净流入占比（%）
+            - buy_lg_amount: 今日大单净流入额（万元）
+            - buy_lg_amount_rate: 今日大单净流入占比（%）
+            - buy_md_amount: 今日中单净流入额（万元）
+            - buy_md_amount_rate: 今日中单净流入占比（%）
+            - buy_sm_amount: 今日小单净流入额（万元）
+            - buy_sm_amount_rate: 今日小单净流入占比（%）
+
+        Examples:
+            >>> # 获取单日全部股票数据
+            >>> df = reader.get_moneyflow_dc(trade_date='20241011')
+            >>>
+            >>> # 获取单个股票数据
+            >>> df = reader.get_moneyflow_dc(
+            ...     ts_code='002149.SZ',
+            ...     start_date='20240901',
+            ...     end_date='20240913'
+            ... )
+        """
+        conditions = []
+        params = []
+
+        # 按优先级处理查询条件
+        if trade_date:
+            # 查询特定日期的数据
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            # 查询日期范围
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        # 添加股票代码条件
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        # 构建查询语句
+        query = "SELECT * FROM moneyflow_dc"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params)
+
     # ==================== 自定义 SQL 查询 ====================
 
     def query(self, sql: str, params: Optional[List] = None) -> pd.DataFrame:

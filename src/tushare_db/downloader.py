@@ -525,6 +525,50 @@ class DataDownloader:
         logger.info(f"行业资金流向数据: {len(df)} 行 ({trade_date})")
         return len(df)
 
+    def download_moneyflow_dc(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载个股资金流向数据（东方财富DC接口）
+
+        数据说明：
+        - 每日盘后更新
+        - 数据开始于20230911
+        - 单次最大获取6000条数据
+        - 需要至少5000积分
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载个股资金流向: ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'moneyflow_dc',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无个股资金流向数据")
+            return 0
+
+        self.db.write_dataframe(df, 'moneyflow_dc', mode='append')
+        logger.info(f"个股资金流向数据: {len(df)} 行")
+        return len(df)
+
 
     # ==================== 数据完整性验证 ====================
 
