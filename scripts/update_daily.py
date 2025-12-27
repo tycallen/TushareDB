@@ -6,11 +6,13 @@
 功能：
 1. 更新交易日历
 2. 更新股票列表
-3. 更新所有股票的日线数据、复权因子、每日基本面
-4. 更新财务指标数据（VIP接口）
-5. 更新筹码分布数据
-6. 更新龙虎榜机构席位数据
-7. 更新行业资金流向（沪深通）数据
+3. 更新申万行业分类（仅初始化时下载）
+4. 更新所有股票的日线数据、复权因子、每日基本面
+5. 更新财务指标数据（VIP接口）
+6. 更新筹码分布数据
+7. 更新龙虎榜机构席位数据
+8. 更新行业资金流向（沪深通）数据
+9. 更新个股资金流向数据
 
 使用方法：
     python scripts/update_daily.py
@@ -22,6 +24,7 @@
 作者：根据新架构重构
 日期：2025-12-04
 更新：2025-12-11 - 添加龙虎榜和资金流向数据更新
+更新：2025-12-26 - 添加申万行业分类和个股资金流向更新
 """
 
 import os
@@ -416,6 +419,118 @@ def update_moneyflow_ind_dc(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_moneyflow_dc(downloader: DataDownloader):
+    """
+    增量更新个股资金流向数据 (moneyflow_dc)
+
+    策略：
+        1. 获取数据库中 moneyflow_dc 的最新日期
+        2. 从下一天开始更新到今天
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新个股资金流向数据 (moneyflow_dc)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('moneyflow_dc', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            logger.info("数据库中没有个股资金流向历史数据，将从30天前开始更新")
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"  (初始化: 从30天前 {start_date} 开始)")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_moneyflow_dc(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 个股资金流向更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新个股资金流向数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_index_classify(downloader: DataDownloader):
+    """
+    更新申万行业分类数据 (index_classify)
+
+    策略：
+        1. 检查数据库中是否已有数据
+        2. 如果没有数据，下载所有版本和层级的数据
+        3. 如果已有数据，跳过（行业分类数据相对稳定，不需要频繁更新）
+
+    注意：行业分类数据相对静态，通常只需要初始化时下载一次
+    """
+    logger.info("=" * 60)
+    logger.info("开始检查申万行业分类数据 (index_classify)...")
+
+    try:
+        # 检查是否已有数据
+        if downloader.db.table_exists('index_classify'):
+            result = downloader.db.execute_query("SELECT COUNT(*) as count FROM index_classify")
+            if not result.empty and result.iloc[0]['count'] > 0:
+                logger.info(f"数据库中已有 {result.iloc[0]['count']} 条行业分类数据，跳过更新")
+                return
+
+        logger.info("数据库中没有行业分类数据，开始初始化...")
+
+        total_rows = 0
+
+        # 下载申万2021版所有层级
+        logger.info("  下载申万2021版...")
+        for level in ['L1', 'L2', 'L3']:
+            rows = downloader.download_index_classify(level=level, src='SW2021')
+            logger.info(f"    - {level}: {rows} 条")
+            total_rows += rows
+
+        # 下载申万2014版所有层级
+        logger.info("  下载申万2014版...")
+        for level in ['L1', 'L2', 'L3']:
+            rows = downloader.download_index_classify(level=level, src='SW2014')
+            logger.info(f"    - {level}: {rows} 条")
+            total_rows += rows
+
+        logger.info(f"✓ 申万行业分类初始化完成: 总计 {total_rows} 条")
+
+    except Exception as e:
+        logger.error(f"✗ 更新申万行业分类数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -474,11 +589,13 @@ def main():
     执行顺序：
     1. 交易日历（基础数据，其他任务依赖）
     2. 股票列表（基础数据）
-    3. 每日数据（日线、复权、基本面）
-    4. 财务指标（季度数据）
-    5. 筹码分布
-    6. 龙虎榜机构席位数据
-    7. 行业资金流向（沪深通）数据
+    3. 申万行业分类（基础数据，仅初始化时下载）
+    4. 每日数据（日线、复权、基本面）
+    5. 财务指标（季度数据）
+    6. 筹码分布
+    7. 龙虎榜机构席位数据
+    8. 行业资金流向（沪深通）数据
+    9. 个股资金流向数据
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -502,11 +619,13 @@ def main():
             # 3. 执行更新任务
             update_trade_calendar(downloader)
             update_stock_basic(downloader)
+            update_index_classify(downloader)  # 申万行业分类（仅初始化时下载）
             update_daily_data(downloader)
             update_financial_indicators(downloader)
             update_cyq_perf(downloader)
             update_dc_member(downloader)
             update_moneyflow_ind_dc(downloader)
+            update_moneyflow_dc(downloader)  # 个股资金流向
 
             # 4. 完成
             end_time = datetime.now()
