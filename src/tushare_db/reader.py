@@ -657,6 +657,181 @@ class DataReader:
 
         return self.db.execute_query(query, params if params else None)
 
+    def get_index_weight(
+        self,
+        index_code: Optional[str] = None,
+        con_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询指数成分和权重数据
+
+        数据说明：
+        - 获取指数的成分股及权重信息
+        - 可用于获取申万行业指数的成分股
+
+        Args:
+            index_code: 指数代码（可选），如 '801780.SI'
+            con_code: 成分股代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            指数成分权重数据，包含以下字段：
+            - index_code: 指数代码
+            - con_code: 成分股代码
+            - trade_date: 交易日期
+            - weight: 权重（%）
+            - in_date: 纳入日期
+            - out_date: 剔除日期
+
+        Examples:
+            >>> # 获取申万银行行业的成分股
+            >>> df = reader.get_index_weight(
+            ...     index_code='801780.SI',
+            ...     trade_date='20241201'
+            ... )
+            >>>
+            >>> # 获取某个时间段的指数成分变化
+            >>> df = reader.get_index_weight(
+            ...     index_code='000300.SH',
+            ...     start_date='20240101',
+            ...     end_date='20241231'
+            ... )
+        """
+        conditions = []
+        params = []
+
+        # 添加指数代码条件
+        if index_code:
+            conditions.append("index_code = ?")
+            params.append(index_code)
+
+        # 添加成分股代码条件
+        if con_code:
+            conditions.append("con_code = ?")
+            params.append(con_code)
+
+        # 添加日期条件
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        # 构建查询语句
+        query = "SELECT * FROM index_weight"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY index_code, trade_date, con_code"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_index_member_all(
+        self,
+        l1_code: Optional[str] = None,
+        l2_code: Optional[str] = None,
+        l3_code: Optional[str] = None,
+        ts_code: Optional[str] = None,
+        is_new: Optional[str] = None,
+        trade_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询申万行业成分构成数据（分级）
+
+        数据说明：
+        - 支持按行业代码查询成分股
+        - 支持按股票代码查询所属行业
+        - 支持历史回测（通过trade_date参数）
+
+        Args:
+            l1_code: 一级行业代码（可选）
+            l2_code: 二级行业代码（可选）
+            l3_code: 三级行业代码（可选）
+            ts_code: 股票代码（可选）
+            is_new: 是否最新（'Y'=是，'N'=否，None=全部，可选）
+            trade_date: 交易日期 YYYYMMDD（可选，用于历史回测）
+
+        Returns:
+            申万行业成分数据，包含以下字段：
+            - l1_code: 一级行业代码
+            - l1_name: 一级行业名称
+            - l2_code: 二级行业代码
+            - l2_name: 二级行业名称
+            - l3_code: 三级行业代码
+            - l3_name: 三级行业名称
+            - ts_code: 成分股票代码
+            - name: 成分股票名称
+            - in_date: 纳入日期
+            - out_date: 剔除日期
+            - is_new: 是否最新（Y/N）
+
+        Examples:
+            >>> # 查询黄金行业的当前成分股
+            >>> df = reader.get_index_member_all(l3_code='850531.SI', is_new='Y')
+            >>>
+            >>> # 查询某只股票所属的所有行业
+            >>> df = reader.get_index_member_all(ts_code='000001.SZ', is_new='Y')
+            >>>
+            >>> # 历史回测：查询2023年1月时的银行行业成分
+            >>> df = reader.get_index_member_all(
+            ...     l2_code='801780.SI',
+            ...     trade_date='20230115'
+            ... )
+        """
+        conditions = []
+        params = []
+
+        # 添加行业代码条件
+        if l1_code:
+            conditions.append("l1_code = ?")
+            params.append(l1_code)
+
+        if l2_code:
+            conditions.append("l2_code = ?")
+            params.append(l2_code)
+
+        if l3_code:
+            conditions.append("l3_code = ?")
+            params.append(l3_code)
+
+        # 添加股票代码条件
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        # 添加is_new条件
+        if is_new:
+            conditions.append("is_new = ?")
+            params.append(is_new)
+
+        # 添加历史回测条件
+        if trade_date:
+            # 在指定日期时，股票必须已经纳入且尚未剔除
+            conditions.append("in_date <= ?")
+            params.append(trade_date)
+            conditions.append("(out_date IS NULL OR out_date > ?)")
+            params.append(trade_date)
+
+        # 构建查询语句
+        query = "SELECT * FROM index_member_all"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY l1_code, l2_code, l3_code, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
     # ==================== 自定义 SQL 查询 ====================
 
     def query(self, sql: str, params: Optional[List] = None) -> pd.DataFrame:

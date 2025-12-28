@@ -436,9 +436,11 @@ def update_moneyflow_dc(downloader: DataDownloader):
         today = datetime.now().strftime('%Y%m%d')
 
         if latest_date is None:
-            logger.info("数据库中没有个股资金流向历史数据，将从30天前开始更新")
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
-            logger.info(f"  (初始化: 从30天前 {start_date} 开始)")
+            # moneyflow_dc 数据开始于 2023-09-11
+            start_date = '20230911'
+            logger.info("数据库中没有个股资金流向历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+            logger.warning("  提示: 完整初始化可能需要较长时间，建议使用 scripts/init_moneyflow_dc_history.py")
         else:
             latest_dt = datetime.strptime(latest_date, '%Y%m%d')
             start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
@@ -531,6 +533,97 @@ def update_index_classify(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_index_member_all(downloader: DataDownloader):
+    """
+    更新申万行业成分构成数据 (index_member_all)
+
+    策略：
+        1. 检查数据库中最新的 in_date
+        2. 如果数据较新（< 7天），跳过更新
+        3. 否则下载所有L2和L3行业的成分股（完整历史）
+        4. UPSERT机制会自动处理新增/更新，同时保留历史记录
+
+    注意：
+        - index_member_all 包含完整历史记录（支持回测）
+        - 定期更新以获取最新的成分变动
+        - 每条记录包含 in_date 和 out_date，可精确定位历史成分
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新申万行业成分构成数据 (index_member_all)...")
+
+    try:
+        # 1. 检查数据最新更新日期
+        need_update = True
+        if downloader.db.table_exists('index_member_all'):
+            result = downloader.db.execute_query(
+                "SELECT MAX(in_date) as max_date, COUNT(*) as count FROM index_member_all"
+            )
+            if not result.empty and result.iloc[0]['max_date'] is not None:
+                latest_date = str(result.iloc[0]['max_date'])
+                record_count = result.iloc[0]['count']
+                latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+                days_diff = (datetime.now() - latest_dt).days
+
+                logger.info(f"  数据库中已有 {record_count} 条记录，最新 in_date: {latest_date} (距今 {days_diff} 天)")
+
+                if days_diff < 7:
+                    logger.info(f"  数据已是最新（距今 {days_diff} 天），跳过更新")
+                    return
+                else:
+                    logger.info(f"  数据已过期 {days_diff} 天，开始更新...")
+                    need_update = True
+            else:
+                logger.info("  数据库中没有申万行业成分数据，开始初始化...")
+        else:
+            logger.info("  数据库中没有申万行业成分数据，开始初始化...")
+
+        # 2. 获取所有申万L2和L3行业指数代码
+        industries_df = downloader.db.execute_query(
+            "SELECT index_code, industry_name, level FROM index_classify "
+            "WHERE src = 'SW2021' AND level IN ('L2', 'L3') "
+            "ORDER BY level, index_code"
+        )
+
+        if industries_df.empty:
+            logger.warning("  未找到申万行业分类，跳过")
+            logger.warning("  提示：请先运行 update_index_classify() 下载行业分类数据")
+            return
+
+        logger.info(f"  共 {len(industries_df)} 个申万行业（L2+L3）")
+
+        # 3. 逐个行业下载成分股数据（不指定is_new，下载完整历史）
+        success_count = 0
+        total_rows = 0
+
+        for idx, row in industries_df.iterrows():
+            index_code = row['index_code']  # 使用 index_code(如 801780.SI)而非 industry_code
+            industry_name = row['industry_name']
+            level = row['level']
+
+            try:
+                # 根据level决定使用哪个参数
+                if level == 'L2':
+                    rows = downloader.download_index_member_all(l2_code=index_code)
+                else:  # L3
+                    rows = downloader.download_index_member_all(l3_code=index_code)
+
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+                    logger.info(f"  [{idx+1}/{len(industries_df)}] {level} {industry_name} ({index_code}): {rows} 条")
+
+            except Exception as e:
+                logger.error(f"  [{idx+1}/{len(industries_df)}] {level} {industry_name} ({index_code}): 失败 - {e}")
+                # 继续下载其他行业
+                continue
+
+        logger.info(f"✓ 申万行业成分构成更新完成: 成功 {success_count}/{len(industries_df)}, 总计 {total_rows} 条")
+
+    except Exception as e:
+        logger.error(f"✗ 更新申万行业成分构成数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -590,12 +683,13 @@ def main():
     1. 交易日历（基础数据，其他任务依赖）
     2. 股票列表（基础数据）
     3. 申万行业分类（基础数据，仅初始化时下载）
-    4. 每日数据（日线、复权、基本面）
-    5. 财务指标（季度数据）
-    6. 筹码分布
-    7. 龙虎榜机构席位数据
-    8. 行业资金流向（沪深通）数据
-    9. 个股资金流向数据
+    4. 申万行业指数成分股（月度数据，超过30天自动更新）
+    5. 每日数据（日线、复权、基本面）
+    6. 财务指标（季度数据）
+    7. 筹码分布
+    8. 龙虎榜机构席位数据
+    9. 行业资金流向（沪深通）数据
+    10. 个股资金流向数据
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -620,6 +714,8 @@ def main():
             update_trade_calendar(downloader)
             update_stock_basic(downloader)
             update_index_classify(downloader)  # 申万行业分类（仅初始化时下载）
+            update_index_member_all(downloader)  # 申万行业成分股（定期更新，支持历史回测）
+            # update_index_weight(downloader)  # TODO: 市场指数成分股（月度更新，如沪深300等）- 暂未实现
             update_daily_data(downloader)
             update_financial_indicators(downloader)
             update_cyq_perf(downloader)

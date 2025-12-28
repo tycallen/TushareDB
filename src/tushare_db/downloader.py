@@ -619,6 +619,118 @@ class DataDownloader:
         logger.info(f"行业分类数据: {len(df)} 行")
         return len(df)
 
+    def download_index_weight(
+        self,
+        index_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载指数成分和权重数据
+
+        数据说明：
+        - 获取指数的成分股及权重信息
+        - 可用于获取申万行业指数的成分股
+
+        Args:
+            index_code: 指数代码（可选），如 '000300.SH', '801780.SI' 等
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+
+        Examples:
+            >>> # 下载沪深300成分股
+            >>> downloader.download_index_weight(
+            ...     index_code='000300.SH',
+            ...     trade_date='20241201'
+            ... )
+            >>>
+            >>> # 下载申万银行行业成分股
+            >>> downloader.download_index_weight(
+            ...     index_code='801780.SI',
+            ...     start_date='20240101',
+            ...     end_date='20241231'
+            ... )
+        """
+        logger.debug(f"下载指数成分数据: index_code={index_code}, "
+                    f"trade_date={trade_date}, start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'index_weight',
+            index_code=index_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无指数成分数据")
+            return 0
+
+        self.db.write_dataframe(df, 'index_weight', mode='append')
+        logger.info(f"指数成分数据: {len(df)} 行")
+        return len(df)
+
+    def download_index_member_all(
+        self,
+        l1_code: Optional[str] = None,
+        l2_code: Optional[str] = None,
+        l3_code: Optional[str] = None,
+        ts_code: Optional[str] = None,
+        is_new: Optional[str] = None
+    ) -> int:
+        """
+        下载申万行业成分构成数据（分级）
+
+        数据说明：
+        - 按三级分类提取申万行业成分
+        - 可提供某个分类的所有成分，也可按股票代码提取所属分类
+        - 支持完整历史记录（用于历史回测）
+
+        Args:
+            l1_code: 一级行业代码（可选）
+            l2_code: 二级行业代码（可选）
+            l3_code: 三级行业代码（可选）
+            ts_code: 股票代码（可选）
+            is_new: 是否最新（'Y'=是，'N'=否，None=全部，可选）
+
+        Returns:
+            下载的行数
+
+        Examples:
+            >>> # 下载黄金行业的所有成分股（含历史）
+            >>> downloader.download_index_member_all(l3_code='850531.SI')
+            >>>
+            >>> # 下载某只股票所属的所有行业
+            >>> downloader.download_index_member_all(ts_code='000001.SZ')
+            >>>
+            >>> # 只下载当前最新成分（不含历史）
+            >>> downloader.download_index_member_all(l3_code='850531.SI', is_new='Y')
+        """
+        logger.debug(f"下载申万行业成分: l1_code={l1_code}, l2_code={l2_code}, "
+                    f"l3_code={l3_code}, ts_code={ts_code}, is_new={is_new}")
+
+        df = self.fetcher.fetch(
+            'index_member_all',
+            l1_code=l1_code,
+            l2_code=l2_code,
+            l3_code=l3_code,
+            ts_code=ts_code,
+            is_new=is_new
+        )
+
+        if df.empty:
+            logger.debug(f"无申万行业成分数据")
+            return 0
+
+        self.db.write_dataframe(df, 'index_member_all', mode='append')
+        logger.info(f"申万行业成分数据: {len(df)} 行")
+        return len(df)
+
 
     # ==================== 数据完整性验证 ====================
 
