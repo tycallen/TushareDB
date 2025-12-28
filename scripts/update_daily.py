@@ -486,6 +486,73 @@ def update_moneyflow_dc(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_moneyflow(downloader: DataDownloader):
+    """
+    增量更新个股资金流向数据 (moneyflow 标准接口)
+
+    策略：
+        1. 获取数据库中 moneyflow 的最新日期
+        2. 从下一天开始更新到今天
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新个股资金流向数据 (moneyflow)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('moneyflow', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # moneyflow 数据开始于 2010年
+            start_date = '20100101'
+            logger.info("数据库中没有个股资金流向历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+            logger.warning("  提示: 完整初始化需要较长时间，从2010年开始下载所有历史数据")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_moneyflow(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 个股资金流向更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新个股资金流向数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def update_index_classify(downloader: DataDownloader):
     """
     更新申万行业分类数据 (index_classify)
@@ -721,7 +788,8 @@ def main():
             update_cyq_perf(downloader)
             update_dc_member(downloader)
             update_moneyflow_ind_dc(downloader)
-            update_moneyflow_dc(downloader)  # 个股资金流向
+            update_moneyflow_dc(downloader)  # 个股资金流向（DC接口）
+            update_moneyflow(downloader)  # 个股资金流向（标准接口）
 
             # 4. 完成
             end_time = datetime.now()

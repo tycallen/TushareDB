@@ -569,6 +569,57 @@ class DataDownloader:
         logger.info(f"个股资金流向数据: {len(df)} 行")
         return len(df)
 
+    def download_moneyflow(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载个股资金流向数据（标准接口）
+
+        数据说明：
+        - 获取沪深A股票资金流向数据，分析大单小单成交情况
+        - 数据开始于2010年
+        - 单次最大获取6000条数据
+        - 需要至少2000积分
+
+        资金分类：
+        - 小单：5万以下
+        - 中单：5万～20万
+        - 大单：20万～100万
+        - 特大单：成交额>=100万
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            注意：股票代码和时间参数至少输入一个
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载个股资金流向(标准): ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'moneyflow',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无个股资金流向数据")
+            return 0
+
+        self.db.write_dataframe(df, 'moneyflow', mode='append')
+        logger.info(f"个股资金流向数据(标准): {len(df)} 行")
+        return len(df)
+
     def download_index_classify(
         self,
         index_code: Optional[str] = None,

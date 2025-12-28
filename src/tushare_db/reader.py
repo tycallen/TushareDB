@@ -588,6 +588,100 @@ class DataReader:
 
         return self.db.execute_query(query, params)
 
+    def get_moneyflow(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询个股资金流向数据（标准接口）
+
+        数据说明：
+        - 获取沪深A股票资金流向数据，分析大单小单成交情况
+        - 包含成交量和金额，买入和卖出分开统计
+        - 数据开始于2010年
+
+        资金分类：
+        - 小单：5万以下
+        - 中单：5万～20万
+        - 大单：20万～100万
+        - 特大单：成交额>=100万
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            个股资金流向数据，包含以下字段：
+            - ts_code: 股票代码
+            - trade_date: 交易日期
+            - buy_sm_vol: 小单买入量（手）
+            - buy_sm_amount: 小单买入金额（万元）
+            - sell_sm_vol: 小单卖出量（手）
+            - sell_sm_amount: 小单卖出金额（万元）
+            - buy_md_vol: 中单买入量（手）
+            - buy_md_amount: 中单买入金额（万元）
+            - sell_md_vol: 中单卖出量（手）
+            - sell_md_amount: 中单卖出金额（万元）
+            - buy_lg_vol: 大单买入量（手）
+            - buy_lg_amount: 大单买入金额（万元）
+            - sell_lg_vol: 大单卖出量（手）
+            - sell_lg_amount: 大单卖出金额（万元）
+            - buy_elg_vol: 特大单买入量（手）
+            - buy_elg_amount: 特大单买入金额（万元）
+            - sell_elg_vol: 特大单卖出量（手）
+            - sell_elg_amount: 特大单卖出金额（万元）
+            - net_mf_vol: 净流入量（手）
+            - net_mf_amount: 净流入额（万元）
+
+        Examples:
+            >>> # 获取单日全部股票数据
+            >>> df = reader.get_moneyflow(trade_date='20190315')
+            >>>
+            >>> # 获取单个股票数据
+            >>> df = reader.get_moneyflow(
+            ...     ts_code='002149.SZ',
+            ...     start_date='20190115',
+            ...     end_date='20190315'
+            ... )
+        """
+        conditions = []
+        params = []
+
+        # 按优先级处理查询条件
+        if trade_date:
+            # 查询特定日期的数据
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            # 查询日期范围
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        # 添加股票代码条件
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        # 构建查询语句
+        query = "SELECT * FROM moneyflow"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params)
+
     def get_index_classify(
         self,
         index_code: Optional[str] = None,
