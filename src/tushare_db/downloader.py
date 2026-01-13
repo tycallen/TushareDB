@@ -120,15 +120,17 @@ class DataDownloader:
         self,
         ts_code: str,
         start_date: str,
-        end_date: Optional[str] = None
+        end_date: Optional[str] = None,
+        asset: str = 'E'
     ) -> int:
         """
-        下载单只股票的日线数据（不复权）
+        下载单只股票或其它资产的日线数据（不复权）
 
         Args:
-            ts_code: 股票代码 (如 '000001.SZ')
+            ts_code: 证券代码 (如 '000001.SZ')
             start_date: 开始日期 (YYYYMMDD)
             end_date: 结束日期 (YYYYMMDD)，默认为今天
+            asset: 资产类别：E股票 FD基金 I指数 CB可转债 FT期货
 
         Returns:
             下载的行数
@@ -136,13 +138,13 @@ class DataDownloader:
         if end_date is None:
             end_date = datetime.now().strftime('%Y%m%d')
 
-        logger.debug(f"下载日线数据: {ts_code}, {start_date}-{end_date}")
+        logger.debug(f"下载日线数据: {ts_code}, {start_date}-{end_date}, asset={asset}")
         df = self.fetcher.fetch(
             'pro_bar',
             ts_code=ts_code,
             start_date=start_date,
             end_date=end_date,
-            asset='E',
+            asset=asset,
             freq='D'
         )
 
@@ -394,19 +396,20 @@ class DataDownloader:
 
     # ==================== 按日期下载（适合每日更新）====================
 
-    def download_daily_data_by_date(self, trade_date: str):
+    def download_daily_data_by_date(self, trade_date: str, asset: str = 'E'):
         """
-        按日期下载所有股票的数据（适合每日更新场景）
+        按日期下载所有证券的数据（适合每日更新场景）
 
         下载内容：
-        - 当日所有股票的日线数据
-        - 当日所有股票的复权因子
-        - 当日所有股票的每日基本面指标
+        - 当日所有资产类型的日线数据
+        - 当日所有股票的复权因子（仅当 asset='E' 时）
+        - 当日所有股票的每日基本面指标（仅当 asset='E' 时）
 
         Args:
             trade_date: 交易日期 (YYYYMMDD)
+            asset: 资产类别：E股票 FD基金 I指数 CB可转债 FT期货
         """
-        logger.info(f"开始按日期下载数据: {trade_date}")
+        logger.info(f"开始按日期下载数据: {trade_date}, asset={asset}")
 
         # 检查是否为交易日
         cal_df = self.db.execute_query(
@@ -425,30 +428,32 @@ class DataDownloader:
             return
 
         # 1. 下载日线数据（pro_bar 不支持 trade_date，使用 start_date=end_date）
-        logger.info(f"下载日线数据: {trade_date}")
+        logger.info(f"下载日线数据: {trade_date}, asset={asset}")
         df_daily = self.fetcher.fetch(
             'pro_bar',
             start_date=trade_date,
             end_date=trade_date,
-            asset='E'
+            asset=asset
         )
         if not df_daily.empty:
             self.db.write_dataframe(df_daily, 'pro_bar', mode='append')
             logger.info(f"日线数据: {len(df_daily)} 行")
 
-        # 2. 下载复权因子（支持 trade_date）
-        logger.info(f"下载复权因子: {trade_date}")
-        df_adj = self.fetcher.fetch('adj_factor', trade_date=trade_date)
-        if not df_adj.empty:
-            self.db.write_dataframe(df_adj, 'adj_factor', mode='append')
-            logger.info(f"复权因子: {len(df_adj)} 行")
+        # 只有在下载股票数据时才下载复权因子和基本面
+        if asset == 'E':
+            # 2. 下载复权因子（支持 trade_date）
+            logger.info(f"下载复权因子: {trade_date}")
+            df_adj = self.fetcher.fetch('adj_factor', trade_date=trade_date)
+            if not df_adj.empty:
+                self.db.write_dataframe(df_adj, 'adj_factor', mode='append')
+                logger.info(f"复权因子: {len(df_adj)} 行")
 
-        # 3. 下载每日基本面（支持 trade_date）
-        logger.info(f"下载每日基本面: {trade_date}")
-        df_basic = self.fetcher.fetch('daily_basic', trade_date=trade_date)
-        if not df_basic.empty:
-            self.db.write_dataframe(df_basic, 'daily_basic', mode='append')
-            logger.info(f"每日基本面: {len(df_basic)} 行")
+            # 3. 下载每日基本面（支持 trade_date）
+            logger.info(f"下载每日基本面: {trade_date}")
+            df_basic = self.fetcher.fetch('daily_basic', trade_date=trade_date)
+            if not df_basic.empty:
+                self.db.write_dataframe(df_basic, 'daily_basic', mode='append')
+                logger.info(f"每日基本面: {len(df_basic)} 行")
 
 
         logger.info(f"按日期下载完成: {trade_date}")

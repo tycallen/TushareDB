@@ -176,6 +176,82 @@ def update_daily_data(downloader: DataDownloader):
         raise
 
 
+def update_index_daily(downloader: DataDownloader):
+    """
+    更新常见指数日线数据
+
+    常见指数包括：
+    - 000001.SH 上证指数
+    - 399001.SZ 深证成指
+    - 399006.SZ 创业板指
+    - 000300.SH 沪深300
+    - 000905.SH 中证500
+    - 000852.SH 中证1000
+    - 000688.SH 科创50
+    - 000016.SH 上证50
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新常见指数日线数据...")
+
+    # 常见指数列表
+    indices = [
+        ('000001.SH', '上证指数'),
+        ('399001.SZ', '深证成指'),
+        ('399006.SZ', '创业板指'),
+        ('000300.SH', '沪深300'),
+        ('000905.SH', '中证500'),
+        ('000852.SH', '中证1000'),
+        ('000688.SH', '科创50'),
+        ('000016.SH', '上证50'),
+    ]
+
+    try:
+        today = datetime.now().strftime('%Y%m%d')
+        total_rows = 0
+
+        for ts_code, name in indices:
+            try:
+                # 获取该指数在数据库中的最新日期
+                latest_date_df = downloader.db.execute_query(
+                    "SELECT MAX(trade_date) as max_date FROM pro_bar WHERE ts_code = ?",
+                    [ts_code]
+                )
+
+                start_date = '20100101'
+                if not latest_date_df.empty and latest_date_df.iloc[0]['max_date']:
+                    latest_date = str(latest_date_df.iloc[0]['max_date'])
+                    latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+                    start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+
+                if start_date > today:
+                    logger.info(f"  {name} ({ts_code}): 已是最新，跳过")
+                    continue
+
+                logger.info(f"  更新 {name} ({ts_code}): {start_date} -> {today}")
+                rows = downloader.download_stock_daily(
+                    ts_code=ts_code,
+                    start_date=start_date,
+                    end_date=today,
+                    asset='I'
+                )
+                if rows > 0:
+                    logger.info(f"    ✓ 下载 {rows} 行")
+                    total_rows += rows
+                else:
+                    logger.info(f"    - 无新数据")
+
+            except Exception as e:
+                logger.error(f"  ✗ 更新 {name} ({ts_code}) 失败: {e}")
+                continue
+
+        logger.info(f"✓ 常见指数数据更新完成，总计 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新常见指数数据失败: {e}")
+        # 不阻塞主流程
+        logger.warning("  继续执行其他更新任务...")
+
+
 def update_financial_indicators(downloader: DataDownloader):
     """
     更新财务指标数据（VIP接口）
@@ -784,6 +860,7 @@ def main():
             update_index_member_all(downloader)  # 申万行业成分股（定期更新，支持历史回测）
             # update_index_weight(downloader)  # TODO: 市场指数成分股（月度更新，如沪深300等）- 暂未实现
             update_daily_data(downloader)
+            update_index_daily(downloader)  # 更新常见指数日线数据
             update_financial_indicators(downloader)
             update_cyq_perf(downloader)
             update_dc_member(downloader)
