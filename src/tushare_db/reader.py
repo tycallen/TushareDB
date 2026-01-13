@@ -6,7 +6,7 @@
 设计理念：高性能、零开销、假设数据已经存在
 """
 import pandas as pd
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 
 from .logger import get_logger
@@ -214,7 +214,8 @@ class DataReader:
 
             if not adj_df.empty:
                 df = df.merge(adj_df, on=['ts_code', 'trade_date'], how='left')
-                df = self._adjust_prices(df, adj)
+                # 传入 ts_codes 以正确计算前复权
+                df = self._adjust_prices(df, adj, ts_codes)
 
         return df
 
@@ -982,16 +983,17 @@ class DataReader:
         # 合并复权因子
         df = df.merge(adj_df, on='trade_date', how='left')
 
-        # 应用复权
-        return self._adjust_prices(df, adj_type)
+        # 应用复权（传入 ts_code 以正确计算前复权）
+        return self._adjust_prices(df, adj_type, ts_code)
 
-    def _adjust_prices(self, df: pd.DataFrame, adj_type: str) -> pd.DataFrame:
+    def _adjust_prices(self, df: pd.DataFrame, adj_type: str, ts_codes: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
         """
         对价格字段应用复权因子
 
         Args:
             df: 包含 adj_factor 列的 DataFrame
             adj_type: 复权类型
+            ts_codes: 股票代码（单个或列表），前复权时必须提供以获取最新复权因子
 
         Returns:
             复权后的 DataFrame
@@ -1006,10 +1008,63 @@ class DataReader:
             # 前复权：价格 × (最新复权因子 / 当日复权因子)
             # 特点：最新日期的价格不变，等于真实市场价格
             if not df.empty:
-                latest_factor = df['adj_factor'].iloc[-1]
-                for col in price_cols:
-                    if col in df.columns:
-                        df[col] = df[col] * (latest_factor / df['adj_factor'])
+                # 获取每只股票的最新复权因子
+                if ts_codes is None:
+                    # 如果未提供 ts_codes，尝试从 df 中提取
+                    if 'ts_code' in df.columns:
+                        ts_codes = df['ts_code'].unique().tolist()
+                    else:
+                        # 降级：使用查询结果中的最后一天因子（旧行为，可能不准确）
+                        logger.warning("前复权计算缺少 ts_codes 参数，使用查询结果中的最后一天因子")
+                        latest_factor = df['adj_factor'].iloc[-1]
+                        for col in price_cols:
+                            if col in df.columns:
+                                df[col] = df[col] * (df['adj_factor'] / latest_factor)
+                        return df
+
+                # 确保 ts_codes 是列表
+                if isinstance(ts_codes, str):
+                    ts_codes = [ts_codes]
+
+                # 批量查询所有股票的最新复权因子
+                placeholders = ','.join(['?'] * len(ts_codes))
+                latest_adj_query = f"""
+                    SELECT ts_code, adj_factor
+                    FROM (
+                        SELECT ts_code, adj_factor,
+                               ROW_NUMBER() OVER (PARTITION BY ts_code ORDER BY trade_date DESC) as rn
+                        FROM adj_factor
+                        WHERE ts_code IN ({placeholders})
+                    )
+                    WHERE rn = 1
+                """
+                latest_adj_df = self.db.execute_query(latest_adj_query, ts_codes)
+
+                if latest_adj_df.empty:
+                    logger.warning(f"未找到股票的最新复权因子: {ts_codes}")
+                    return df
+
+                # 将最新复权因子映射到每只股票
+                latest_factors = dict(zip(latest_adj_df['ts_code'], latest_adj_df['adj_factor']))
+
+                # 应用前复权
+                # 前复权公式：qfq_price = raw_price × (adj_factor / latest_factor)
+                # 等价于：qfq_price = hfq_price / latest_factor
+                if 'ts_code' in df.columns:
+                    # 多股票情况
+                    for col in price_cols:
+                        if col in df.columns:
+                            df[col] = df.apply(
+                                lambda row: row[col] * (row['adj_factor'] / latest_factors.get(row['ts_code'], 1.0))
+                                if pd.notna(row['adj_factor']) and latest_factors.get(row['ts_code'], 1.0) != 0 else row[col],
+                                axis=1
+                            )
+                else:
+                    # 单股票情况
+                    latest_factor = latest_factors.get(ts_codes[0], df['adj_factor'].iloc[-1])
+                    for col in price_cols:
+                        if col in df.columns:
+                            df[col] = df[col] * (df['adj_factor'] / latest_factor)
 
         elif adj_type == 'hfq':
             # 后复权：价格 × 复权因子
