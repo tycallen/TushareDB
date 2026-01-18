@@ -43,7 +43,7 @@ class DataReader:
             db_path: DuckDB 数据库文件路径
             strict_mode: 严格模式，数据不存在时抛出异常而不是返回空 DataFrame
         """
-        self.db = DuckDBManager(db_path)
+        self.db = DuckDBManager(db_path, read_only=True)
         self.strict_mode = strict_mode
         logger.info(f"DataReader 初始化完成: db={db_path}, strict_mode={strict_mode}")
 

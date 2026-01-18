@@ -42,20 +42,25 @@ class DuckDBManager:
     query execution, and data writing with UPSERT capabilities.
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, read_only: bool = False):
         """
         Initializes the DuckDBManager and establishes a connection to the database.
 
         Args:
             db_path: The path to the DuckDB database file (e.g., 'data/tushare.duckdb').
+            read_only: Whether to open the database in read-only mode (allows concurrent readers).
         """
         if not db_path:
             raise ValueError("Database path cannot be empty.")
         try:
             self.db_path = db_path
-            self.con = duckdb.connect(database=db_path, read_only=False)
-            self._create_metadata_table()
-            logging.info(f"Connected to DuckDB database: {db_path}")
+            self.read_only = read_only
+            self.con = duckdb.connect(database=db_path, read_only=read_only)
+            
+            if not read_only:
+                self._create_metadata_table()
+                
+            logging.info(f"Connected to DuckDB database: {db_path} (read_only={read_only})")
         except Exception as e:
             logging.error(f"Failed to connect to DuckDB at {db_path}: {e}")
             raise DuckDBManagerError(f"Failed to connect to DuckDB: {e}") from e
