@@ -140,19 +140,17 @@ class DataDownloader:
 
         logger.debug(f"下载日线数据: {ts_code}, {start_date}-{end_date}, asset={asset}")
         df = self.fetcher.fetch(
-            'pro_bar',
+            'daily',
             ts_code=ts_code,
             start_date=start_date,
-            end_date=end_date,
-            asset=asset,
-            freq='D'
+            end_date=end_date
         )
 
         if df.empty:
             logger.debug(f"无数据: {ts_code}")
             return 0
 
-        self.db.write_dataframe(df, 'pro_bar', mode='append')
+        self.db.write_dataframe(df, 'daily', mode='append')
         return len(df)
 
     def download_adj_factor(
@@ -427,16 +425,14 @@ class DataDownloader:
             logger.info(f"{trade_date} 不是交易日，跳过")
             return
 
-        # 1. 下载日线数据（pro_bar 不支持 trade_date，使用 start_date=end_date）
+        # 1. 下载日线数据
         logger.info(f"下载日线数据: {trade_date}, asset={asset}")
         df_daily = self.fetcher.fetch(
-            'pro_bar',
-            start_date=trade_date,
-            end_date=trade_date,
-            asset=asset
+            'daily',
+            trade_date=trade_date
         )
         if not df_daily.empty:
-            self.db.write_dataframe(df_daily, 'pro_bar', mode='append')
+            self.db.write_dataframe(df_daily, 'daily', mode='append')
             logger.info(f"日线数据: {len(df_daily)} 行")
 
         # 只有在下载股票数据时才下载复权因子和基本面
@@ -857,7 +853,7 @@ class DataDownloader:
         for ts_code in stocks_df['ts_code']:
             actual_dates_df = self.db.execute_query(
                 """
-                SELECT trade_date FROM pro_bar
+                SELECT trade_date FROM daily
                 WHERE ts_code = ?
                 AND trade_date BETWEEN ? AND ?
                 """,

@@ -110,7 +110,7 @@ def update_daily_data(downloader: DataDownloader):
     
     说明：
         使用 download_daily_data_by_date 方法一次性下载：
-        1. 所有股票的日线数据（pro_bar）
+        1. 所有股票的日线数据（daily）
         2. 所有股票的复权因子（adj_factor）
         3. 所有股票的每日基本面（daily_basic）
     """
@@ -119,7 +119,7 @@ def update_daily_data(downloader: DataDownloader):
     
     try:
         # 1. 获取数据库中最新的交易日期
-        latest_date = downloader.db.get_latest_date('pro_bar', 'trade_date')
+        latest_date = downloader.db.get_latest_date('daily', 'trade_date')
         today = datetime.now().strftime('%Y%m%d')
         
         if latest_date is None:
@@ -213,7 +213,7 @@ def update_index_daily(downloader: DataDownloader):
             try:
                 # 获取该指数在数据库中的最新日期
                 latest_date_df = downloader.db.execute_query(
-                    "SELECT MAX(trade_date) as max_date FROM pro_bar WHERE ts_code = ?",
+                    "SELECT MAX(trade_date) as max_date FROM daily WHERE ts_code = ?",
                     [ts_code]
                 )
 

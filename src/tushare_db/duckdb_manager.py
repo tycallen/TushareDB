@@ -14,7 +14,6 @@ class DuckDBManagerError(Exception):
 
 # A dictionary to define primary keys for tables. This is crucial for UPSERT operations.
 TABLE_PRIMARY_KEYS = {
-    "pro_bar": ["ts_code", "trade_date"],
     "daily": ["ts_code", "trade_date"],
     "daily_basic": ["ts_code", "trade_date"],
     "adj_factor": ["ts_code", "trade_date"],

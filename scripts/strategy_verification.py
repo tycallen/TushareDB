@@ -22,7 +22,7 @@ def check_strategy_feasibility():
     
     try:
         # 1. Check Table Existence
-        required_tables = ['pro_bar', 'cyq_perf', 'stock_basic', 'daily_basic']
+        required_tables = ['daily', 'cyq_perf', 'stock_basic', 'daily_basic']
         print("[Check 1] Verifying required tables...")
         for table in required_tables:
             if reader.table_exists(table):
@@ -33,9 +33,9 @@ def check_strategy_feasibility():
 
         # 2. Get latest available date
         print("\n[Check 2] Getting latest available data date...")
-        latest_date_df = reader.query("SELECT MAX(trade_date) as max_date FROM pro_bar")
+        latest_date_df = reader.query("SELECT MAX(trade_date) as max_date FROM daily")
         if latest_date_df.empty or latest_date_df.iloc[0]['max_date'] is None:
-            print("  No data in pro_bar. Please download data first.")
+            print("  No data in daily. Please download data first.")
             return
         
         target_date = latest_date_df.iloc[0]['max_date']
@@ -66,7 +66,7 @@ def check_strategy_feasibility():
         sql_cond1 = f"""
         WITH price_data AS (
             SELECT ts_code, trade_date, pct_chg 
-            FROM pro_bar 
+            FROM daily 
             WHERE trade_date IN ('{t0}', '{t1}', '{t2}')
         ),
         chips_data AS (
@@ -107,8 +107,8 @@ def check_strategy_feasibility():
         # We can implement this by calculating the 20th percentile of turnover_rate for each day.
         
         # Calculate threshold for t0 and t1
-        t0_threshold = reader.query(f"SELECT percentile_cont(0.2) WITHIN GROUP (ORDER BY turnover_rate) as p20 FROM pro_bar WHERE trade_date='{t0}'").iloc[0]['p20']
-        t1_threshold = reader.query(f"SELECT percentile_cont(0.2) WITHIN GROUP (ORDER BY turnover_rate) as p20 FROM pro_bar WHERE trade_date='{t1}'").iloc[0]['p20']
+        t0_threshold = reader.query(f"SELECT percentile_cont(0.2) WITHIN GROUP (ORDER BY turnover_rate) as p20 FROM daily WHERE trade_date='{t0}'").iloc[0]['p20']
+        t1_threshold = reader.query(f"SELECT percentile_cont(0.2) WITHIN GROUP (ORDER BY turnover_rate) as p20 FROM daily WHERE trade_date='{t1}'").iloc[0]['p20']
         
         # If turnover_rate is None/NaN, treat as 0.
         import numpy as np
@@ -122,7 +122,7 @@ def check_strategy_feasibility():
         sql_cond2 = f"""
         WITH turnover_check AS (
             SELECT ts_code
-            FROM pro_bar
+            FROM daily
             WHERE (trade_date = '{t0}' AND turnover_rate >= {t0_threshold})
                OR (trade_date = '{t1}' AND turnover_rate >= {t1_threshold})
             GROUP BY ts_code
@@ -166,7 +166,7 @@ def check_strategy_feasibility():
             sql_cond3 = f"""
             WITH limit_up_counts AS (
                 SELECT ts_code, SUM(CASE WHEN pct_chg > 9.5 THEN 1 ELSE 0 END) as lu_count
-                FROM pro_bar
+                FROM daily
                 WHERE trade_date BETWEEN '{d_start}' AND '{target_date}'
                 GROUP BY ts_code
                 HAVING lu_count >= 3

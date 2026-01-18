@@ -674,20 +674,20 @@ async def get_adj_factor(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/pro_bar")
-async def get_pro_bar(
+@app.get("/api/daily")
+async def get_daily(
     ts_code: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     asset: str = 'E',
     freq: str = 'D',
     # For 'ma', FastAPI can handle list parameters from query strings
-    # e.g., /api/pro_bar?ts_code=...&ma=5&ma=10&ma=20
+    # e.g., /api/daily?ts_code=...&ma=5&ma=10&ma=20
     ma: Optional[List[int]] = Query(None),
     adjfactor: bool = False,
 ):
     """
-    API endpoint for the pro_bar interface.
+    API endpoint for the daily interface.
     Note: `ts_code` is required for this endpoint.
     New architecture: Uses DataReader for query-only operations.
     """

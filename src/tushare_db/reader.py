@@ -150,14 +150,14 @@ class DataReader:
 
         # 1. 查询原始日线数据
         query = """
-            SELECT * FROM pro_bar
+            SELECT * FROM daily
             WHERE ts_code = ?
             AND trade_date BETWEEN ? AND ?
             ORDER BY trade_date
         """
         df = self.db.execute_query(query, [ts_code, start_date, end_date])
 
-        self._check_empty(df, f"pro_bar(ts_code={ts_code}, {start_date}-{end_date})")
+        self._check_empty(df, f"daily(ts_code={ts_code}, {start_date}-{end_date})")
 
         # 2. 如果需要复权，动态计算
         if adj in ['qfq', 'hfq'] and not df.empty:
@@ -193,7 +193,7 @@ class DataReader:
         # 使用 IN 查询批量获取
         placeholders = ','.join(['?'] * len(ts_codes))
         query = f"""
-            SELECT * FROM pro_bar
+            SELECT * FROM daily
             WHERE ts_code IN ({placeholders})
             AND trade_date BETWEEN ? AND ?
             ORDER BY ts_code, trade_date
@@ -349,7 +349,7 @@ class DataReader:
                 p.vol,
                 p.amount
             FROM stock_basic s
-            LEFT JOIN pro_bar p ON s.ts_code = p.ts_code AND s.list_date = p.trade_date
+            LEFT JOIN daily p ON s.ts_code = p.ts_code AND s.list_date = p.trade_date
             WHERE {where_clause}
             ORDER BY s.list_date DESC
         """
@@ -405,7 +405,7 @@ class DataReader:
                 p.vol,
                 p.amount
             FROM stock_basic s
-            LEFT JOIN pro_bar p ON s.ts_code = p.ts_code AND s.list_date = p.trade_date
+            LEFT JOIN daily p ON s.ts_code = p.ts_code AND s.list_date = p.trade_date
             WHERE s.ts_code = ?
         """
 

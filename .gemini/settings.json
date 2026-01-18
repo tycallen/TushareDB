@@ -1,0 +1,8 @@
+{
+  "security": {
+    "disableYoloMode": true
+  },
+  "experimental": {
+    "skills": true
+  }
+}

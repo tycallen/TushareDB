@@ -131,7 +131,7 @@ def calculate_industry_width(reader: DataReader, trade_date: str, stock_industry
     # 获取当日所有股票的涨跌情况
     query = f"""
         SELECT ts_code, pct_chg
-        FROM pro_bar
+        FROM daily
         WHERE trade_date = '{trade_date}'
           AND pct_chg IS NOT NULL
     """

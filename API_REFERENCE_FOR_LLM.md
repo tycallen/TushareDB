@@ -81,7 +81,7 @@ downloader.download_all_adj_factors('20200101', '20231231', list_status='L')
 # === Daily Update (for scheduled tasks) ===
 # Download data by specific date
 downloader.download_daily_data_by_date('20240118')
-# This downloads: pro_bar + adj_factor + daily_basic for all stocks
+# This downloads: daily + adj_factor + daily_basic for all stocks
 
 # === Data Validation ===
 result = downloader.validate_data_integrity('20200101', '20231231', sample_size=10)
@@ -140,7 +140,7 @@ factors = reader.get_stk_factor_pro('000001.SZ', '20230101', '20231231')
 # === Custom SQL Query ===
 # Direct SQL access for advanced queries
 df = reader.query(
-    "SELECT * FROM pro_bar WHERE ts_code = ? AND trade_date >= ?",
+    "SELECT * FROM daily WHERE ts_code = ? AND trade_date >= ?",
     ['000001.SZ', '20230101']
 )
 
@@ -173,7 +173,7 @@ python -c "from src.tushare_db.web_server import app; import uvicorn; uvicorn.ru
 GET /                              - Health check
 GET /api/stock_basic               - Stock list
 GET /api/trade_cal                 - Trading calendar
-GET /api/pro_bar                   - Daily bars
+GET /api/daily                     - Daily bars
 GET /api/adj_factor                - Adjustment factors
 GET /api/daily_basic               - Daily fundamentals
 GET /api/stock_company             - Company info
@@ -185,7 +185,7 @@ GET /api/stk_factor_pro            - Technical factors
 **Example HTTP Request**:
 ```bash
 # Get stock daily data
-curl "http://localhost:8000/api/pro_bar?ts_code=000001.SZ&start_date=20230101&end_date=20230131"
+curl "http://localhost:8000/api/daily?ts_code=000001.SZ&start_date=20230101&end_date=20230131"
 
 # Response: JSON array of OHLCV data
 [
@@ -311,7 +311,7 @@ reader.close()
 
 **Note**: Current database version does not include `industry` (industry sector) or `list_status` (listing status) fields. Use other data sources or tables if these fields are needed.
 
-### Table: pro_bar (daily bars, unadjusted)
+### Table: daily (daily bars, unadjusted)
 | Column | Type | Description |
 |--------|------|-------------|
 | ts_code | VARCHAR | Stock code |
@@ -377,7 +377,7 @@ df = reader.get_multiple_stocks_daily(codes, start, end)  # 1 query!
 ```python
 # Complex filter with SQL (very fast!)
 df = reader.query("""
-    SELECT * FROM pro_bar
+    SELECT * FROM daily
     WHERE trade_date BETWEEN ? AND ?
     AND close > open * 1.05  -- Up > 5%
     AND vol > 100000000      -- Volume > 100M
@@ -460,7 +460,7 @@ When generating code using this library:
 
 2. **Check data existence before querying**:
    ```python
-   if reader.table_exists('pro_bar'):
+   if reader.table_exists('daily'):
        df = reader.get_stock_daily(...)
    else:
        print("Data not downloaded yet")

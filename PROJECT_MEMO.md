@@ -101,7 +101,7 @@ client.close()
 
 ---
 
-### `pro_bar`
+### `daily`
 
 获取复权或未复权的行情数据。
 

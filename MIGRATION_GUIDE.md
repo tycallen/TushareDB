@@ -170,8 +170,8 @@ from .reader import DataReader
 
 reader = DataReader()
 
-@app.get("/api/pro_bar")
-async def get_pro_bar(ts_code: str, start_date: str, end_date: str, adj: str = None):
+@app.get("/api/daily")
+async def get_daily(ts_code: str, start_date: str, end_date: str, adj: str = None):
     df = reader.get_stock_daily(ts_code, start_date, end_date, adj=adj)
     return df_to_json_response(df)
 ```

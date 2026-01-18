@@ -156,7 +156,7 @@ def update_historical_daily_data(downloader: DataDownloader, start_year: int = 2
             try:
                 # 检查是否已有数据（避免重复下载）
                 existing_df = downloader.db.execute_query(
-                    "SELECT COUNT(*) as cnt FROM pro_bar WHERE trade_date = ?",
+                    "SELECT COUNT(*) as cnt FROM daily WHERE trade_date = ?",
                     [trade_date]
                 )
 

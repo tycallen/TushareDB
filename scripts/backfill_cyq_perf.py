@@ -62,7 +62,7 @@ def get_missing_dates(downloader: DataDownloader, start_date: str, end_date: str
     sql = """
     WITH pro_bar_dates AS (
         SELECT DISTINCT trade_date
-        FROM pro_bar
+        FROM daily
         WHERE trade_date BETWEEN ? AND ?
     ),
     cyq_dates AS (

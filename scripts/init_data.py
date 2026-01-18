@@ -2,6 +2,7 @@
 import os
 import warnings
 import tushare_db
+from tushare_db import DataDownloader
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -18,36 +19,35 @@ tushare_token = os.getenv("TUSHARE_TOKEN")
 if not tushare_token:
     raise ValueError("请设置 TUSHARE_TOKEN 环境变量")
 
-client = tushare_db.TushareDBClient(tushare_token=tushare_token, db_path="/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db")
+# client = tushare_db.TushareDBClient(tushare_token=tushare_token, db_path="/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db")
+downloader = DataDownloader(tushare_token=tushare_token, db_path="/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db")
+# 为了兼容旧代码（虽然 api 可能不存在了），保留 client 变量名，指向 downloader (如果接口兼容) 或者暂留
+# 由于 api.py 不存在，下面的 client 调用都会失败。我们逐步替换为 downloader。
+# client = None 
 
 def init_trade_cal():
     """初始化交易日历"""
     print("开始初始化交易日历...")
-    tushare_db.api.trade_cal(client, start_date='19900101', end_date='20301231')
-
+    # tushare_db.api.trade_cal(client, start_date='19900101', end_date='20301231')
+    downloader.download_trade_calendar(start_date='19900101', end_date='20301231')
     print("交易日历初始化完成。")
 
 def init_stock_basic():
     """初始化股票列表"""
     print("开始初始化股票列表...")
-    tushare_db.api.stock_basic(list_status='L')
-    tushare_db.api.stock_basic(list_status='D')
-    tushare_db.api.stock_basic(list_status='P')
+    # tushare_db.api.stock_basic(list_status='L')
+    downloader.download_stock_basic(list_status='L')
+    downloader.download_stock_basic(list_status='D')
+    downloader.download_stock_basic(list_status='P')
     print("股票列表初始化完成。")
 
 def init_pro_bar():
     """初始化所有股票的历史日线数据"""
     print("开始初始化所有股票的历史日线数据...")
-    # 获取所有股票代码
-    for status in ['L', 'D', 'P']:
-        print(f"正在初始化 {status} 状态的股票数据...")
-        all_stocks = tushare_db.api.stock_basic(client, list_status=status)
-        for ts_code in all_stocks['ts_code']:
-            print(f"正在获取 {ts_code} 的历史数据...")
-            try:
-                tushare_db.api.pro_bar(client=client, ts_code=ts_code, asset='E', freq='D', start_date='20000101')
-            except Exception as e:
-                print(f"获取 {ts_code} 数据时出错: {e}")
+    # 使用 DataDownloader 批量下载
+    downloader.download_all_stocks_daily(start_date='20000101', list_status='L')
+    downloader.download_all_stocks_daily(start_date='20000101', list_status='D')
+    downloader.download_all_stocks_daily(start_date='20000101', list_status='P')
     print("所有股票的历史日线数据初始化完成。")
 
 

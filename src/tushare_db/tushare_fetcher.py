@@ -66,7 +66,6 @@ class TushareFetcher:
         if "default" not in self.rate_limit_config:
             raise ValueError("rate_limit_config must contain a 'default' key.")
 
-        self.pro_bar_executor = ThreadPoolExecutor(max_workers=10) # 可以根据需要调整 max_workers
         logging.info(f"TushareFetcher initialized with rate limit config: {self.rate_limit_config}")
 
     def _truncate_params_for_logging(self, params: dict, max_len: int = 10) -> str:
@@ -96,48 +95,16 @@ class TushareFetcher:
         Raises:
             TushareClientError: If there is an error during the API call or data retrieval.
         """
-        # Special handling for pro_bar with multiple ts_codes
-        if api_name == 'pro_bar' and 'ts_code' in params:
-            ts_codes = params['ts_code']
-            if isinstance(ts_codes, str) and ',' in ts_codes:
-                ts_codes = ts_codes.split(',')
-            
-            if isinstance(ts_codes, list) and len(ts_codes) > 1:
-                logging.info(f"Fetching 'pro_bar' for {len(ts_codes)} stocks using ThreadPoolExecutor.")
-                all_data = []
-                base_params = params.copy()
-                
-                # 定义一个辅助函数，用于在线程中调用 fetch
-                def fetch_single_pro_bar(code):
-                    single_params = base_params.copy()
-                    single_params['ts_code'] = code
-                    return self.fetch(api_name, **single_params)
-
-                # 使用线程池并发执行
-                futures = [self.pro_bar_executor.submit(fetch_single_pro_bar, code) for code in ts_codes]
-                
-                for future in futures:
-                    df_single = future.result() # 获取每个线程的结果
-                    if not df_single.empty:
-                        all_data.append(df_single)
-                
-                if not all_data:
-                    return pd.DataFrame()
-                return pd.concat(all_data, ignore_index=True)
-
-        # Default behavior for all other APIs or pro_bar with a single ts_code
+        # Default behavior for all other APIs
         self._wait_for_rate_limit(api_name)
 
         try:
             params_for_log = self._truncate_params_for_logging(params)
             logging.info(f"Fetching data for API: {api_name} with params: {params_for_log}")
             
-            if api_name == 'pro_bar':
-                api_func = ts.pro_bar
-            else:
-                api_func = getattr(self.pro, api_name, None)
-                if api_func is None:
-                    api_func = lambda **p: self.pro.query(api_name, **p)
+            api_func = getattr(self.pro, api_name, None)
+            if api_func is None:
+                api_func = lambda **p: self.pro.query(api_name, **p)
 
             df = api_func(**params)
 

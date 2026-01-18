@@ -66,7 +66,7 @@ class TushareDBMCPServer:
 
             elif method == "list_tables":
                 tables = [
-                    "stock_basic", "pro_bar", "adj_factor", "daily_basic",
+                    "stock_basic", "daily", "adj_factor", "daily_basic",
                     "trade_cal", "stock_company", "cyq_perf", "stk_factor_pro"
                 ]
                 return {"result": tables}

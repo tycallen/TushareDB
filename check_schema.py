@@ -116,7 +116,7 @@ def main():
     # 检查文档中提到的表是否存在
     documented_tables = {
         'stock_basic': '股票列表',
-        'pro_bar': '日线数据（未复权）',
+        'daily': '日线数据（未复权）',
         'adj_factor': '复权因子',
         'daily_basic': '每日指标',
         'trade_cal': '交易日历',
@@ -162,7 +162,7 @@ def main():
     print("🔎 常用表详细字段检查：")
     print("-" * 80)
 
-    important_tables = ['stock_basic', 'pro_bar', 'daily_basic', 'adj_factor', 'trade_cal']
+    important_tables = ['stock_basic', 'daily', 'daily_basic', 'adj_factor', 'trade_cal']
 
     for table in important_tables:
         if table in schema:
