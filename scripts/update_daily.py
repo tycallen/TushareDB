@@ -56,21 +56,23 @@ def get_env_config():
 def update_trade_calendar(downloader: DataDownloader):
     """
     更新交易日历
-    
-    策略：每次更新最近30天到未来1年的数据，确保覆盖节假日调整
+
+    策略：每次更新完整的交易日历（2000年至未来2年），确保数据完整性
+    由于底层使用 mode='replace'，必须每次获取完整范围以避免历史数据丢失
     """
     logger.info("=" * 60)
     logger.info("开始更新交易日历...")
-    
-    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
-    one_year_later = (datetime.now() + timedelta(days=365)).strftime('%Y%m%d')
-    
+
+    start_date = '20000101'  # 从2000年开始
+    two_years_later = (datetime.now() + timedelta(days=730)).strftime('%Y%m%d')
+
     try:
         rows = downloader.download_trade_calendar(
-            start_date=thirty_days_ago,
-            end_date=one_year_later
+            start_date=start_date,
+            end_date=two_years_later
         )
         logger.info(f"✓ 交易日历更新完成，更新 {rows} 行")
+        logger.info(f"  覆盖范围: {start_date} → {two_years_later}")
     except Exception as e:
         logger.error(f"✗ 更新交易日历失败: {e}")
         raise
