@@ -121,6 +121,27 @@ finally:
 └───tests/                # 测试用例
 ```
 
+## Claude Code Integration
+
+This project provides a skill for [Claude Code](https://claude.ai/code) to understand the local data API.
+
+### Install Skill
+
+```bash
+# Global (all projects)
+cp -r docs/skills/tushare-duckdb ~/.claude/skills/
+
+# Or project-local (this project only)
+cp -r docs/skills/tushare-duckdb .claude/skills/
+```
+
+### Usage in Claude Code
+
+```
+/tushare-duckdb          # Show available local APIs and usage
+/tushare-finance daily   # Get Tushare API parameter details (if available)
+```
+
 ## 贡献
 
 欢迎对本项目进行贡献。如果您有任何改进建议或发现了 Bug，请随时提交 Pull Request 或创建 Issue。
