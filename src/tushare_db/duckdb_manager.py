@@ -33,6 +33,14 @@ TABLE_PRIMARY_KEYS = {
     "moneyflow": ["ts_code", "trade_date"],
     "index_classify": ["industry_code"],
     "index_member_all": ["ts_code", "l3_code", "in_date"],
+    # 财务报表
+    "income": ["ts_code", "end_date", "report_type"],
+    "balancesheet": ["ts_code", "end_date", "report_type"],
+    "cashflow": ["ts_code", "end_date", "report_type"],
+    # 分红送股
+    "dividend": ["ts_code", "end_date"],
+    # 融资融券
+    "margin_detail": ["ts_code", "trade_date"],
 }
 
 class DuckDBManager:

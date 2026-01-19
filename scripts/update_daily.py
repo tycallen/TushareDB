@@ -9,10 +9,13 @@
 3. 更新申万行业分类（仅初始化时下载）
 4. 更新所有股票的日线数据、复权因子、每日基本面
 5. 更新财务指标数据（VIP接口）
-6. 更新筹码分布数据
-7. 更新龙虎榜机构席位数据
-8. 更新行业资金流向（沪深通）数据
-9. 更新个股资金流向数据
+6. 更新三大财务报表（利润表、资产负债表、现金流量表）
+7. 更新分红送股数据
+8. 更新融资融券交易明细
+9. 更新筹码分布数据
+10. 更新龙虎榜机构席位数据
+11. 更新行业资金流向（沪深通）数据
+12. 更新个股资金流向数据
 
 使用方法：
     python scripts/update_daily.py
@@ -25,6 +28,7 @@
 日期：2025-12-04
 更新：2025-12-11 - 添加龙虎榜和资金流向数据更新
 更新：2025-12-26 - 添加申万行业分类和个股资金流向更新
+更新：2026-01-19 - 添加财务报表、分红送股、融资融券明细更新
 """
 
 import os
@@ -257,46 +261,32 @@ def update_index_daily(downloader: DataDownloader):
 def update_financial_indicators(downloader: DataDownloader):
     """
     更新财务指标数据（VIP接口）
-    
-    策略：获取最近8个季度的数据，确保捕获所有延迟披露的财报
-    
-    注意：此功能需要 DataDownloader 扩展 download_fina_indicator_vip 方法
-    TODO: 等待 DataDownloader 实现此方法后启用
+
+    策略：
+        使用 VIP 接口按报告期批量下载全部股票的财务指标
+        - 获取最近8个季度的数据，确保捕获所有延迟披露的财报
+        - 每个季度一次API调用即可获取全部股票数据
+        - 需要5000积分
     """
     logger.info("=" * 60)
-    logger.info("开始更新财务指标数据...")
-    
+    logger.info("开始更新财务指标数据（VIP批量模式）...")
+
     try:
         # 生成最近8个季度的结束日期
         quarters = _generate_recent_quarters(8)
-        
-        logger.info(f"将更新 {len(quarters)} 个季度的财务数据: {quarters}")
-        
-        # TODO: 目前 DataDownloader 还没有 download_fina_indicator_vip 方法
-        # 需要在 downloader.py 中添加类似这样的方法：
-        #
-        # def download_fina_indicator_vip(self, period: str):
-        #     """下载财务指标数据（VIP接口）"""
-        #     df = self.fetcher.fetch('fina_indicator_vip', period=period)
-        #     if not df.empty:
-        #         self.db.write_dataframe(df, 'fina_indicator_vip', mode='append')
-        #     return len(df)
-        
-        logger.warning("⚠ 财务指标更新功能需要扩展 DataDownloader，当前跳过")
-        logger.info("  建议：在 src/tushare_db/downloader.py 中添加 download_fina_indicator_vip 方法")
-        
-        # 临时方案：直接使用 fetcher
+        logger.info(f"将更新 {len(quarters)} 个季度的财务指标: {quarters}")
+
+        total_rows = 0
         for period in quarters:
-            logger.info(f"  正在获取 {period} 的财务指标...")
-            df = downloader.fetcher.fetch('fina_indicator_vip', period=period)
-            if not df.empty:
-                downloader.db.write_dataframe(df, 'fina_indicator_vip', mode='append')
-                logger.info(f"    ✓ {period}: {len(df)} 行")
-            else:
-                logger.info(f"    - {period}: 无数据")
-        
-        logger.info("✓ 财务指标数据更新完成")
-        
+            try:
+                rows = downloader.download_fina_indicator_vip(period=period)
+                total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {period} 更新失败: {e}")
+                continue
+
+        logger.info(f"✓ 财务指标数据更新完成: 共 {total_rows} 行")
+
     except Exception as e:
         logger.error(f"✗ 更新财务指标数据失败: {e}")
         # 财务数据不阻塞主流程
@@ -769,6 +759,179 @@ def update_index_member_all(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_financial_statements(downloader: DataDownloader):
+    """
+    更新三大财务报表数据（利润表、资产负债表、现金流量表）
+
+    策略：
+        使用 VIP 接口按报告期批量下载全部股票数据（需要5000积分）
+        - 获取最近8个季度的财务报表
+        - 每个季度一次API调用即可获取全部股票数据
+        - 相比按股票逐个下载，速度提升约500倍
+
+    说明：
+        - income_vip / balancesheet_vip / cashflow_vip 按报告期批量获取
+        - UPSERT 机制确保数据不会重复
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新三大财务报表数据（VIP批量模式）...")
+
+    try:
+        # 生成最近8个季度的报告期
+        quarters = _generate_recent_quarters(8)
+        logger.info(f"将更新 {len(quarters)} 个季度的财务报表: {quarters}")
+
+        # 统计
+        income_total = 0
+        balance_total = 0
+        cashflow_total = 0
+
+        for period in quarters:
+            logger.info(f"  正在获取 {period} 的财务报表...")
+
+            try:
+                # 利润表
+                rows = downloader.download_income_vip(period=period)
+                income_total += rows
+
+                # 资产负债表
+                rows = downloader.download_balancesheet_vip(period=period)
+                balance_total += rows
+
+                # 现金流量表
+                rows = downloader.download_cashflow_vip(period=period)
+                cashflow_total += rows
+
+            except Exception as e:
+                logger.error(f"    ✗ {period} 更新失败: {e}")
+                continue
+
+        logger.info(f"✓ 三大财务报表更新完成:")
+        logger.info(f"  - 利润表: {income_total} 行")
+        logger.info(f"  - 资产负债表: {balance_total} 行")
+        logger.info(f"  - 现金流量表: {cashflow_total} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新财务报表数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_dividend(downloader: DataDownloader):
+    """
+    更新分红送股数据
+
+    策略：
+        按公告日期批量下载最近60天的分红数据
+        - dividend 接口支持按 ann_date 批量获取当日所有公告
+        - 相比按股票逐个下载，速度大幅提升
+        - UPSERT 机制确保数据不会重复
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新分红送股数据（按公告日期批量模式）...")
+
+    try:
+        # 获取最近60天的交易日作为查询范围
+        today = datetime.now().strftime('%Y%m%d')
+        start_date = (datetime.now() - timedelta(days=60)).strftime('%Y%m%d')
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"将查询 {len(trading_dates)} 个交易日的分红公告")
+
+        total_rows = 0
+        for ann_date in trading_dates:
+            try:
+                rows = downloader.download_dividend(ann_date=ann_date)
+                if rows > 0:
+                    total_rows += rows
+
+            except Exception as e:
+                logger.error(f"  {ann_date} 更新失败: {e}")
+                continue
+
+        logger.info(f"✓ 分红送股数据更新完成: 共 {total_rows} 条记录")
+
+    except Exception as e:
+        logger.error(f"✗ 更新分红送股数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_margin_detail(downloader: DataDownloader):
+    """
+    增量更新融资融券交易明细数据 (margin_detail)
+
+    策略：
+        1. 获取数据库中 margin_detail 的最新日期
+        2. 从下一天开始更新到今天
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新融资融券交易明细数据 (margin_detail)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('margin_detail', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 融资融券数据开始于 2010年
+            start_date = '20100101'
+            logger.info("数据库中没有融资融券历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_margin_detail(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 融资融券明细更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新融资融券明细数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -831,10 +994,13 @@ def main():
     4. 申万行业指数成分股（月度数据，超过30天自动更新）
     5. 每日数据（日线、复权、基本面）
     6. 财务指标（季度数据）
-    7. 筹码分布
-    8. 龙虎榜机构席位数据
-    9. 行业资金流向（沪深通）数据
-    10. 个股资金流向数据
+    7. 三大财务报表（利润表、资产负债表、现金流量表）
+    8. 分红送股数据
+    9. 融资融券交易明细
+    10. 筹码分布
+    11. 龙虎榜机构席位数据
+    12. 行业资金流向（沪深通）数据
+    13. 个股资金流向数据
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -864,6 +1030,9 @@ def main():
             update_daily_data(downloader)
             update_index_daily(downloader)  # 更新常见指数日线数据
             update_financial_indicators(downloader)
+            update_financial_statements(downloader)  # 三大财务报表
+            update_dividend(downloader)  # 分红送股数据
+            update_margin_detail(downloader)  # 融资融券交易明细
             update_cyq_perf(downloader)
             update_dc_member(downloader)
             update_moneyflow_ind_dc(downloader)

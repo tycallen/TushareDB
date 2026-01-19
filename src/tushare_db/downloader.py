@@ -784,6 +784,357 @@ class DataDownloader:
         return len(df)
 
 
+    # ==================== 财务指标数据 ====================
+
+    def download_fina_indicator_vip(self, period: str) -> int:
+        """
+        下载财务指标数据（VIP接口，按报告期批量获取全部股票）
+
+        数据说明：
+        - 获取某一季度全部上市公司财务指标数据
+        - 包含ROE、ROA、毛利率、净利率等关键指标
+        - 需要至少5000积分
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载财务指标(VIP): period={period}")
+
+        df = self.fetcher.fetch('fina_indicator_vip', period=period)
+
+        if df.empty:
+            logger.debug(f"无财务指标数据: period={period}")
+            return 0
+
+        self.db.write_dataframe(df, 'fina_indicator_vip', mode='append')
+        logger.info(f"财务指标数据(VIP): {len(df)} 行 (period={period})")
+        return len(df)
+
+    # ==================== 财务报表数据 ====================
+
+    def download_income_vip(self, period: str) -> int:
+        """
+        下载利润表数据（VIP接口，按报告期批量获取全部股票）
+
+        数据说明：
+        - 获取某一季度全部上市公司利润表数据
+        - 单次最大获取5000条数据
+        - 需要至少5000积分
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载利润表(VIP): period={period}")
+
+        df = self.fetcher.fetch('income_vip', period=period)
+
+        if df.empty:
+            logger.debug(f"无利润表数据: period={period}")
+            return 0
+
+        self.db.write_dataframe(df, 'income', mode='append')
+        logger.info(f"利润表数据(VIP): {len(df)} 行 (period={period})")
+        return len(df)
+
+    def download_balancesheet_vip(self, period: str) -> int:
+        """
+        下载资产负债表数据（VIP接口，按报告期批量获取全部股票）
+
+        数据说明：
+        - 获取某一季度全部上市公司资产负债表数据
+        - 单次最大获取5000条数据
+        - 需要至少5000积分
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载资产负债表(VIP): period={period}")
+
+        df = self.fetcher.fetch('balancesheet_vip', period=period)
+
+        if df.empty:
+            logger.debug(f"无资产负债表数据: period={period}")
+            return 0
+
+        self.db.write_dataframe(df, 'balancesheet', mode='append')
+        logger.info(f"资产负债表数据(VIP): {len(df)} 行 (period={period})")
+        return len(df)
+
+    def download_cashflow_vip(self, period: str) -> int:
+        """
+        下载现金流量表数据（VIP接口，按报告期批量获取全部股票）
+
+        数据说明：
+        - 获取某一季度全部上市公司现金流量表数据
+        - 单次最大获取5000条数据
+        - 需要至少5000积分
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载现金流量表(VIP): period={period}")
+
+        df = self.fetcher.fetch('cashflow_vip', period=period)
+
+        if df.empty:
+            logger.debug(f"无现金流量表数据: period={period}")
+            return 0
+
+        self.db.write_dataframe(df, 'cashflow', mode='append')
+        logger.info(f"现金流量表数据(VIP): {len(df)} 行 (period={period})")
+        return len(df)
+
+    def download_income(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        period: Optional[str] = None,
+        report_type: Optional[str] = None
+    ) -> int:
+        """
+        下载利润表数据（普通接口，按单只股票获取）
+
+        数据说明：
+        - 获取单只股票的利润表历史数据
+        - 单次最大获取5000条数据
+        - 需要至少2000积分
+        - 如需批量获取全部股票，请使用 download_income_vip
+
+        Args:
+            ts_code: 股票代码（必填参数）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            start_date: 公告开始日期（可选）
+            end_date: 公告结束日期（可选）
+            period: 报告期 YYYYMMDD，如 20231231（可选）
+            report_type: 报告类型（1合并报表 2单季合并 等）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载利润表: ts_code={ts_code}, period={period}, "
+                    f"ann_date={ann_date}, start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'income',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            start_date=start_date,
+            end_date=end_date,
+            period=period,
+            report_type=report_type
+        )
+
+        if df.empty:
+            logger.debug(f"无利润表数据")
+            return 0
+
+        self.db.write_dataframe(df, 'income', mode='append')
+        logger.info(f"利润表数据: {len(df)} 行")
+        return len(df)
+
+    def download_balancesheet(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        period: Optional[str] = None,
+        report_type: Optional[str] = None
+    ) -> int:
+        """
+        下载资产负债表数据（普通接口，按单只股票获取）
+
+        数据说明：
+        - 获取单只股票的资产负债表历史数据
+        - 单次最大获取5000条数据
+        - 需要至少2000积分
+        - 如需批量获取全部股票，请使用 download_balancesheet_vip
+
+        Args:
+            ts_code: 股票代码（必填参数）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            start_date: 公告开始日期（可选）
+            end_date: 公告结束日期（可选）
+            period: 报告期 YYYYMMDD，如 20231231（可选）
+            report_type: 报告类型（1合并报表 2单季合并 等）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载资产负债表: ts_code={ts_code}, period={period}, "
+                    f"ann_date={ann_date}, start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'balancesheet',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            start_date=start_date,
+            end_date=end_date,
+            period=period,
+            report_type=report_type
+        )
+
+        if df.empty:
+            logger.debug(f"无资产负债表数据")
+            return 0
+
+        self.db.write_dataframe(df, 'balancesheet', mode='append')
+        logger.info(f"资产负债表数据: {len(df)} 行")
+        return len(df)
+
+    def download_cashflow(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        period: Optional[str] = None,
+        report_type: Optional[str] = None
+    ) -> int:
+        """
+        下载现金流量表数据（普通接口，按单只股票获取）
+
+        数据说明：
+        - 获取单只股票的现金流量表历史数据
+        - 单次最大获取5000条数据
+        - 需要至少2000积分
+        - 如需批量获取全部股票，请使用 download_cashflow_vip
+
+        Args:
+            ts_code: 股票代码（必填参数）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            start_date: 公告开始日期（可选）
+            end_date: 公告结束日期（可选）
+            period: 报告期 YYYYMMDD，如 20231231（可选）
+            report_type: 报告类型（1合并报表 2单季合并 等）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载现金流量表: ts_code={ts_code}, period={period}, "
+                    f"ann_date={ann_date}, start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'cashflow',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            start_date=start_date,
+            end_date=end_date,
+            period=period,
+            report_type=report_type
+        )
+
+        if df.empty:
+            logger.debug(f"无现金流量表数据")
+            return 0
+
+        self.db.write_dataframe(df, 'cashflow', mode='append')
+        logger.info(f"现金流量表数据: {len(df)} 行")
+        return len(df)
+
+    def download_dividend(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        record_date: Optional[str] = None,
+        ex_date: Optional[str] = None,
+        imp_ann_date: Optional[str] = None
+    ) -> int:
+        """
+        下载分红送股数据
+
+        数据说明：
+        - 获取上市公司分红送股数据
+        - 包括现金分红、送股、转增等
+        - 需要至少120积分
+
+        Args:
+            ts_code: 股票代码（可选）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            record_date: 股权登记日期（可选）
+            ex_date: 除权除息日（可选）
+            imp_ann_date: 实施公告日（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载分红送股: ts_code={ts_code}, ann_date={ann_date}, "
+                    f"record_date={record_date}, ex_date={ex_date}")
+
+        df = self.fetcher.fetch(
+            'dividend',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            record_date=record_date,
+            ex_date=ex_date,
+            imp_ann_date=imp_ann_date
+        )
+
+        if df.empty:
+            logger.debug(f"无分红送股数据")
+            return 0
+
+        self.db.write_dataframe(df, 'dividend', mode='append')
+        logger.info(f"分红送股数据: {len(df)} 行")
+        return len(df)
+
+    def download_margin_detail(
+        self,
+        trade_date: Optional[str] = None,
+        ts_code: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载融资融券交易明细数据
+
+        数据说明：
+        - 获取沪深两市每日融资融券明细
+        - 单次最大获取6000条数据
+        - 需要至少2000积分
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD（可选）
+            ts_code: 股票代码（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载融资融券明细: trade_date={trade_date}, ts_code={ts_code}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'margin_detail',
+            trade_date=trade_date,
+            ts_code=ts_code,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无融资融券明细数据")
+            return 0
+
+        self.db.write_dataframe(df, 'margin_detail', mode='append')
+        logger.info(f"融资融券明细数据: {len(df)} 行")
+        return len(df)
+
     # ==================== 数据完整性验证 ====================
 
     def validate_data_integrity(
