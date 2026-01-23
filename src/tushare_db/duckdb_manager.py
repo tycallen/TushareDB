@@ -31,6 +31,7 @@ TABLE_PRIMARY_KEYS = {
     "fina_indicator_vip": ["ts_code", "end_date"],
     "moneyflow_dc": ["ts_code", "trade_date"],
     "moneyflow": ["ts_code", "trade_date"],
+    "moneyflow_ind_dc": ["trade_date", "ts_code"],
     "index_classify": ["industry_code"],
     "index_member_all": ["ts_code", "l3_code", "in_date"],
     # 财务报表
@@ -281,6 +282,84 @@ class DuckDBManager:
         except Exception as e:
             logging.error(f"Error getting latest date for partition '{partition_key_col}' with keys {keys_for_log} from {table_name}.{date_col}: {e}")
             raise DuckDBManagerError(f"Failed to get latest date for partition(s): {e}") from e
+
+    def ensure_primary_key(self, table_name: str) -> bool:
+        """
+        Ensures a table has a primary key constraint. If not, rebuilds the table with the primary key.
+
+        Args:
+            table_name: The name of the table to check and fix.
+
+        Returns:
+            True if the table was rebuilt, False if no action was needed.
+        """
+        if not self.table_exists(table_name):
+            logging.info(f"Table {table_name} does not exist. Skipping primary key check.")
+            return False
+
+        pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
+        if not pk_columns:
+            logging.info(f"No primary key defined for table {table_name}. Skipping.")
+            return False
+
+        # Check if table already has a primary key
+        try:
+            constraints = self.con.execute(
+                f"SELECT constraint_type FROM duckdb_constraints() "
+                f"WHERE table_name = '{table_name}' AND constraint_type = 'PRIMARY KEY'"
+            ).fetchall()
+
+            if len(constraints) > 0:
+                logging.debug(f"Table {table_name} already has a primary key.")
+                return False
+
+            logging.info(f"Table {table_name} is missing primary key. Rebuilding...")
+
+            # Get current schema
+            schema_df = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
+            columns = schema_df['name'].tolist()
+
+            # Build column definitions with types
+            col_defs = []
+            for _, row in schema_df.iterrows():
+                col_defs.append(f'"{row["name"]}" {row["type"]}')
+            schema_str = ", ".join(col_defs)
+
+            pk_str = ", ".join([f'"{col}"' for col in pk_columns])
+
+            # Create temp table with primary key, deduplicate on insert
+            temp_table = f"_{table_name}_temp_rebuild"
+            self.con.execute(f"DROP TABLE IF EXISTS {temp_table}")
+            self.con.execute(f"CREATE TABLE {temp_table} ({schema_str}, PRIMARY KEY ({pk_str}))")
+
+            # Insert deduplicated data (keep last occurrence for duplicates)
+            all_cols = ", ".join([f'"{c}"' for c in columns])
+            pk_cols_str = ", ".join(pk_columns)
+
+            # Use window function to deduplicate
+            self.con.execute(f"""
+                INSERT INTO {temp_table}
+                SELECT {all_cols} FROM (
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY {pk_cols_str} ORDER BY rowid DESC) as rn
+                    FROM {table_name}
+                ) WHERE rn = 1
+            """)
+
+            # Get counts for logging
+            old_count = self.con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+            new_count = self.con.execute(f"SELECT COUNT(*) FROM {temp_table}").fetchone()[0]
+
+            # Swap tables
+            self.con.execute(f"DROP TABLE {table_name}")
+            self.con.execute(f"ALTER TABLE {temp_table} RENAME TO {table_name}")
+
+            logging.info(f"Rebuilt {table_name} with primary key ({pk_str}). "
+                        f"Rows: {old_count} -> {new_count} (removed {old_count - new_count} duplicates)")
+            return True
+
+        except Exception as e:
+            logging.error(f"Error ensuring primary key for {table_name}: {e}")
+            raise DuckDBManagerError(f"Failed to ensure primary key: {e}") from e
 
     def close(self) -> None:
         """Closes the database connection."""

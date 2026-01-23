@@ -51,10 +51,40 @@ def get_env_config():
     tushare_token = os.getenv("TUSHARE_TOKEN")
     if not tushare_token:
         raise ValueError("请设置 TUSHARE_TOKEN 环境变量")
-    
+
     db_path = os.getenv("DB_PATH", str(project_root / "tushare.db"))
-    
+
     return tushare_token, db_path
+
+
+def _ensure_table_primary_keys(downloader: DataDownloader):
+    """
+    检查并修复缺失主键的表（一次性操作）
+
+    这是为了修复在 TABLE_PRIMARY_KEYS 添加主键定义之前创建的表。
+    修复后的表将具有正确的主键约束，支持 UPSERT 操作。
+
+    注意：stk_factor_pro 表数据量太大（1400万+行），无法通过重建方式修复，
+    如需修复请手动删除表后重新下载。
+    """
+    # 需要检查的表（已知可能缺失主键的表，排除超大表）
+    tables_to_check = [
+        'fina_indicator_vip',
+        'cyq_perf',
+        'moneyflow_ind_dc',
+    ]
+
+    rebuilt_count = 0
+    for table_name in tables_to_check:
+        try:
+            if downloader.db.ensure_primary_key(table_name):
+                rebuilt_count += 1
+        except Exception as e:
+            logger.warning(f"修复表 {table_name} 主键时出错: {e}")
+            # 不阻塞主流程
+
+    if rebuilt_count > 0:
+        logger.info(f"已修复 {rebuilt_count} 个表的主键约束")
 
 
 def update_trade_calendar(downloader: DataDownloader):
@@ -673,44 +703,40 @@ def update_index_member_all(downloader: DataDownloader):
     更新申万行业成分构成数据 (index_member_all)
 
     策略：
-        1. 检查数据库中最新的 in_date
-        2. 如果数据较新（< 7天），跳过更新
+        1. 使用元数据表记录上次更新时间
+        2. 如果距离上次更新 < 7天，跳过更新（周更新策略）
         3. 否则下载所有L2和L3行业的成分股（完整历史）
         4. UPSERT机制会自动处理新增/更新，同时保留历史记录
 
     注意：
         - index_member_all 包含完整历史记录（支持回测）
-        - 定期更新以获取最新的成分变动
+        - 每周更新一次以获取最新的成分变动
         - 每条记录包含 in_date 和 out_date，可精确定位历史成分
     """
     logger.info("=" * 60)
     logger.info("开始更新申万行业成分构成数据 (index_member_all)...")
 
     try:
-        # 1. 检查数据最新更新日期
-        need_update = True
-        if downloader.db.table_exists('index_member_all'):
-            result = downloader.db.execute_query(
-                "SELECT MAX(in_date) as max_date, COUNT(*) as count FROM index_member_all"
-            )
-            if not result.empty and result.iloc[0]['max_date'] is not None:
-                latest_date = str(result.iloc[0]['max_date'])
-                record_count = result.iloc[0]['count']
-                latest_dt = datetime.strptime(latest_date, '%Y%m%d')
-                days_diff = (datetime.now() - latest_dt).days
-
-                logger.info(f"  数据库中已有 {record_count} 条记录，最新 in_date: {latest_date} (距今 {days_diff} 天)")
-
-                if days_diff < 7:
-                    logger.info(f"  数据已是最新（距今 {days_diff} 天），跳过更新")
-                    return
+        # 1. 检查上次更新时间（使用元数据表）
+        import time
+        last_update = downloader.db.get_cache_metadata('index_member_all')
+        if last_update is not None:
+            days_since_update = (time.time() - last_update) / 86400  # 转换为天数
+            if days_since_update < 7:
+                logger.info(f"  距离上次更新仅 {days_since_update:.1f} 天，跳过（每周更新一次）")
+                return
+            else:
+                logger.info(f"  距离上次更新 {days_since_update:.1f} 天，开始更新...")
+        else:
+            # 首次运行，检查表是否已有数据
+            if downloader.db.table_exists('index_member_all'):
+                result = downloader.db.execute_query("SELECT COUNT(*) as count FROM index_member_all")
+                if not result.empty and result.iloc[0]['count'] > 0:
+                    logger.info(f"  数据库中已有 {result.iloc[0]['count']} 条记录，但无更新记录")
                 else:
-                    logger.info(f"  数据已过期 {days_diff} 天，开始更新...")
-                    need_update = True
+                    logger.info("  数据库中没有申万行业成分数据，开始初始化...")
             else:
                 logger.info("  数据库中没有申万行业成分数据，开始初始化...")
-        else:
-            logger.info("  数据库中没有申万行业成分数据，开始初始化...")
 
         # 2. 获取所有申万L2和L3行业指数代码
         industries_df = downloader.db.execute_query(
@@ -753,6 +779,9 @@ def update_index_member_all(downloader: DataDownloader):
                 continue
 
         logger.info(f"✓ 申万行业成分构成更新完成: 成功 {success_count}/{len(industries_df)}, 总计 {total_rows} 条")
+
+        # 更新元数据，记录本次更新时间
+        downloader.db.update_cache_metadata('index_member_all', time.time())
 
     except Exception as e:
         logger.error(f"✗ 更新申万行业成分构成数据失败: {e}")
@@ -1021,6 +1050,9 @@ def main():
         )
         
         try:
+            # 2.5 修复缺失主键的表（一次性操作）
+            _ensure_table_primary_keys(downloader)
+
             # 3. 执行更新任务
             update_trade_calendar(downloader)
             update_stock_basic(downloader)
