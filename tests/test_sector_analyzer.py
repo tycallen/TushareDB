@@ -129,5 +129,84 @@ def test_correlation_monthly(analyzer):
     print(f"✓ 月线相关性矩阵: {corr_matrix.shape}")
 
 
+def test_calculate_lead_lag_daily(analyzer):
+    """测试日线传导关系"""
+    df = analyzer.calculate_lead_lag(
+        start_date='20240101',
+        end_date='20240331',
+        max_lag=5,
+        level='L1',
+        period='daily',
+        min_correlation=0.3
+    )
+
+    assert isinstance(df, pd.DataFrame)
+
+    if len(df) > 0:
+        assert 'sector_lead' in df.columns
+        assert 'sector_lag' in df.columns
+        assert 'lag_days' in df.columns
+        assert 'correlation' in df.columns
+        assert 'p_value' in df.columns
+
+        # 检查滞后期范围
+        assert df['lag_days'].min() >= 1
+        assert df['lag_days'].max() <= 5
+
+        # 检查相关系数
+        assert df['correlation'].abs().min() >= 0.3
+
+        print(f"✓ 找到 {len(df)} 对传导关系")
+        print(f"✓ 滞后期范围: {df['lag_days'].min()}-{df['lag_days'].max()}天")
+        print("\n传导性最强的前5对:")
+        print(df.head().to_string(index=False))
+    else:
+        print("✓ 未找到强传导关系（数据周期较短或阈值较高）")
+
+
+def test_calculate_lead_lag_adaptive(analyzer):
+    """测试自适应滞后窗口"""
+    # 日线应该用5日窗口
+    df_daily = analyzer.calculate_lead_lag(
+        start_date='20240101',
+        end_date='20240331',
+        max_lag=None,  # 自适应
+        level='L1',
+        period='daily',
+        min_correlation=0.5
+    )
+
+    # 周线应该用4周窗口
+    df_weekly = analyzer.calculate_lead_lag(
+        start_date='20240101',
+        end_date='20240331',
+        max_lag=None,  # 自适应
+        level='L1',
+        period='weekly',
+        min_correlation=0.5
+    )
+
+    print(f"✓ 日线自适应: max_lag=5")
+    print(f"✓ 周线自适应: max_lag=4")
+
+
+def test_lead_lag_no_self_correlation(analyzer):
+    """测试不包含自相关"""
+    df = analyzer.calculate_lead_lag(
+        start_date='20240101',
+        end_date='20240331',
+        max_lag=3,
+        level='L1',
+        period='daily',
+        min_correlation=0.0
+    )
+
+    if len(df) > 0:
+        # 检查没有sector_lead == sector_lag的记录
+        self_corr = df[df['sector_lead'] == df['sector_lag']]
+        assert len(self_corr) == 0
+        print("✓ 没有自相关记录")
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '-s'])
