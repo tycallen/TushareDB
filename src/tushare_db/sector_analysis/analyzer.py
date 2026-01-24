@@ -45,6 +45,39 @@ class SectorAnalyzer:
             start_date, end_date, level, period, method
         )
 
+    def _get_sector_name_map(self, level: str) -> dict:
+        """
+        获取板块代码到名称的映射
+
+        Args:
+            level: 层级 (L1/L2/L3)
+
+        Returns:
+            dict: {sector_code: sector_name}
+        """
+        level_code_map = {
+            'L1': 'l1_code',
+            'L2': 'l2_code',
+            'L3': 'l3_code'
+        }
+        level_name_map = {
+            'L1': 'l1_name',
+            'L2': 'l2_name',
+            'L3': 'l3_name'
+        }
+
+        code_col = level_code_map.get(level)
+        name_col = level_name_map.get(level)
+
+        query = f"""
+            SELECT DISTINCT {code_col} as sector_code, {name_col} as sector_name
+            FROM index_member_all
+            WHERE is_new = 'Y'
+        """
+
+        df = self.reader.db.con.execute(query).fetchdf()
+        return dict(zip(df['sector_code'], df['sector_name']))
+
     def calculate_correlation_matrix(
         self,
         start_date: str,
@@ -124,7 +157,10 @@ class SectorAnalyzer:
             values='return'
         )
 
-        # 3. 计算每对板块的相关性和p值
+        # 3. 获取板块名称映射
+        sector_names = self._get_sector_name_map(level)
+
+        # 4. 计算每对板块的相关性和p值
         sectors = pivot_df.columns.tolist()
         results = []
 
@@ -152,7 +188,9 @@ class SectorAnalyzer:
                 if abs(corr) >= min_correlation:
                     results.append({
                         'sector_a': sector_a,
+                        'sector_a_name': sector_names.get(sector_a, ''),
                         'sector_b': sector_b,
+                        'sector_b_name': sector_names.get(sector_b, ''),
                         'correlation': corr,
                         'p_value': p_value,
                         'sample_size': len(common_dates)
@@ -206,7 +244,10 @@ class SectorAnalyzer:
             values='return'
         )
 
-        # 3. 计算每对板块的滞后相关性
+        # 3. 获取板块名称映射
+        sector_names = self._get_sector_name_map(level)
+
+        # 4. 计算每对板块的滞后相关性
         sectors = pivot_df.columns.tolist()
         results = []
 
@@ -249,7 +290,9 @@ class SectorAnalyzer:
                         if abs(corr) >= min_correlation:
                             results.append({
                                 'sector_lead': sector_lead,
+                                'sector_lead_name': sector_names.get(sector_lead, ''),
                                 'sector_lag': sector_lag,
+                                'sector_lag_name': sector_names.get(sector_lag, ''),
                                 'lag_days': lag,
                                 'correlation': corr,
                                 'p_value': p_value,
@@ -302,7 +345,10 @@ class SectorAnalyzer:
             values='return'
         )
 
-        # 3. 计算每对板块的Beta系数
+        # 3. 获取板块名称映射
+        sector_names = self._get_sector_name_map(level)
+
+        # 4. 计算每对板块的Beta系数
         sectors = pivot_df.columns.tolist()
         results = []
 
@@ -336,7 +382,9 @@ class SectorAnalyzer:
                     if r_squared >= min_r_squared:
                         results.append({
                             'sector_a': sector_a,
+                            'sector_a_name': sector_names.get(sector_a, ''),
                             'sector_b': sector_b,
+                            'sector_b_name': sector_names.get(sector_b, ''),
                             'beta': slope,
                             'alpha': intercept,
                             'r_squared': r_squared,
@@ -355,7 +403,9 @@ class SectorAnalyzer:
                     if r_squared_rev >= min_r_squared:
                         results.append({
                             'sector_a': sector_b,
+                            'sector_a_name': sector_names.get(sector_b, ''),
                             'sector_b': sector_a,
+                            'sector_b_name': sector_names.get(sector_a, ''),
                             'beta': slope_rev,
                             'alpha': intercept_rev,
                             'r_squared': r_squared_rev,

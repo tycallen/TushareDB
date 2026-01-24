@@ -121,8 +121,14 @@ class OutputManager:
                 f.write(f"- **计算方法**: {metadata.get('method', 'N/A')}\n\n")
 
             # 板块涨跌幅
+            sector_name_map = {}
             if 'returns' in results:
                 df_returns = results['returns']
+
+                # 构建板块名称映射
+                if 'sector_name' in df_returns.columns:
+                    sector_name_map = df_returns[['sector_code', 'sector_name']].drop_duplicates().set_index('sector_code')['sector_name'].to_dict()
+
                 f.write("## 板块涨跌幅统计\n\n")
                 f.write(f"共计算 {df_returns['sector_code'].nunique()} 个板块，")
                 f.write(f"{df_returns['trade_date'].nunique()} 个交易日。\n\n")
@@ -130,10 +136,12 @@ class OutputManager:
                 # 涨跌幅排行
                 avg_returns = df_returns.groupby('sector_code')['return'].mean().sort_values(ascending=False)
                 f.write("### 平均涨跌幅排行（前10）\n\n")
-                f.write("| 排名 | 板块代码 | 平均涨跌幅(%) |\n")
-                f.write("|------|----------|---------------|\n")
+                f.write("| 排名 | 板块 | 平均涨跌幅(%) |\n")
+                f.write("|------|------|---------------|\n")
                 for i, (code, ret) in enumerate(avg_returns.head(10).items(), 1):
-                    f.write(f"| {i} | {code} | {ret:.2f} |\n")
+                    name = sector_name_map.get(code, '')
+                    display_name = f"{name}({code})" if name else code
+                    f.write(f"| {i} | {display_name} | {ret:.2f} |\n")
                 f.write("\n")
 
             # 相关性分析
@@ -157,7 +165,11 @@ class OutputManager:
                 f.write("| 排名 | 板块A | 板块B | 相关系数 |\n")
                 f.write("|------|-------|-------|----------|\n")
                 for i, item in enumerate(top_corr, 1):
-                    f.write(f"| {i} | {item['sector_a']} | {item['sector_b']} | {item['correlation']:.3f} |\n")
+                    a_name = sector_name_map.get(item['sector_a'], '')
+                    b_name = sector_name_map.get(item['sector_b'], '')
+                    a_display = f"{a_name}({item['sector_a']})" if a_name else item['sector_a']
+                    b_display = f"{b_name}({item['sector_b']})" if b_name else item['sector_b']
+                    f.write(f"| {i} | {a_display} | {b_display} | {item['correlation']:.3f} |\n")
                 f.write("\n")
 
             # 传导关系
@@ -171,7 +183,12 @@ class OutputManager:
                     f.write("| 排名 | 领涨板块 | 跟随板块 | 滞后天数 | 相关系数 | p值 |\n")
                     f.write("|------|----------|----------|----------|----------|-----|\n")
                     for i, row in df_lead_lag.head(10).iterrows():
-                        f.write(f"| {i+1} | {row['sector_lead']} | {row['sector_lag']} | "
+                        # 使用sector_name字段（如果存在）
+                        lead_name = row.get('sector_lead_name', '')
+                        lag_name = row.get('sector_lag_name', '')
+                        lead_display = f"{lead_name}({row['sector_lead']})" if lead_name else row['sector_lead']
+                        lag_display = f"{lag_name}({row['sector_lag']})" if lag_name else row['sector_lag']
+                        f.write(f"| {i+1} | {lead_display} | {lag_display} | "
                                f"{row['lag_days']} | {row['correlation']:.3f} | {row['p_value']:.4f} |\n")
                     f.write("\n")
 
@@ -186,8 +203,13 @@ class OutputManager:
                     f.write("| 排名 | 板块A | 板块B | Beta系数 | R² | 含义 |\n")
                     f.write("|------|-------|-------|----------|----|-----------|\n")
                     for i, row in df_linkage.head(10).iterrows():
+                        # 使用sector_name字段（如果存在）
+                        a_name = row.get('sector_a_name', '')
+                        b_name = row.get('sector_b_name', '')
+                        a_display = f"{a_name}({row['sector_a']})" if a_name else row['sector_a']
+                        b_display = f"{b_name}({row['sector_b']})" if b_name else row['sector_b']
                         meaning = f"A涨1%，B涨{row['beta']:.2f}%"
-                        f.write(f"| {i+1} | {row['sector_a']} | {row['sector_b']} | "
+                        f.write(f"| {i+1} | {a_display} | {b_display} | "
                                f"{row['beta']:.3f} | {row['r_squared']:.3f} | {meaning} |\n")
                     f.write("\n")
 

@@ -95,7 +95,7 @@ def main():
         max_lag=None,  # 自适应窗口（日线默认5天）
         level=params['level'],
         period=params['period'],
-        min_correlation=0.3
+        min_correlation=0.2  # 降低阈值到0.2，增加发现传导关系的可能性
     )
     print(f"✓ 找到 {len(lead_lag_df)} 对传导关系")
 
