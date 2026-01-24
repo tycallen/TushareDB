@@ -208,5 +208,73 @@ def test_lead_lag_no_self_correlation(analyzer):
         print("✓ 没有自相关记录")
 
 
+def test_calculate_linkage_strength(analyzer):
+    """测试联动强度计算"""
+    df = analyzer.calculate_linkage_strength(
+        start_date='20240101',
+        end_date='20240331',
+        level='L1',
+        period='daily',
+        min_r_squared=0.3
+    )
+
+    assert isinstance(df, pd.DataFrame)
+
+    if len(df) > 0:
+        assert 'sector_a' in df.columns
+        assert 'sector_b' in df.columns
+        assert 'beta' in df.columns
+        assert 'r_squared' in df.columns
+        assert 'p_value' in df.columns
+
+        # 检查R²范围
+        assert df['r_squared'].min() >= 0.3
+        assert df['r_squared'].max() <= 1.0
+
+        # 检查没有自联动
+        self_link = df[df['sector_a'] == df['sector_b']]
+        assert len(self_link) == 0
+
+        print(f"✓ 找到 {len(df)} 对联动关系")
+        print(f"✓ R²范围: {df['r_squared'].min():.3f} - {df['r_squared'].max():.3f}")
+        print("\n联动最强的前5对:")
+        print(df.head().to_string(index=False))
+    else:
+        print("✓ 未找到强联动关系（数据周期较短或阈值较高）")
+
+
+def test_linkage_strength_beta_interpretation(analyzer):
+    """测试Beta系数的含义"""
+    df = analyzer.calculate_linkage_strength(
+        start_date='20240101',
+        end_date='20240331',
+        level='L1',
+        period='daily',
+        min_r_squared=0.5
+    )
+
+    if len(df) > 0:
+        # 选择R²最高的一对
+        best = df.iloc[0]
+        print(f"\n✓ 最强联动: {best['sector_a']} -> {best['sector_b']}")
+        print(f"  Beta系数: {best['beta']:.3f}")
+        print(f"  R²: {best['r_squared']:.3f}")
+        print(f"  含义: {best['sector_a']}涨1%时，{best['sector_b']}平均涨{best['beta']:.3f}%")
+
+
+def test_linkage_strength_weekly(analyzer):
+    """测试周线联动强度"""
+    df = analyzer.calculate_linkage_strength(
+        start_date='20240101',
+        end_date='20240331',
+        level='L1',
+        period='weekly',
+        min_r_squared=0.3
+    )
+
+    assert isinstance(df, pd.DataFrame)
+    print(f"✓ 周线联动关系: {len(df)} 对")
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '-s'])

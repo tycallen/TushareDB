@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import logging
 from typing import Optional
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, linregress
 from .calculator import SectorCalculator
 from .config import MAX_LAG_MAP
 
@@ -270,15 +270,110 @@ class SectorAnalyzer:
         self,
         start_date: str,
         end_date: str,
-        level: str = 'L1'
+        level: str = 'L1',
+        period: str = 'daily',
+        min_r_squared: float = 0.0
     ) -> pd.DataFrame:
         """
-        计算联动强度
+        计算联动强度（Beta系数）
+
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            level: 层级
+            period: 周期
+            min_r_squared: 最小R²阈值
 
         Returns:
-            DataFrame with columns: [sector_a, sector_b, beta, r_squared]
+            DataFrame with columns: [sector_a, sector_b, beta, r_squared, p_value]
+            说明：sector_a涨1%时，sector_b平均涨beta%
         """
-        raise NotImplementedError("将在Task 5中实现")
+        logger.info(f"计算联动强度: {start_date} ~ {end_date}, level={level}, period={period}")
+
+        # 1. 获取板块涨跌幅数据
+        returns_df = self.calculate_sector_returns(
+            start_date, end_date, level, period
+        )
+
+        # 2. 转换为透视表
+        pivot_df = returns_df.pivot(
+            index='trade_date',
+            columns='sector_code',
+            values='return'
+        )
+
+        # 3. 计算每对板块的Beta系数
+        sectors = pivot_df.columns.tolist()
+        results = []
+
+        from tqdm import tqdm
+        for i, sector_a in enumerate(tqdm(sectors, desc="计算联动强度")):
+            for j, sector_b in enumerate(sectors):
+                if i >= j:  # 只计算上三角（避免重复和自己）
+                    continue
+
+                # 提取两个板块的涨跌幅序列（去除NaN）
+                data_a = pivot_df[sector_a].dropna()
+                data_b = pivot_df[sector_b].dropna()
+
+                # 找到共同的日期
+                common_dates = data_a.index.intersection(data_b.index)
+                if len(common_dates) < 10:  # 至少需要10个样本
+                    continue
+
+                series_a = pivot_df.loc[common_dates, sector_a].values
+                series_b = pivot_df.loc[common_dates, sector_b].values
+
+                # 线性回归：sector_b = alpha + beta * sector_a
+                try:
+                    slope, intercept, r_value, p_value, std_err = linregress(
+                        series_a, series_b
+                    )
+
+                    r_squared = r_value ** 2
+
+                    # 过滤低R²
+                    if r_squared >= min_r_squared:
+                        results.append({
+                            'sector_a': sector_a,
+                            'sector_b': sector_b,
+                            'beta': slope,
+                            'alpha': intercept,
+                            'r_squared': r_squared,
+                            'p_value': p_value,
+                            'std_err': std_err,
+                            'sample_size': len(common_dates)
+                        })
+
+                    # 反向回归：sector_a = alpha + beta * sector_b
+                    slope_rev, intercept_rev, r_value_rev, p_value_rev, std_err_rev = linregress(
+                        series_b, series_a
+                    )
+
+                    r_squared_rev = r_value_rev ** 2
+
+                    if r_squared_rev >= min_r_squared:
+                        results.append({
+                            'sector_a': sector_b,
+                            'sector_b': sector_a,
+                            'beta': slope_rev,
+                            'alpha': intercept_rev,
+                            'r_squared': r_squared_rev,
+                            'p_value': p_value_rev,
+                            'std_err': std_err_rev,
+                            'sample_size': len(common_dates)
+                        })
+
+                except Exception as e:
+                    logger.warning(f"计算失败: {sector_a} - {sector_b}: {e}")
+                    continue
+
+        result_df = pd.DataFrame(results)
+        if len(result_df) > 0:
+            result_df = result_df.sort_values('r_squared', ascending=False)
+
+        logger.info(f"找到 {len(result_df)} 对联动关系（R² >= {min_r_squared}）")
+        return result_df
 
     def close(self):
         """关闭数据库连接"""
