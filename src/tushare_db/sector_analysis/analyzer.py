@@ -425,6 +425,135 @@ class SectorAnalyzer:
         logger.info(f"找到 {len(result_df)} 对联动关系（R² >= {min_r_squared}）")
         return result_df
 
+    def calculate_lead_lag_excess(
+        self,
+        start_date: str,
+        end_date: str,
+        max_lag: Optional[int] = None,
+        level: str = 'L1',
+        period: str = 'daily',
+        min_correlation: float = 0.0,
+        market_index: str = '000300.SH'
+    ) -> pd.DataFrame:
+        """
+        计算基于超额收益的传导关系（剔除市场影响）
+
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            max_lag: 最大滞后期（None表示自适应）
+            level: 层级
+            period: 周期
+            min_correlation: 最小相关系数阈值（绝对值）
+            market_index: 市场指数代码（默认沪深300）
+
+        Returns:
+            DataFrame with columns: [sector_lead, sector_lead_name, sector_lag, sector_lag_name,
+                                    lag_days, correlation, p_value, sample_size]
+        """
+        # 自适应窗口
+        if max_lag is None:
+            max_lag = MAX_LAG_MAP.get(period, 5)
+
+        logger.info(f"计算超额收益传导关系: {start_date} ~ {end_date}, max_lag={max_lag}, "
+                   f"level={level}, period={period}, market={market_index}")
+
+        # 1. 获取板块涨跌幅数据
+        returns_df = self.calculate_sector_returns(
+            start_date, end_date, level, period
+        )
+
+        # 2. 获取市场指数收益率
+        market_df = self.calculator.calculate_market_returns(
+            start_date, end_date, market_index, period
+        )
+
+        if len(market_df) == 0:
+            logger.warning("未找到市场指数数据，使用原始收益率")
+            return self.calculate_lead_lag(
+                start_date, end_date, max_lag, level, period, min_correlation
+            )
+
+        # 3. 计算超额收益（板块收益 - 市场收益）
+        excess_returns = returns_df.merge(
+            market_df[['trade_date', 'market_return']],
+            on='trade_date',
+            how='left'
+        )
+        excess_returns['excess_return'] = excess_returns['return'] - excess_returns['market_return']
+
+        # 4. 转换为透视表
+        pivot_df = excess_returns.pivot(
+            index='trade_date',
+            columns='sector_code',
+            values='excess_return'
+        )
+
+        # 5. 获取板块名称映射
+        sector_names = self._get_sector_name_map(level)
+
+        # 6. 计算每对板块的滞后相关性（使用超额收益）
+        sectors = pivot_df.columns.tolist()
+        results = []
+
+        from tqdm import tqdm
+        for i, sector_lead in enumerate(tqdm(sectors, desc=f"计算超额收益传导关系")):
+            for j, sector_lag in enumerate(sectors):
+                if i == j:  # 跳过自己
+                    continue
+
+                # 提取时间序列
+                series_lead = pivot_df[sector_lead].dropna()
+                series_lag = pivot_df[sector_lag].dropna()
+
+                # 计算不同滞后期的相关性
+                for lag in range(0, max_lag + 1):
+                    if lag == 0:
+                        # 同期相关性（跳过）
+                        continue
+
+                    # 对齐时间序列（lead在前，lag在后）
+                    if len(series_lead) <= lag or len(series_lag) <= lag:
+                        continue
+
+                    lead_values = series_lead.iloc[:-lag].values
+                    lag_values = series_lag.iloc[lag:].values
+
+                    # 确保长度一致
+                    min_len = min(len(lead_values), len(lag_values))
+                    if min_len < 10:  # 至少需要10个样本
+                        continue
+
+                    lead_values = lead_values[:min_len]
+                    lag_values = lag_values[:min_len]
+
+                    # 计算相关性和p值
+                    try:
+                        corr, p_value = pearsonr(lead_values, lag_values)
+
+                        # 过滤低相关性
+                        if abs(corr) >= min_correlation:
+                            results.append({
+                                'sector_lead': sector_lead,
+                                'sector_lead_name': sector_names.get(sector_lead, ''),
+                                'sector_lag': sector_lag,
+                                'sector_lag_name': sector_names.get(sector_lag, ''),
+                                'lag_days': lag,
+                                'correlation': corr,
+                                'p_value': p_value,
+                                'sample_size': min_len
+                            })
+                    except Exception as e:
+                        logger.warning(f"计算失败: {sector_lead} -> {sector_lag} (lag={lag}): {e}")
+                        continue
+
+        result_df = pd.DataFrame(results)
+        if len(result_df) > 0:
+            result_df = result_df.sort_values('correlation', ascending=False, key=abs)
+
+        logger.info(f"找到 {len(result_df)} 对超额收益传导关系（|r| >= {min_correlation}）")
+        return result_df
+
     def close(self):
         """关闭数据库连接"""
         self.reader.close()

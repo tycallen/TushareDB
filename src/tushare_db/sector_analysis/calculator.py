@@ -251,3 +251,171 @@ class SectorCalculator:
             results.append(monthly)
 
         return pd.concat(results, ignore_index=True)
+
+    def calculate_market_returns(
+        self,
+        start_date: str,
+        end_date: str,
+        market_index: str = '000300.SH',
+        period: str = 'daily'
+    ) -> pd.DataFrame:
+        """
+        计算市场指数收益率
+
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            market_index: 市场指数代码（默认沪深300）
+            period: 周期 (daily/weekly/monthly)
+
+        Returns:
+            DataFrame with columns: [trade_date, market_return]
+        """
+        logger.info(f"计算市场指数收益率: {market_index}")
+
+        # 获取指数日线数据
+        query = f"""
+            SELECT trade_date, pct_chg as market_return
+            FROM daily
+            WHERE ts_code = '{market_index}'
+              AND trade_date >= '{start_date}'
+              AND trade_date <= '{end_date}'
+            ORDER BY trade_date
+        """
+        df = self.reader.db.con.execute(query).fetchdf()
+
+        if len(df) == 0:
+            logger.warning(f"未找到市场指数数据: {market_index}，使用L1板块等权平均作为市场代理")
+            return self._calculate_sector_average_as_market_proxy(start_date, end_date, period)
+
+        # 周期转换
+        if period == 'daily':
+            return df
+        elif period == 'weekly':
+            return self._convert_market_to_weekly(df)
+        elif period == 'monthly':
+            return self._convert_market_to_monthly(df)
+        else:
+            raise ValueError(f"不支持的周期: {period}")
+
+    def _convert_market_to_weekly(self, daily_df: pd.DataFrame) -> pd.DataFrame:
+        """市场指数日线转周线"""
+        df = daily_df.copy()
+        df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+        df = df.set_index('trade_date')
+
+        # 按周分组，计算累计收益率
+        weekly = df.resample('W-SUN').apply({
+            'market_return': lambda x: ((1 + x / 100).prod() - 1) * 100
+        })
+        weekly = weekly.reset_index()
+        weekly['trade_date'] = weekly['trade_date'].dt.strftime('%Y%m%d')
+
+        return weekly
+
+    def _convert_market_to_monthly(self, daily_df: pd.DataFrame) -> pd.DataFrame:
+        """市场指数日线转月线"""
+        df = daily_df.copy()
+        df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+        df = df.set_index('trade_date')
+
+        # 按月分组，计算累计收益率
+        monthly = df.resample('ME').apply({
+            'market_return': lambda x: ((1 + x / 100).prod() - 1) * 100
+        })
+        monthly = monthly.reset_index()
+        monthly['trade_date'] = monthly['trade_date'].dt.strftime('%Y%m%d')
+
+        return monthly
+
+    def _calculate_sector_average_as_market_proxy(
+        self,
+        start_date: str,
+        end_date: str,
+        period: str = 'daily'
+    ) -> pd.DataFrame:
+        """使用L1板块等权平均收益作为市场代理
+
+        当市场指数数据不可用时，计算所有L1板块的等权平均收益作为市场收益的代理
+
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            period: 周期 (daily/weekly/monthly)
+
+        Returns:
+            DataFrame with columns: [trade_date, market_return]
+        """
+        logger.info("计算L1板块等权平均作为市场代理")
+
+        # 获取所有L1板块代码
+        sector_query = """
+            SELECT DISTINCT l1_code as sector_code
+            FROM index_member_all
+            WHERE is_new = 'Y'
+        """
+        sectors = self.reader.db.con.execute(sector_query).fetchdf()
+
+        if len(sectors) == 0:
+            logger.error("未找到L1板块数据")
+            return pd.DataFrame(columns=['trade_date', 'market_return'])
+
+        all_sector_returns = []
+
+        for _, row in sectors.iterrows():
+            sector_code = row['sector_code']
+
+            # 获取该板块成分股
+            members_query = f"""
+                SELECT DISTINCT ts_code
+                FROM index_member_all
+                WHERE l1_code = '{sector_code}' AND is_new = 'Y'
+            """
+            members = self.reader.db.con.execute(members_query).fetchdf()
+
+            if len(members) == 0:
+                continue
+
+            # 获取成分股收益率
+            ts_codes_str = "'" + "', '".join(members['ts_code'].tolist()) + "'"
+            returns_query = f"""
+                SELECT trade_date, ts_code, pct_chg
+                FROM daily
+                WHERE ts_code IN ({ts_codes_str})
+                  AND trade_date >= '{start_date}'
+                  AND trade_date <= '{end_date}'
+            """
+            stock_returns = self.reader.db.con.execute(returns_query).fetchdf()
+
+            if len(stock_returns) == 0:
+                continue
+
+            # 计算板块等权平均收益
+            sector_return = stock_returns.groupby('trade_date')['pct_chg'].mean().reset_index()
+            sector_return['sector_code'] = sector_code
+            sector_return.columns = ['trade_date', 'return', 'sector_code']
+
+            all_sector_returns.append(sector_return)
+
+        if len(all_sector_returns) == 0:
+            logger.error("无法计算任何板块收益率")
+            return pd.DataFrame(columns=['trade_date', 'market_return'])
+
+        # 合并所有板块收益
+        combined_returns = pd.concat(all_sector_returns, ignore_index=True)
+
+        # 计算所有板块的等权平均收益作为市场收益
+        market_returns = combined_returns.groupby('trade_date')['return'].mean().reset_index()
+        market_returns.columns = ['trade_date', 'market_return']
+
+        logger.info(f"成功计算{len(market_returns)}个交易日的市场代理收益")
+
+        # 周期转换
+        if period == 'daily':
+            return market_returns
+        elif period == 'weekly':
+            return self._convert_market_to_weekly(market_returns)
+        elif period == 'monthly':
+            return self._convert_market_to_monthly(market_returns)
+        else:
+            raise ValueError(f"不支持的周期: {period}")
