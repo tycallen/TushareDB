@@ -1135,6 +1135,110 @@ class DataDownloader:
         logger.info(f"融资融券明细数据: {len(df)} 行")
         return len(df)
 
+    # ==================== 申万行业指数 ====================
+
+    def download_sw_daily(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载申万行业指数日线行情
+
+        数据说明：
+        - 获取申万行业指数日线行情（申万2021版）
+        - 单次最大获取4000条数据
+        - 需要5000积分
+
+        字段说明：
+        - ts_code: 指数代码（如 801010.SI）
+        - trade_date: 交易日期
+        - name: 指数名称
+        - open/high/low/close: OHLC数据
+        - pct_change: 涨跌幅
+        - vol: 成交量（万股）
+        - amount: 成交额（万元）
+        - pe: 市盈率
+        - pb: 市净率
+        - float_mv: 流通市值（万元）
+        - total_mv: 总市值（万元）
+
+        Args:
+            ts_code: 行业指数代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载申万行业日线: ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'sw_daily',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无申万行业日线数据")
+            return 0
+
+        self.db.write_dataframe(df, 'sw_daily', mode='append')
+        logger.info(f"申万行业日线数据: {len(df)} 行")
+        return len(df)
+
+    def download_sw_daily_by_date_range(
+        self,
+        start_date: str,
+        end_date: str,
+        ts_code: Optional[str] = None
+    ) -> int:
+        """
+        按日期范围下载申万行业指数日线（适合大量历史数据）
+
+        由于单次最大4000条限制，按日期逐日下载
+
+        Args:
+            start_date: 开始日期 YYYYMMDD
+            end_date: 结束日期 YYYYMMDD
+            ts_code: 指定行业代码（可选，不指定则下载所有行业）
+
+        Returns:
+            下载的总行数
+        """
+        logger.info(f"批量下载申万行业日线: {start_date} -> {end_date}")
+
+        # 获取交易日列表
+        trading_dates_df = self.db.execute_query(
+            """
+            SELECT cal_date FROM trade_cal
+            WHERE cal_date BETWEEN ? AND ?
+            AND (is_open = 1 OR is_open = '1')
+            ORDER BY cal_date
+            """,
+            [start_date, end_date]
+        )
+
+        if trading_dates_df.empty:
+            logger.warning(f"无交易日数据，请先下载交易日历")
+            return 0
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        total_rows = 0
+
+        for trade_date in tqdm(trading_dates, desc="下载申万行业日线"):
+            rows = self.download_sw_daily(ts_code=ts_code, trade_date=trade_date)
+            total_rows += rows
+
+        logger.info(f"申万行业日线下载完成: 共 {total_rows} 行")
+        return total_rows
+
     # ==================== 数据完整性验证 ====================
 
     def validate_data_integrity(

@@ -42,6 +42,8 @@ TABLE_PRIMARY_KEYS = {
     "dividend": ["ts_code", "end_date"],
     # 融资融券
     "margin_detail": ["ts_code", "trade_date"],
+    # 申万行业指数
+    "sw_daily": ["ts_code", "trade_date"],
 }
 
 class DuckDBManager:

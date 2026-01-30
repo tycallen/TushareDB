@@ -1092,6 +1092,106 @@ class DataReader:
                 f"提示：请先使用 DataDownloader 下载数据"
             )
 
+    # ==================== 申万行业指数 ====================
+
+    def get_sw_daily(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询申万行业指数日线行情
+
+        Args:
+            ts_code: 行业指数代码（可选，如 801010.SI）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            DataFrame，包含字段：
+            - ts_code: 指数代码
+            - trade_date: 交易日期
+            - name: 指数名称
+            - open/high/low/close: OHLC数据
+            - change: 涨跌点位
+            - pct_change: 涨跌幅
+            - vol: 成交量（万股）
+            - amount: 成交额（万元）
+            - pe: 市盈率
+            - pb: 市净率
+            - float_mv: 流通市值（万元）
+            - total_mv: 总市值（万元）
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+
+        if start_date:
+            conditions.append("trade_date >= ?")
+            params.append(start_date)
+
+        if end_date:
+            conditions.append("trade_date <= ?")
+            params.append(end_date)
+
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
+        query = f"""
+            SELECT * FROM sw_daily
+            WHERE {where_clause}
+            ORDER BY trade_date DESC, ts_code
+        """
+
+        df = self.db.execute_query(query, params)
+        self._check_empty(df, f"申万行业日线 ts_code={ts_code}, trade_date={trade_date}")
+        return df
+
+    def get_sw_daily_pivot(
+        self,
+        start_date: str,
+        end_date: str,
+        field: str = 'pct_change'
+    ) -> pd.DataFrame:
+        """
+        获取申万行业指数的透视表格式（行=日期，列=行业）
+
+        适用于行业轮动分析、相关性分析等
+
+        Args:
+            start_date: 开始日期 YYYYMMDD
+            end_date: 结束日期 YYYYMMDD
+            field: 要提取的字段（pct_change, close, pe, pb, vol, amount）
+
+        Returns:
+            透视 DataFrame，index=trade_date, columns=行业名称
+        """
+        query = f"""
+            SELECT trade_date, name, {field}
+            FROM sw_daily
+            WHERE trade_date >= ? AND trade_date <= ?
+            ORDER BY trade_date, name
+        """
+
+        df = self.db.execute_query(query, [start_date, end_date])
+
+        if df.empty:
+            return df
+
+        # 转为透视表
+        pivot_df = df.pivot(index='trade_date', columns='name', values=field)
+        pivot_df = pivot_df.sort_index()
+
+        return pivot_df
+
     def table_exists(self, table_name: str) -> bool:
         """检查表是否存在"""
         return self.db.table_exists(table_name)
