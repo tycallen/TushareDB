@@ -27,28 +27,28 @@ class PeriodEndVsDailyAnalyzer:
         self.reader = DataReader(db_path)
         self._market_returns_cache = None
 
-    def get_market_returns(self, start_date: str, end_date: str, index_code: str = '801003.SI') -> pd.DataFrame:
+    def get_market_returns(self, start_date: str, end_date: str, index_code: str = '000001.SH') -> pd.DataFrame:
         """
         获取市场指数收益率（用于计算超额收益）
 
         Args:
             start_date: 开始日期
             end_date: 结束日期
-            index_code: 基准指数代码，默认申万A指 801003.SI
-                       可选: 801003.SI (申万A指), 801001.SI (申万50)
+            index_code: 基准指数代码，默认上证指数 000001.SH
+                       可选: 000001.SH (上证指数), 000300.SH (沪深300), 399001.SZ (深证成指)
         """
         if self._market_returns_cache is not None:
             return self._market_returns_cache
 
-        # 从 sw_daily 表获取申万指数数据
+        # 从 index_daily 表获取指数数据
         query = """
         SELECT
             trade_date,
-            pct_change as market_return
-        FROM sw_daily
+            pct_chg as market_return
+        FROM index_daily
         WHERE ts_code = ?
         AND trade_date >= ? AND trade_date <= ?
-        AND pct_change IS NOT NULL
+        AND pct_chg IS NOT NULL
         ORDER BY trade_date
         """
 
