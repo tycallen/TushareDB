@@ -249,19 +249,25 @@ def update_index_daily(downloader: DataDownloader):
         today = datetime.now().strftime('%Y%m%d')
         total_rows = 0
 
+        # 检查表是否存在
+        table_exists = downloader.db.table_exists('index_daily')
+        if not table_exists:
+            logger.info("  index_daily 表不存在，将进行初始化下载")
+
         for ts_code, name in indices:
             try:
-                # 获取该指数在数据库中的最新日期
-                latest_date_df = downloader.db.execute_query(
-                    "SELECT MAX(trade_date) as max_date FROM index_daily WHERE ts_code = ?",
-                    [ts_code]
-                )
+                start_date = '20100101'  # 默认起始日期
 
-                start_date = '20100101'
-                if not latest_date_df.empty and latest_date_df.iloc[0]['max_date']:
-                    latest_date = str(latest_date_df.iloc[0]['max_date'])
-                    latest_dt = datetime.strptime(latest_date, '%Y%m%d')
-                    start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+                # 如果表存在，获取该指数的最新日期
+                if table_exists:
+                    latest_date_df = downloader.db.execute_query(
+                        "SELECT MAX(trade_date) as max_date FROM index_daily WHERE ts_code = ?",
+                        [ts_code]
+                    )
+                    if not latest_date_df.empty and latest_date_df.iloc[0]['max_date']:
+                        latest_date = str(latest_date_df.iloc[0]['max_date'])
+                        latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+                        start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
 
                 if start_date > today:
                     logger.info(f"  {name} ({ts_code}): 已是最新，跳过")
