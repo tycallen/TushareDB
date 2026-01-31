@@ -359,8 +359,135 @@ class PeriodEndVsDailyAnalyzer:
 
         return stats
 
+    def calculate_combined_statistics(self, df: pd.DataFrame, periods: list) -> dict:
+        """计算超额收益和绝对收益的综合统计量"""
+        stats = {}
+
+        for period in periods:
+            excess_col = f'excess_return_{period}d'
+            abs_col = f'abs_return_{period}d'
+
+            if excess_col not in df.columns or abs_col not in df.columns:
+                continue
+
+            excess_returns = df[excess_col].dropna()
+            abs_returns = df[abs_col].dropna()
+
+            if len(excess_returns) == 0:
+                continue
+
+            stats[f'{period}d'] = {
+                '样本数': len(excess_returns),
+                '超额收益': excess_returns.mean(),
+                '超额胜率': (excess_returns > 0).sum() / len(excess_returns) * 100,
+                '超额t值': excess_returns.mean() / (excess_returns.std() / np.sqrt(len(excess_returns)) + 1e-6),
+                '绝对收益': abs_returns.mean(),
+                '绝对胜率': (abs_returns > 0).sum() / len(abs_returns) * 100,
+                '绝对t值': abs_returns.mean() / (abs_returns.std() / np.sqrt(len(abs_returns)) + 1e-6),
+            }
+
+        return stats
+
+    def calculate_yearly_statistics(self, df: pd.DataFrame, periods: list) -> pd.DataFrame:
+        """按年度计算统计量"""
+        df = df.copy()
+        df['year'] = df['trade_date'].str[:4]
+
+        yearly_stats = []
+
+        for year in sorted(df['year'].unique()):
+            year_df = df[df['year'] == year]
+
+            for period in periods:
+                excess_col = f'excess_return_{period}d'
+                abs_col = f'abs_return_{period}d'
+
+                if excess_col not in df.columns:
+                    continue
+
+                excess_returns = year_df[excess_col].dropna()
+                abs_returns = year_df[abs_col].dropna()
+
+                if len(excess_returns) == 0:
+                    continue
+
+                yearly_stats.append({
+                    '年份': year,
+                    '持有期': f'{period}d',
+                    '样本数': len(excess_returns),
+                    '超额收益%': excess_returns.mean(),
+                    '超额胜率%': (excess_returns > 0).sum() / len(excess_returns) * 100,
+                    '超额t值': excess_returns.mean() / (excess_returns.std() / np.sqrt(len(excess_returns)) + 1e-6),
+                    '绝对收益%': abs_returns.mean(),
+                    '绝对胜率%': (abs_returns > 0).sum() / len(abs_returns) * 100,
+                    '绝对t值': abs_returns.mean() / (abs_returns.std() / np.sqrt(len(abs_returns)) + 1e-6),
+                })
+
+        return pd.DataFrame(yearly_stats)
+
     def close(self):
         self.reader.close()
+
+
+def print_combined_table(title: str, data_by_type: dict, periods: list):
+    """
+    打印综合对比表格，同时显示超额收益和绝对收益
+
+    data_by_type: {day_type: stats_dict}
+    """
+    print(f"\n{title}")
+    print("=" * 120)
+
+    # 表头
+    header = f"{'交易日类型':<12} {'持有期':<6}"
+    header += f"{'样本':>6} {'超额收益%':>10} {'超额胜率%':>10} {'超额t值':>8}"
+    header += f"{'绝对收益%':>10} {'绝对胜率%':>10} {'绝对t值':>8}"
+    print(header)
+    print("-" * 120)
+
+    for day_type, type_name in [
+        ('period_end_holiday', '节假日前'),
+        ('period_end_friday', '周五'),
+        ('normal', '普通交易日'),
+        ('period_end', '期末合计'),
+    ]:
+        if day_type not in data_by_type:
+            continue
+
+        stats = data_by_type[day_type]
+        for period in periods:
+            period_key = f'{period}d'
+            if period_key not in stats:
+                continue
+            s = stats[period_key]
+
+            row = f"{type_name:<12} {period_key:<6}"
+            row += f"{s['样本数']:>6} {s['超额收益']:>+10.2f} {s['超额胜率']:>10.1f} {s['超额t值']:>8.2f}"
+            row += f"{s['绝对收益']:>+10.2f} {s['绝对胜率']:>10.1f} {s['绝对t值']:>8.2f}"
+            print(row)
+
+    print("=" * 120)
+
+
+def print_yearly_table(title: str, yearly_df: pd.DataFrame):
+    """打印年度统计表格"""
+    print(f"\n{title}")
+    print("=" * 120)
+
+    # 表头
+    header = f"{'年份':<6} {'持有期':<6}"
+    header += f"{'样本':>6} {'超额收益%':>10} {'超额胜率%':>10} {'超额t值':>8}"
+    header += f"{'绝对收益%':>10} {'绝对胜率%':>10} {'绝对t值':>8}"
+    print(header)
+    print("-" * 120)
+
+    for _, row in yearly_df.iterrows():
+        line = f"{row['年份']:<6} {row['持有期']:<6}"
+        line += f"{row['样本数']:>6} {row['超额收益%']:>+10.2f} {row['超额胜率%']:>10.1f} {row['超额t值']:>8.2f}"
+        line += f"{row['绝对收益%']:>+10.2f} {row['绝对胜率%']:>10.1f} {row['绝对t值']:>8.2f}"
+        print(line)
+
+    print("=" * 120)
 
 
 def main():
@@ -371,8 +498,8 @@ def main():
     analyzer = PeriodEndVsDailyAnalyzer('tushare.db')
 
     # 分析参数
-    start_date = '20220101'
-    end_date = '20241231'
+    start_date = '20200101'
+    end_date = '20260131'
     top_n = 5
     level = 'L1'
     periods = [1, 3, 5]
@@ -381,7 +508,7 @@ def main():
     print(f"板块层级: {level}")
     print(f"榜单取前: {top_n} 名")
     print(f"持有期: {periods} 交易日")
-    print(f"收益指标: 超额收益（板块收益 - 市场收益）")
+    print(f"收益指标: 超额收益（板块收益 - 市场收益）+ 绝对收益")
 
     # 执行分析
     print("\n" + "=" * 80)
@@ -401,120 +528,60 @@ def main():
     # ============ 主力资金榜分析 ============
     main_df = results_df[results_df['rank_type'] == 'main_flow']
 
-    print("\n" + "=" * 80)
-    print("【主力资金榜】超额收益统计")
-    print("=" * 80)
-
-    # 按日期类型分组统计
-    for day_type, type_name in [
-        ('period_end_holiday', '节假日前'),
-        ('period_end_friday', '周五'),
-        ('normal', '普通交易日')
-    ]:
+    # 按日期类型计算综合统计
+    stats_by_type = {}
+    for day_type in ['period_end_holiday', 'period_end_friday', 'normal']:
         type_df = main_df[main_df['day_type'] == day_type]
+        if len(type_df) > 0:
+            stats_by_type[day_type] = analyzer.calculate_combined_statistics(type_df, periods)
 
-        if len(type_df) == 0:
-            continue
-
-        stats = analyzer.calculate_statistics(type_df, periods, use_excess=True)
-
-        print(f"\n  【{type_name}】(n={len(type_df)}条记录)")
-        for period_key, s in stats.items():
-            print(f"    {period_key}: 超额{s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%, "
-                  f"夏普{s['夏普比率']:.3f}, t={s['t统计量']:.2f}")
-
-    # ============ 期末 vs 非期末 对比 ============
-    print("\n" + "=" * 80)
-    print("【期末 vs 非期末 对比】（主力资金榜）")
-    print("=" * 80)
-
-    # 期末 = 节假日前 + 周五
+    # 期末合计
     period_end_df = main_df[main_df['day_type'].isin(['period_end_holiday', 'period_end_friday'])]
-    non_period_end_df = main_df[main_df['day_type'] == 'normal']
+    if len(period_end_df) > 0:
+        stats_by_type['period_end'] = analyzer.calculate_combined_statistics(period_end_df, periods)
 
-    print("\n期末（周五+节假日前）:")
-    period_end_stats = analyzer.calculate_statistics(period_end_df, periods, use_excess=True)
-    for period_key, s in period_end_stats.items():
-        print(f"  {period_key}: 超额{s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%, "
-              f"夏普{s['夏普比率']:.3f}, t={s['t统计量']:.2f} (n={s['样本数']})")
+    # 打印整体统计表格
+    print_combined_table("【主力资金榜】整体统计 - 超额收益 vs 绝对收益", stats_by_type, periods)
 
-    print("\n非期末（普通交易日）:")
-    non_period_end_stats = analyzer.calculate_statistics(non_period_end_df, periods, use_excess=True)
-    for period_key, s in non_period_end_stats.items():
-        print(f"  {period_key}: 超额{s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%, "
-              f"夏普{s['夏普比率']:.3f}, t={s['t统计量']:.2f} (n={s['样本数']})")
-
-    # 计算差异
-    print("\n差异（期末 - 非期末）:")
-    for period in periods:
-        period_key = f'{period}d'
-        if period_key in period_end_stats and period_key in non_period_end_stats:
-            diff = period_end_stats[period_key]['平均收益'] - non_period_end_stats[period_key]['平均收益']
-            print(f"  {period_key}: {diff:+.2f}%")
-
-    # ============ 节假日前单独分析 ============
-    print("\n" + "=" * 80)
-    print("【节假日前 vs 其他所有日】")
-    print("=" * 80)
-
+    # ============ 年度统计 ============
+    # 节假日前 - 年度统计
     holiday_df = main_df[main_df['day_type'] == 'period_end_holiday']
-    other_df = main_df[main_df['day_type'] != 'period_end_holiday']
+    if len(holiday_df) > 0:
+        holiday_yearly = analyzer.calculate_yearly_statistics(holiday_df, periods)
+        print_yearly_table("【主力资金榜 - 节假日前】年度统计", holiday_yearly)
 
-    print("\n节假日前:")
-    holiday_stats = analyzer.calculate_statistics(holiday_df, periods, use_excess=True)
-    for period_key, s in holiday_stats.items():
-        print(f"  {period_key}: 超额{s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%, "
-              f"夏普{s['夏普比率']:.3f}, t={s['t统计量']:.2f} (n={s['样本数']})")
+    # 周五 - 年度统计
+    friday_df = main_df[main_df['day_type'] == 'period_end_friday']
+    if len(friday_df) > 0:
+        friday_yearly = analyzer.calculate_yearly_statistics(friday_df, periods)
+        print_yearly_table("【主力资金榜 - 周五】年度统计", friday_yearly)
 
-    print("\n其他所有交易日:")
-    other_stats = analyzer.calculate_statistics(other_df, periods, use_excess=True)
-    for period_key, s in other_stats.items():
-        print(f"  {period_key}: 超额{s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%, "
-              f"夏普{s['夏普比率']:.3f}, t={s['t统计量']:.2f} (n={s['样本数']})")
+    # 普通交易日 - 年度统计
+    normal_df = main_df[main_df['day_type'] == 'normal']
+    if len(normal_df) > 0:
+        normal_yearly = analyzer.calculate_yearly_statistics(normal_df, periods)
+        print_yearly_table("【主力资金榜 - 普通交易日】年度统计", normal_yearly)
 
-    print("\n差异（节假日前 - 其他）:")
-    for period in periods:
-        period_key = f'{period}d'
-        if period_key in holiday_stats and period_key in other_stats:
-            diff = holiday_stats[period_key]['平均收益'] - other_stats[period_key]['平均收益']
-            print(f"  {period_key}: {diff:+.2f}%")
-
-    # ============ 绝对收益 vs 超额收益对比 ============
-    print("\n" + "=" * 80)
-    print("【绝对收益 vs 超额收益 对比】（节假日前，主力资金榜）")
-    print("=" * 80)
-
-    print("\n超额收益:")
-    for period_key, s in holiday_stats.items():
-        print(f"  {period_key}: {s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%")
-
-    print("\n绝对收益:")
-    abs_stats = analyzer.calculate_statistics(holiday_df, periods, use_excess=False)
-    for period_key, s in abs_stats.items():
-        print(f"  {period_key}: {s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%")
-
-    # ============ 总资金榜简要统计 ============
-    print("\n" + "=" * 80)
-    print("【总资金榜】超额收益统计（简要）")
-    print("=" * 80)
-
+    # ============ 总资金榜分析 ============
     total_df = results_df[results_df['rank_type'] == 'total_flow']
 
-    for day_type, type_name in [
-        ('period_end_holiday', '节假日前'),
-        ('period_end_friday', '周五'),
-        ('normal', '普通交易日')
-    ]:
+    total_stats_by_type = {}
+    for day_type in ['period_end_holiday', 'period_end_friday', 'normal']:
         type_df = total_df[total_df['day_type'] == day_type]
+        if len(type_df) > 0:
+            total_stats_by_type[day_type] = analyzer.calculate_combined_statistics(type_df, periods)
 
-        if len(type_df) == 0:
-            continue
+    total_period_end_df = total_df[total_df['day_type'].isin(['period_end_holiday', 'period_end_friday'])]
+    if len(total_period_end_df) > 0:
+        total_stats_by_type['period_end'] = analyzer.calculate_combined_statistics(total_period_end_df, periods)
 
-        stats = analyzer.calculate_statistics(type_df, periods, use_excess=True)
+    print_combined_table("【总资金榜】整体统计 - 超额收益 vs 绝对收益", total_stats_by_type, periods)
 
-        print(f"\n  【{type_name}】")
-        for period_key, s in stats.items():
-            print(f"    {period_key}: 超额{s['平均收益']:+.2f}%, 胜率{s['胜率']:.1f}%, t={s['t统计量']:.2f}")
+    # 总资金榜年度统计
+    total_holiday_df = total_df[total_df['day_type'] == 'period_end_holiday']
+    if len(total_holiday_df) > 0:
+        total_holiday_yearly = analyzer.calculate_yearly_statistics(total_holiday_df, periods)
+        print_yearly_table("【总资金榜 - 节假日前】年度统计", total_holiday_yearly)
 
     # 保存结果
     output_dir = Path('output/period_end_vs_daily')
@@ -522,32 +589,45 @@ def main():
 
     results_df.to_csv(output_dir / 'all_results.csv', index=False, encoding='utf-8-sig')
 
+    # 保存年度统计
+    if len(holiday_df) > 0:
+        holiday_yearly.to_csv(output_dir / 'main_holiday_yearly.csv', index=False, encoding='utf-8-sig')
+    if len(friday_df) > 0:
+        friday_yearly.to_csv(output_dir / 'main_friday_yearly.csv', index=False, encoding='utf-8-sig')
+    if len(normal_df) > 0:
+        normal_yearly.to_csv(output_dir / 'main_normal_yearly.csv', index=False, encoding='utf-8-sig')
+
     # ============ 总结 ============
     print("\n" + "=" * 80)
     print("分析总结")
     print("=" * 80)
 
-    # 提取关键指标
-    if holiday_stats and other_stats and '5d' in holiday_stats and '5d' in other_stats:
-        holiday_5d = holiday_stats['5d']
-        other_5d = other_stats['5d']
-        diff_5d = holiday_5d['平均收益'] - other_5d['平均收益']
+    # 主力资金榜关键指标
+    if 'period_end_holiday' in stats_by_type and 'normal' in stats_by_type:
+        holiday_5d = stats_by_type['period_end_holiday'].get('5d', {})
+        normal_5d = stats_by_type['normal'].get('5d', {})
 
-        print(f"\n5日超额收益对比:")
-        print(f"  - 节假日前: {holiday_5d['平均收益']:+.2f}% (胜率{holiday_5d['胜率']:.1f}%, t={holiday_5d['t统计量']:.2f})")
-        print(f"  - 其他交易日: {other_5d['平均收益']:+.2f}% (胜率{other_5d['胜率']:.1f}%, t={other_5d['t统计量']:.2f})")
-        print(f"  - 差异: {diff_5d:+.2f}%")
+        if holiday_5d and normal_5d:
+            print("\n主力资金榜 - 5日收益对比:")
+            print(f"  {'类型':<12} {'超额收益%':>10} {'绝对收益%':>10} {'超额t值':>10}")
+            print(f"  {'-' * 44}")
+            print(f"  {'节假日前':<12} {holiday_5d['超额收益']:>+10.2f} {holiday_5d['绝对收益']:>+10.2f} {holiday_5d['超额t值']:>10.2f}")
+            print(f"  {'普通交易日':<12} {normal_5d['超额收益']:>+10.2f} {normal_5d['绝对收益']:>+10.2f} {normal_5d['超额t值']:>10.2f}")
+            print(f"  {'-' * 44}")
+            diff_excess = holiday_5d['超额收益'] - normal_5d['超额收益']
+            diff_abs = holiday_5d['绝对收益'] - normal_5d['绝对收益']
+            print(f"  {'差异':<12} {diff_excess:>+10.2f} {diff_abs:>+10.2f}")
 
-        # 统计显著性判断
-        if abs(holiday_5d['t统计量']) > 2:
-            print(f"\n结论: 节假日前资金流入信号在统计上显著（t={holiday_5d['t统计量']:.2f} > 2）")
-        else:
-            print(f"\n结论: 节假日前资金流入信号在统计上不显著（t={holiday_5d['t统计量']:.2f}）")
+            # 统计显著性判断
+            if abs(holiday_5d['超额t值']) > 2:
+                print(f"\n结论: 节假日前资金流入信号在统计上显著（超额t={holiday_5d['超额t值']:.2f} > 2）")
+            else:
+                print(f"\n结论: 节假日前资金流入信号在统计上不显著（超额t={holiday_5d['超额t值']:.2f}）")
 
-        if diff_5d > 0.3:
-            print(f"       相比普通交易日，节假日前有额外信号价值（差异{diff_5d:+.2f}%）")
-        else:
-            print(f"       相比普通交易日，节假日前无明显额外信号价值")
+            if diff_excess > 0.3:
+                print(f"       相比普通交易日，节假日前有额外超额信号价值（差异{diff_excess:+.2f}%）")
+            else:
+                print(f"       相比普通交易日，节假日前无明显额外超额信号价值")
 
     print(f"\n详细结果已保存至: {output_dir}")
 
