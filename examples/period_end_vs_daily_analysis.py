@@ -27,27 +27,32 @@ class PeriodEndVsDailyAnalyzer:
         self.reader = DataReader(db_path)
         self._market_returns_cache = None
 
-    def get_market_returns(self, start_date: str, end_date: str) -> pd.DataFrame:
+    def get_market_returns(self, start_date: str, end_date: str, index_code: str = '801003.SI') -> pd.DataFrame:
         """
         获取市场指数收益率（用于计算超额收益）
 
-        使用全市场等权平均作为基准
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            index_code: 基准指数代码，默认申万A指 801003.SI
+                       可选: 801003.SI (申万A指), 801001.SI (申万50)
         """
         if self._market_returns_cache is not None:
             return self._market_returns_cache
 
+        # 从 sw_daily 表获取申万指数数据
         query = """
         SELECT
             trade_date,
-            AVG(pct_chg) as market_return
-        FROM daily
-        WHERE trade_date >= ? AND trade_date <= ?
-        AND pct_chg IS NOT NULL
-        GROUP BY trade_date
+            pct_change as market_return
+        FROM sw_daily
+        WHERE ts_code = ?
+        AND trade_date >= ? AND trade_date <= ?
+        AND pct_change IS NOT NULL
         ORDER BY trade_date
         """
 
-        df = self.reader.db.con.execute(query, [start_date, end_date]).fetchdf()
+        df = self.reader.db.con.execute(query, [index_code, start_date, end_date]).fetchdf()
         self._market_returns_cache = df
         return df
 
@@ -508,7 +513,8 @@ def main():
     print(f"板块层级: {level}")
     print(f"榜单取前: {top_n} 名")
     print(f"持有期: {periods} 交易日")
-    print(f"收益指标: 超额收益（板块收益 - 市场收益）+ 绝对收益")
+    print(f"基准指数: 申万A指 (801003.SI)")
+    print(f"收益指标: 超额收益（板块收益 - 申万A指收益）+ 绝对收益")
 
     # 执行分析
     print("\n" + "=" * 80)
