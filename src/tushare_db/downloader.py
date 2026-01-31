@@ -1239,6 +1239,103 @@ class DataDownloader:
         logger.info(f"申万行业日线下载完成: 共 {total_rows} 行")
         return total_rows
 
+    # ==================== 指数日线数据 ====================
+
+    def download_index_daily(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载指数日线行情
+
+        数据说明：
+        - 获取指数每日行情（上证指数、深证成指、创业板指等）
+        - 单次最大获取8000条数据
+
+        字段说明：
+        - ts_code: 指数代码（如 000001.SH 上证指数）
+        - trade_date: 交易日期
+        - open/high/low/close: OHLC数据
+        - pre_close: 昨收盘
+        - change: 涨跌额
+        - pct_chg: 涨跌幅（%）
+        - vol: 成交量（手）
+        - amount: 成交额（千元）
+
+        常用指数代码：
+        - 000001.SH: 上证指数
+        - 399001.SZ: 深证成指
+        - 399006.SZ: 创业板指
+        - 000300.SH: 沪深300
+        - 000905.SH: 中证500
+        - 000852.SH: 中证1000
+
+        Args:
+            ts_code: 指数代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载指数日线: ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'index_daily',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无指数日线数据")
+            return 0
+
+        self.db.write_dataframe(df, 'index_daily', mode='append')
+        logger.info(f"指数日线数据: {len(df)} 行")
+        return len(df)
+
+    def download_index_daily_by_date_range(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: str
+    ) -> int:
+        """
+        按日期范围下载指数日线（适合大量历史数据）
+
+        Args:
+            ts_code: 指数代码（如 000001.SH）
+            start_date: 开始日期 YYYYMMDD
+            end_date: 结束日期 YYYYMMDD
+
+        Returns:
+            下载的总行数
+        """
+        logger.info(f"下载指数日线: {ts_code} {start_date} -> {end_date}")
+
+        # 直接使用 start_date/end_date 下载，单次最大8000条
+        df = self.fetcher.fetch(
+            'index_daily',
+            ts_code=ts_code,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无指数日线数据: {ts_code}")
+            return 0
+
+        self.db.write_dataframe(df, 'index_daily', mode='append')
+        logger.info(f"指数日线数据: {len(df)} 行 ({ts_code})")
+        return len(df)
+
     # ==================== 数据完整性验证 ====================
 
     def validate_data_integrity(

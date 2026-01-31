@@ -78,6 +78,7 @@ downloader.close()
 | `stock_basic` | stock_basic | ts_code | — |
 | `stock_company` | stock_company | ts_code | — |
 | `daily` | daily | ts_code, trade_date | asset='E' (stocks), 'I' (index) |
+| `index_daily` | index_daily | ts_code, trade_date | 主要指数日线数据 |
 | `adj_factor` | adj_factor | ts_code, trade_date | — |
 | `daily_basic` | daily_basic | ts_code, trade_date | — |
 | `index_basic` | index_basic | ts_code | — |

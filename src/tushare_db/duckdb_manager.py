@@ -44,6 +44,8 @@ TABLE_PRIMARY_KEYS = {
     "margin_detail": ["ts_code", "trade_date"],
     # 申万行业指数
     "sw_daily": ["ts_code", "trade_date"],
+    # 指数日线行情
+    "index_daily": ["ts_code", "trade_date"],
 }
 
 class DuckDBManager:

@@ -216,7 +216,7 @@ def update_daily_data(downloader: DataDownloader):
 
 def update_index_daily(downloader: DataDownloader):
     """
-    更新常见指数日线数据
+    更新常见指数日线数据 (index_daily)
 
     常见指数包括：
     - 000001.SH 上证指数
@@ -227,9 +227,11 @@ def update_index_daily(downloader: DataDownloader):
     - 000852.SH 中证1000
     - 000688.SH 科创50
     - 000016.SH 上证50
+
+    数据存储在 index_daily 表，使用 Tushare index_daily 接口
     """
     logger.info("=" * 60)
-    logger.info("开始更新常见指数日线数据...")
+    logger.info("开始更新常见指数日线数据 (index_daily)...")
 
     # 常见指数列表
     indices = [
@@ -251,7 +253,7 @@ def update_index_daily(downloader: DataDownloader):
             try:
                 # 获取该指数在数据库中的最新日期
                 latest_date_df = downloader.db.execute_query(
-                    "SELECT MAX(trade_date) as max_date FROM daily WHERE ts_code = ?",
+                    "SELECT MAX(trade_date) as max_date FROM index_daily WHERE ts_code = ?",
                     [ts_code]
                 )
 
@@ -266,11 +268,10 @@ def update_index_daily(downloader: DataDownloader):
                     continue
 
                 logger.info(f"  更新 {name} ({ts_code}): {start_date} -> {today}")
-                rows = downloader.download_stock_daily(
+                rows = downloader.download_index_daily(
                     ts_code=ts_code,
                     start_date=start_date,
-                    end_date=today,
-                    asset='I'
+                    end_date=today
                 )
                 if rows > 0:
                     logger.info(f"    ✓ 下载 {rows} 行")
