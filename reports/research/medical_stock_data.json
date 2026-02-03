@@ -1,0 +1,485 @@
+{
+  "report_date": "2026-02-01",
+  "data_date": "20260130",
+  "total_stocks": 498,
+  "by_l2_industry": {
+    "化学制药": {
+      "count": 158,
+      "total_mv_billion": 26578.67,
+      "median_pe": 36.97,
+      "median_pb": 2.98,
+      "median_roe": 4.11
+    },
+    "生物制品": {
+      "count": 55,
+      "total_mv_billion": 8765.76,
+      "median_pe": 41.86,
+      "median_pb": 2.73,
+      "median_roe": 2.35
+    },
+    "医疗器械": {
+      "count": 134,
+      "total_mv_billion": 14264.51,
+      "median_pe": 42.84,
+      "median_pb": 2.97,
+      "median_roe": 3.89
+    },
+    "医药商业": {
+      "count": 31,
+      "total_mv_billion": 3581.37,
+      "median_pe": 25.77,
+      "median_pb": 1.88,
+      "median_roe": 4.64
+    },
+    "中药Ⅱ": {
+      "count": 68,
+      "total_mv_billion": 8804.21,
+      "median_pe": 30.57,
+      "median_pb": 2.59,
+      "median_roe": 4.52
+    },
+    "医疗服务": {
+      "count": 52,
+      "total_mv_billion": 9721.32,
+      "median_pe": 70.4,
+      "median_pb": 3.41,
+      "median_roe": 2.19
+    }
+  },
+  "by_l3_industry": {
+    "化学制剂": {
+      "count": 111,
+      "total_mv_billion": 22842.32,
+      "median_pe": 36.31,
+      "median_roe": 3.83
+    },
+    "原料药": {
+      "count": 47,
+      "total_mv_billion": 3736.35,
+      "median_pe": 40.75,
+      "median_roe": 4.26
+    },
+    "其他生物制品": {
+      "count": 34,
+      "total_mv_billion": 4842.9,
+      "median_pe": 42.76,
+      "median_roe": 3.42
+    },
+    "血液制品": {
+      "count": 7,
+      "total_mv_billion": 1381.35,
+      "median_pe": 25.02,
+      "median_roe": 4.53
+    },
+    "疫苗": {
+      "count": 14,
+      "total_mv_billion": 2541.51,
+      "median_pe": 61.2,
+      "median_roe": 1.11
+    },
+    "医疗设备": {
+      "count": 43,
+      "total_mv_billion": 6831.06,
+      "median_pe": 50.91,
+      "median_roe": 4.56
+    },
+    "医疗耗材": {
+      "count": 51,
+      "total_mv_billion": 4560.18,
+      "median_pe": 40.8,
+      "median_roe": 5.31
+    },
+    "体外诊断": {
+      "count": 40,
+      "total_mv_billion": 2873.27,
+      "median_pe": 41.93,
+      "median_roe": 1.64
+    },
+    "线下药店": {
+      "count": 8,
+      "total_mv_billion": 928.11,
+      "median_pe": 27.93,
+      "median_roe": 6.45
+    },
+    "医药流通": {
+      "count": 23,
+      "total_mv_billion": 2653.26,
+      "median_pe": 23.39,
+      "median_roe": 3.81
+    },
+    "中药Ⅲ": {
+      "count": 68,
+      "total_mv_billion": 8804.21,
+      "median_pe": 30.57,
+      "median_roe": 4.52
+    },
+    "其他医疗服务": {
+      "count": 2,
+      "total_mv_billion": 93.75,
+      "median_pe": 37.18,
+      "median_roe": 3.31
+    },
+    "医疗研发外包": {
+      "count": 30,
+      "total_mv_billion": 6585.3,
+      "median_pe": 58.88,
+      "median_roe": 3.79
+    },
+    "医院": {
+      "count": 15,
+      "total_mv_billion": 2445.7,
+      "median_pe": 78.58,
+      "median_roe": 0.77
+    },
+    "诊断服务": {
+      "count": 5,
+      "total_mv_billion": 596.57,
+      "median_pe": null,
+      "median_roe": -0.23
+    }
+  },
+  "top_stocks_by_market_cap": [
+    {
+      "ts_code": "688235.SH",
+      "name": "百济神州-U",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 4272.51,
+      "pe_ttm": null,
+      "roe": 4.2556
+    },
+    {
+      "ts_code": "600276.SH",
+      "name": "恒瑞医药",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 3860.2,
+      "pe_ttm": 51.689,
+      "roe": 10.9521
+    },
+    {
+      "ts_code": "603259.SH",
+      "name": "药明康德",
+      "l3_name": "医疗研发外包",
+      "total_mv_billion": 2840.54,
+      "pe_ttm": 18.9459,
+      "roe": 18.6378
+    },
+    {
+      "ts_code": "300760.SZ",
+      "name": "迈瑞医疗",
+      "l3_name": "医疗设备",
+      "total_mv_billion": 2294.67,
+      "pe_ttm": 26.6777,
+      "roe": 20.1454
+    },
+    {
+      "ts_code": "688506.SH",
+      "name": "百利天恒",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 1146.76,
+      "pe_ttm": null,
+      "roe": -8.945
+    },
+    {
+      "ts_code": "688271.SH",
+      "name": "联影医疗",
+      "l3_name": "医疗设备",
+      "total_mv_billion": 1065.64,
+      "pe_ttm": 62.2836,
+      "roe": 5.5033
+    },
+    {
+      "ts_code": "300015.SZ",
+      "name": "爱尔眼科",
+      "l3_name": "医院",
+      "total_mv_billion": 1032.32,
+      "pe_ttm": 32.0694,
+      "roe": 14.4374
+    },
+    {
+      "ts_code": "000538.SZ",
+      "name": "云南白药",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 992.23,
+      "pe_ttm": 19.082,
+      "roe": 12.1609
+    },
+    {
+      "ts_code": "600436.SH",
+      "name": "片仔癀",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 967.72,
+      "pe_ttm": 39.994,
+      "roe": 14.816
+    },
+    {
+      "ts_code": "600196.SH",
+      "name": "复星医药",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 712.2,
+      "pe_ttm": 21.6967,
+      "roe": 5.2961
+    },
+    {
+      "ts_code": "601607.SH",
+      "name": "上海医药",
+      "l3_name": "医药流通",
+      "total_mv_billion": 641.55,
+      "pe_ttm": 11.364,
+      "roe": 6.981
+    },
+    {
+      "ts_code": "000963.SZ",
+      "name": "华东医药",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 632.68,
+      "pe_ttm": 17.11,
+      "roe": 11.6455
+    },
+    {
+      "ts_code": "688331.SH",
+      "name": "荣昌生物",
+      "l3_name": "其他生物制品",
+      "total_mv_billion": 577.18,
+      "pe_ttm": null,
+      "roe": -25.5766
+    },
+    {
+      "ts_code": "002653.SZ",
+      "name": "海思科",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 567.57,
+      "pe_ttm": 183.7185,
+      "roe": 6.9973
+    },
+    {
+      "ts_code": "300765.SZ",
+      "name": "新诺威",
+      "l3_name": "原料药",
+      "total_mv_billion": 545.97,
+      "pe_ttm": null,
+      "roe": -0.6484
+    },
+    {
+      "ts_code": "300759.SZ",
+      "name": "康龙化成",
+      "l3_name": "医疗研发外包",
+      "total_mv_billion": 545.31,
+      "pe_ttm": 36.0541,
+      "roe": 8.0823
+    },
+    {
+      "ts_code": "300347.SZ",
+      "name": "泰格医药",
+      "l3_name": "医疗研发外包",
+      "total_mv_billion": 542.53,
+      "pe_ttm": 88.6276,
+      "roe": 4.877
+    },
+    {
+      "ts_code": "603392.SH",
+      "name": "万泰生物",
+      "l3_name": "疫苗",
+      "total_mv_billion": 531.68,
+      "pe_ttm": null,
+      "roe": -1.4243
+    },
+    {
+      "ts_code": "002294.SZ",
+      "name": "信立泰",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 522.96,
+      "pe_ttm": 77.7565,
+      "roe": 6.6425
+    },
+    {
+      "ts_code": "300255.SZ",
+      "name": "常山药业",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 509.07,
+      "pe_ttm": null,
+      "roe": -2.9107
+    }
+  ],
+  "quality_leaders": [
+    {
+      "ts_code": "603259.SH",
+      "name": "药明康德",
+      "l3_name": "医疗研发外包",
+      "total_mv_billion": 2840.54,
+      "pe_ttm": 18.9459,
+      "roe": 18.6378,
+      "grossprofit_margin": 46.6225
+    },
+    {
+      "ts_code": "300760.SZ",
+      "name": "迈瑞医疗",
+      "l3_name": "医疗设备",
+      "total_mv_billion": 2294.67,
+      "pe_ttm": 26.6777,
+      "roe": 20.1454,
+      "grossprofit_margin": 61.953
+    },
+    {
+      "ts_code": "300015.SZ",
+      "name": "爱尔眼科",
+      "l3_name": "医院",
+      "total_mv_billion": 1032.32,
+      "pe_ttm": 32.0694,
+      "roe": 14.4374,
+      "grossprofit_margin": 49.2741
+    },
+    {
+      "ts_code": "000538.SZ",
+      "name": "云南白药",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 992.23,
+      "pe_ttm": 19.082,
+      "roe": 12.1609,
+      "grossprofit_margin": 30.0599
+    },
+    {
+      "ts_code": "600436.SH",
+      "name": "片仔癀",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 967.72,
+      "pe_ttm": 39.994,
+      "roe": 14.816,
+      "grossprofit_margin": 38.9298
+    },
+    {
+      "ts_code": "000963.SZ",
+      "name": "华东医药",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 632.68,
+      "pe_ttm": 17.11,
+      "roe": 11.6455,
+      "grossprofit_margin": 33.5183
+    },
+    {
+      "ts_code": "300759.SZ",
+      "name": "康龙化成",
+      "l3_name": "医疗研发外包",
+      "total_mv_billion": 545.31,
+      "pe_ttm": 36.0541,
+      "roe": 8.0823,
+      "grossprofit_margin": 34.2248
+    },
+    {
+      "ts_code": "000999.SZ",
+      "name": "华润三九",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 467.81,
+      "pe_ttm": 16.9443,
+      "roe": 11.4719,
+      "grossprofit_margin": 53.5178
+    },
+    {
+      "ts_code": "688578.SH",
+      "name": "艾力斯",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 443.61,
+      "pe_ttm": 22.3743,
+      "roe": 27.4288,
+      "grossprofit_margin": 96.7918
+    },
+    {
+      "ts_code": "300832.SZ",
+      "name": "新产业",
+      "l3_name": "体外诊断",
+      "total_mv_billion": 423.35,
+      "pe_ttm": 25.6625,
+      "roe": 13.9111,
+      "grossprofit_margin": 68.7277
+    },
+    {
+      "ts_code": "600085.SH",
+      "name": "同仁堂",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 415.83,
+      "pe_ttm": 30.7164,
+      "roe": 8.7682,
+      "grossprofit_margin": 43.862
+    },
+    {
+      "ts_code": "600332.SH",
+      "name": "白云山",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 410.51,
+      "pe_ttm": 13.7453,
+      "roe": 8.969,
+      "grossprofit_margin": 17.6042
+    },
+    {
+      "ts_code": "002223.SZ",
+      "name": "鱼跃医疗",
+      "l3_name": "医疗设备",
+      "total_mv_billion": 399.99,
+      "pe_ttm": 22.9858,
+      "roe": 11.2528,
+      "grossprofit_margin": 50.3492
+    },
+    {
+      "ts_code": "600329.SH",
+      "name": "达仁堂",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 343.08,
+      "pe_ttm": 9.5894,
+      "roe": 25.5407,
+      "grossprofit_margin": 74.983
+    },
+    {
+      "ts_code": "688617.SH",
+      "name": "惠泰医疗",
+      "l3_name": "医疗耗材",
+      "total_mv_billion": 327.19,
+      "pe_ttm": 42.5857,
+      "roe": 22.6443,
+      "grossprofit_margin": 73.1887
+    },
+    {
+      "ts_code": "000423.SZ",
+      "name": "东阿阿胶",
+      "l3_name": "中药Ⅲ",
+      "total_mv_billion": 326.05,
+      "pe_ttm": 19.4209,
+      "roe": 12.5759,
+      "grossprofit_margin": 73.6853
+    },
+    {
+      "ts_code": "000513.SZ",
+      "name": "丽珠集团",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 310.41,
+      "pe_ttm": 14.4886,
+      "roe": 12.608,
+      "grossprofit_margin": 66.3853
+    },
+    {
+      "ts_code": "688278.SH",
+      "name": "特宝生物",
+      "l3_name": "其他生物制品",
+      "total_mv_billion": 310.18,
+      "pe_ttm": 33.0131,
+      "roe": 23.9502,
+      "grossprofit_margin": 92.5579
+    },
+    {
+      "ts_code": "600079.SH",
+      "name": "ST人福",
+      "l3_name": "化学制剂",
+      "total_mv_billion": 300.0,
+      "pe_ttm": 20.9994,
+      "roe": 9.243,
+      "grossprofit_margin": 47.9476
+    },
+    {
+      "ts_code": "603939.SH",
+      "name": "益丰药房",
+      "l3_name": "线下药店",
+      "total_mv_billion": 289.64,
+      "pe_ttm": 17.6327,
+      "roe": 11.1815,
+      "grossprofit_margin": 40.405
+    }
+  ]
+}
