@@ -1492,6 +1492,67 @@ class DataDownloader:
         logger.info(f"指数日线数据: {len(df)} 行 ({ts_code})")
         return len(df)
 
+    # ==================== 开盘啦题材库 ====================
+
+    def download_kpl_concept(self, trade_date: str) -> int:
+        """
+        下载开盘啦题材列表数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 包含题材代码、名称、涨停数量、排名变化
+            - 每日盘后更新
+            - 需要 5000+ 积分
+        """
+        logger.debug(f"下载开盘啦题材列表: {trade_date}")
+        df = self.fetcher.fetch(
+            'kpl_concept',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无开盘啦题材数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'kpl_concept', mode='append')
+        logger.info(f"开盘啦题材列表: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+    def download_kpl_concept_cons(self, trade_date: str) -> int:
+        """
+        下载开盘啦题材成分股数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 包含题材与股票的关联关系
+            - 包含股票在该题材中的描述和人气值
+            - 每日盘后更新
+            - 需要 5000+ 积分
+        """
+        logger.debug(f"下载开盘啦题材成分: {trade_date}")
+        df = self.fetcher.fetch(
+            'kpl_concept_cons',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无开盘啦题材成分数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'kpl_concept_cons', mode='append')
+        logger.info(f"开盘啦题材成分: {len(df)} 行 ({trade_date})")
+        return len(df)
+
     # ==================== 数据完整性验证 ====================
 
     def validate_data_integrity(

@@ -46,6 +46,9 @@ TABLE_PRIMARY_KEYS = {
     "sw_daily": ["ts_code", "trade_date"],
     # 指数日线行情
     "index_daily": ["ts_code", "trade_date"],
+    # 开盘啦题材库
+    "kpl_concept": ["ts_code", "trade_date"],
+    "kpl_concept_cons": ["ts_code", "con_code", "trade_date"],
 }
 
 class DuckDBManager:

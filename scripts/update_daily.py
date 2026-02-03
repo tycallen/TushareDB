@@ -19,6 +19,7 @@
 13. 更新行业资金流向（沪深通）数据
 14. 更新个股资金流向数据
 15. 更新申万行业指数日线数据
+16. 更新开盘啦题材库 (kpl_concept, kpl_concept_cons)
 
 使用方法：
     python scripts/update_daily.py
@@ -33,7 +34,7 @@
 更新：2025-12-26 - 添加申万行业分类和个股资金流向更新
 更新：2026-01-19 - 添加财务报表、分红送股、融资融券明细更新
 更新：2026-01-31 - 添加申万行业指数日线数据更新
-更新：2026-02-03 - 添加筹码分布详情和技术因子更新
+更新：2026-02-03 - 添加筹码分布详情、技术因子、开盘啦题材库更新
 """
 
 import os
@@ -1193,6 +1194,151 @@ def update_sw_daily(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_kpl_concept(downloader: DataDownloader):
+    """
+    增量更新开盘啦题材列表数据 (kpl_concept)
+
+    策略：
+        1. 获取数据库中 kpl_concept 的最新日期
+        2. 从下一天开始更新到今天
+
+    说明：
+        - 包含题材代码、名称、涨停数量、排名变化
+        - 每日盘后更新
+        - 需要 5000+ 积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新开盘啦题材列表数据 (kpl_concept)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('kpl_concept', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 数据从较早时间开始，默认从30天前开始
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info("数据库中没有开盘啦题材历史数据，将从近30天开始初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_kpl_concept(trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 开盘啦题材列表更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新开盘啦题材列表数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_kpl_concept_cons(downloader: DataDownloader):
+    """
+    增量更新开盘啦题材成分股数据 (kpl_concept_cons)
+
+    策略：
+        1. 获取数据库中 kpl_concept_cons 的最新日期
+        2. 从下一天开始更新到今天
+
+    说明：
+        - 包含题材与股票的关联关系
+        - 包含股票在该题材中的描述和人气值
+        - 每日盘后更新
+        - 需要 5000+ 积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新开盘啦题材成分股数据 (kpl_concept_cons)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('kpl_concept_cons', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 数据从较早时间开始，默认从30天前开始
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info("数据库中没有开盘啦题材成分历史数据，将从近30天开始初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_kpl_concept_cons(trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 开盘啦题材成分更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新开盘啦题材成分数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -1265,6 +1411,8 @@ def main():
     14. 行业资金流向（沪深通）数据
     15. 个股资金流向数据
     16. 申万行业指数日线数据
+    17. 开盘啦题材列表 (kpl_concept)
+    18. 开盘啦题材成分股 (kpl_concept_cons)
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -1308,6 +1456,8 @@ def main():
             update_moneyflow_dc(downloader)  # 个股资金流向（DC接口）
             update_moneyflow(downloader)  # 个股资金流向（标准接口）
             update_sw_daily(downloader)  # 申万行业指数日线
+            update_kpl_concept(downloader)  # 开盘啦题材列表
+            update_kpl_concept_cons(downloader)  # 开盘啦题材成分股
 
             # 4. 完成
             end_time = datetime.now()
