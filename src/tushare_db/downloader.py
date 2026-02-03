@@ -478,6 +478,162 @@ class DataDownloader:
         logger.info(f"筹码分布数据: {len(df)} 行 ({trade_date})")
         return len(df)
 
+    def download_cyq_chips(self, ts_code: str, trade_date: str) -> int:
+        """
+        下载筹码分布详情数据（各价位占比）
+
+        Args:
+            ts_code: 股票代码
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 数据从2018年开始
+            - 同一天同一股票有多个价格的筹码占比记录
+            - 需要 5000+ 积分
+        """
+        logger.debug(f"下载筹码分布详情: {ts_code} {trade_date}")
+        df = self.fetcher.fetch(
+            'cyq_chips',
+            ts_code=ts_code,
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无筹码分布详情数据: {ts_code} {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'cyq_chips', mode='append')
+        logger.debug(f"筹码分布详情: {len(df)} 行 ({ts_code} {trade_date})")
+        return len(df)
+
+    def download_cyq_chips_by_date(self, trade_date: str) -> int:
+        """
+        按日期批量下载所有股票的筹码分布详情数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的总行数
+
+        说明:
+            - 遍历所有上市股票，逐个下载筹码分布
+            - 由于 API 限制，需要逐个股票下载
+        """
+        logger.info(f"批量下载筹码分布详情: {trade_date}")
+
+        # 获取所有上市股票
+        stocks_df = self.db.execute_query(
+            "SELECT ts_code FROM stock_basic WHERE list_status = 'L'"
+        )
+
+        if stocks_df.empty:
+            logger.warning("没有找到上市股票列表")
+            return 0
+
+        total_rows = 0
+        success_count = 0
+        stock_list = stocks_df['ts_code'].tolist()
+
+        for i, ts_code in enumerate(stock_list):
+            try:
+                rows = self.download_cyq_chips(ts_code, trade_date)
+                if rows > 0:
+                    total_rows += rows
+                    success_count += 1
+
+                # 每100只股票打印一次进度
+                if (i + 1) % 100 == 0:
+                    logger.info(f"  进度: {i + 1}/{len(stock_list)}, 已下载 {total_rows} 行")
+
+            except Exception as e:
+                logger.debug(f"  {ts_code} 下载失败: {e}")
+                continue
+
+        logger.info(f"筹码分布详情批量下载完成: {success_count}/{len(stock_list)} 只股票, 共 {total_rows} 行")
+        return total_rows
+
+    def download_stk_factor_pro(self, ts_code: str, trade_date: str) -> int:
+        """
+        下载股票技术因子数据（专业版）
+
+        Args:
+            ts_code: 股票代码
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 包含 MACD、KDJ、RSI、BOLL 等技术指标
+            - 提供不复权(_bfq)、前复权(_qfq)、后复权(_hfq)三种价格
+            - 需要 5000+ 积分
+        """
+        logger.debug(f"下载技术因子: {ts_code} {trade_date}")
+        df = self.fetcher.fetch(
+            'stk_factor_pro',
+            ts_code=ts_code,
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无技术因子数据: {ts_code} {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'stk_factor_pro', mode='append')
+        logger.debug(f"技术因子: {len(df)} 行 ({ts_code} {trade_date})")
+        return len(df)
+
+    def download_stk_factor_pro_by_date(self, trade_date: str) -> int:
+        """
+        按日期批量下载所有股票的技术因子数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的总行数
+
+        说明:
+            - 遍历所有上市股票，逐个下载技术因子
+            - 由于 API 限制，需要逐个股票下载
+        """
+        logger.info(f"批量下载技术因子: {trade_date}")
+
+        # 获取所有上市股票
+        stocks_df = self.db.execute_query(
+            "SELECT ts_code FROM stock_basic WHERE list_status = 'L'"
+        )
+
+        if stocks_df.empty:
+            logger.warning("没有找到上市股票列表")
+            return 0
+
+        total_rows = 0
+        success_count = 0
+        stock_list = stocks_df['ts_code'].tolist()
+
+        for i, ts_code in enumerate(stock_list):
+            try:
+                rows = self.download_stk_factor_pro(ts_code, trade_date)
+                if rows > 0:
+                    total_rows += rows
+                    success_count += 1
+
+                # 每100只股票打印一次进度
+                if (i + 1) % 100 == 0:
+                    logger.info(f"  进度: {i + 1}/{len(stock_list)}, 已下载 {total_rows} 行")
+
+            except Exception as e:
+                logger.debug(f"  {ts_code} 下载失败: {e}")
+                continue
+
+        logger.info(f"技术因子批量下载完成: {success_count}/{len(stock_list)} 只股票, 共 {total_rows} 行")
+        return total_rows
+
     def download_dc_member(self, trade_date: str) -> int:
         """
         下载龙虎榜机构席位交易明细数据

@@ -12,11 +12,13 @@
 6. 更新三大财务报表（利润表、资产负债表、现金流量表）
 7. 更新分红送股数据
 8. 更新融资融券交易明细
-9. 更新筹码分布数据
-10. 更新龙虎榜机构席位数据
-11. 更新行业资金流向（沪深通）数据
-12. 更新个股资金流向数据
-13. 更新申万行业指数日线数据
+9. 更新筹码分布数据 (cyq_perf)
+10. 更新筹码分布详情 (cyq_chips) - 各价位占比
+11. 更新技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
+12. 更新龙虎榜机构席位数据
+13. 更新行业资金流向（沪深通）数据
+14. 更新个股资金流向数据
+15. 更新申万行业指数日线数据
 
 使用方法：
     python scripts/update_daily.py
@@ -31,6 +33,7 @@
 更新：2025-12-26 - 添加申万行业分类和个股资金流向更新
 更新：2026-01-19 - 添加财务报表、分红送股、融资融券明细更新
 更新：2026-01-31 - 添加申万行业指数日线数据更新
+更新：2026-02-03 - 添加筹码分布详情和技术因子更新
 """
 
 import os
@@ -395,6 +398,153 @@ def update_cyq_perf(downloader: DataDownloader):
 
     except Exception as e:
         logger.error(f"✗ 更新筹码分布数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_cyq_chips(downloader: DataDownloader):
+    """
+    增量更新筹码分布详情数据 (cyq_chips)
+
+    策略：
+        1. 获取数据库中 cyq_chips 的最新日期
+        2. 从下一天开始更新到今天
+        3. 按日期批量下载所有股票的筹码分布
+
+    注意：
+        - 数据量大（每只股票每天多条记录），更新较慢
+        - 需要 5000+ 积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新筹码分布详情数据 (cyq_chips)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('cyq_chips', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # cyq_chips 数据从 2018 年开始
+            start_date = '20180101'
+            logger.info("数据库中没有筹码分布详情历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+            logger.warning("  提示: 完整初始化数据量很大，可能需要很长时间")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_cyq_chips_by_date(trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 筹码分布详情更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新筹码分布详情数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_stk_factor_pro(downloader: DataDownloader):
+    """
+    增量更新技术因子数据 (stk_factor_pro)
+
+    策略：
+        1. 获取数据库中 stk_factor_pro 的最新日期
+        2. 从下一天开始更新到今天
+        3. 按日期批量下载所有股票的技术因子
+
+    注意：
+        - 包含 MACD、KDJ、RSI、BOLL 等技术指标
+        - 需要 5000+ 积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新技术因子数据 (stk_factor_pro)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('stk_factor_pro', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 技术因子覆盖全历史，但为避免初始化太慢，默认从近期开始
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info("数据库中没有技术因子历史数据，将从近30天开始初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_stk_factor_pro_by_date(trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 技术因子更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新技术因子数据失败: {e}")
         logger.warning("  继续执行其他更新任务...")
 
 
@@ -1108,11 +1258,13 @@ def main():
     7. 三大财务报表（利润表、资产负债表、现金流量表）
     8. 分红送股数据
     9. 融资融券交易明细
-    10. 筹码分布
-    11. 龙虎榜机构席位数据
-    12. 行业资金流向（沪深通）数据
-    13. 个股资金流向数据
-    14. 申万行业指数日线数据
+    10. 筹码分布 (cyq_perf)
+    11. 筹码分布详情 (cyq_chips) - 各价位占比
+    12. 技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
+    13. 龙虎榜机构席位数据
+    14. 行业资金流向（沪深通）数据
+    15. 个股资金流向数据
+    16. 申万行业指数日线数据
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -1149,6 +1301,8 @@ def main():
             update_dividend(downloader)  # 分红送股数据
             update_margin_detail(downloader)  # 融资融券交易明细
             update_cyq_perf(downloader)
+            update_cyq_chips(downloader)  # 筹码分布详情（各价位占比）
+            update_stk_factor_pro(downloader)  # 技术因子（MACD、KDJ等）
             update_dc_member(downloader)
             update_moneyflow_ind_dc(downloader)
             update_moneyflow_dc(downloader)  # 个股资金流向（DC接口）
