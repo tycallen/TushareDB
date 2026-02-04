@@ -480,7 +480,7 @@ class DataDownloader:
 
     def download_cyq_chips(self, ts_code: str, trade_date: str) -> int:
         """
-        下载筹码分布详情数据（各价位占比）
+        下载筹码分布详情数据（单只股票单日）
 
         Args:
             ts_code: 股票代码
@@ -509,19 +509,104 @@ class DataDownloader:
         logger.debug(f"筹码分布详情: {len(df)} 行 ({ts_code} {trade_date})")
         return len(df)
 
-    def download_cyq_chips_by_date(self, trade_date: str) -> int:
+    def download_cyq_chips_by_stock(
+        self,
+        ts_code: str,
+        start_date: str,
+        end_date: str
+    ) -> int:
         """
-        按日期批量下载所有股票的筹码分布详情数据
+        按股票+日期范围下载筹码分布详情数据
 
         Args:
-            trade_date: 交易日期 (YYYYMMDD)
+            ts_code: 股票代码
+            start_date: 开始日期 (YYYYMMDD)
+            end_date: 结束日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 一次 API 调用可获取多日数据
+            - 单次最大 2000 条（约 15 个交易日）
+            - 比逐日下载效率高很多
+        """
+        logger.debug(f"下载筹码分布详情: {ts_code} {start_date}~{end_date}")
+        df = self.fetcher.fetch(
+            'cyq_chips',
+            ts_code=ts_code,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无筹码分布详情数据: {ts_code}")
+            return 0
+
+        self.db.write_dataframe(df, 'cyq_chips', mode='append')
+        logger.debug(f"筹码分布详情: {len(df)} 行 ({ts_code})")
+        return len(df)
+
+    def download_cyq_chips_incremental(
+        self,
+        start_date: str,
+        end_date: str
+    ) -> int:
+        """
+        增量下载所有股票的筹码分布详情数据（按股票遍历）
+
+        Args:
+            start_date: 开始日期 (YYYYMMDD)
+            end_date: 结束日期 (YYYYMMDD)
 
         Returns:
             下载的总行数
 
         说明:
-            - 遍历所有上市股票，逐个下载筹码分布
-            - 由于 API 限制，需要逐个股票下载
+            - 遍历所有上市股票，每只股票一次性下载日期范围内的所有数据
+            - 比按日期遍历效率高很多（减少 API 调用次数）
+            - 例如：更新 10 天数据
+              - 按日期遍历：10天 × 5000股票 = 50000 次 API
+              - 按股票遍历：5000股票 × 1次 = 5000 次 API
+        """
+        logger.info(f"增量下载筹码分布详情: {start_date} ~ {end_date}")
+
+        # 获取所有上市股票
+        stocks_df = self.db.execute_query(
+            "SELECT ts_code FROM stock_basic WHERE list_status = 'L'"
+        )
+
+        if stocks_df.empty:
+            logger.warning("没有找到上市股票列表")
+            return 0
+
+        total_rows = 0
+        success_count = 0
+        stock_list = stocks_df['ts_code'].tolist()
+
+        for i, ts_code in enumerate(stock_list):
+            try:
+                rows = self.download_cyq_chips_by_stock(ts_code, start_date, end_date)
+                if rows > 0:
+                    total_rows += rows
+                    success_count += 1
+
+                # 每 500 只股票打印一次进度
+                if (i + 1) % 500 == 0:
+                    logger.info(f"  进度: {i + 1}/{len(stock_list)}, 已下载 {total_rows} 行")
+
+            except Exception as e:
+                logger.debug(f"  {ts_code} 下载失败: {e}")
+                continue
+
+        logger.info(f"筹码分布详情增量下载完成: {success_count}/{len(stock_list)} 只股票, 共 {total_rows} 行")
+        return total_rows
+
+    def download_cyq_chips_by_date(self, trade_date: str) -> int:
+        """
+        [已废弃] 按日期批量下载所有股票的筹码分布详情数据
+
+        推荐使用 download_cyq_chips_incremental 方法，效率更高
         """
         logger.info(f"批量下载筹码分布详情: {trade_date}")
 

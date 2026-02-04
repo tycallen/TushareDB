@@ -408,12 +408,14 @@ def update_cyq_chips(downloader: DataDownloader):
 
     策略：
         1. 获取数据库中 cyq_chips 的最新日期
-        2. 从下一天开始更新到今天
-        3. 按日期批量下载所有股票的筹码分布
+        2. 按股票遍历，每只股票一次性下载日期范围内的所有数据
+        3. 比按日期遍历效率高很多（减少 API 调用次数）
 
-    注意：
-        - 数据量大（每只股票每天多条记录），更新较慢
-        - 需要 5000+ 积分
+    优化说明：
+        - 更新 10 天数据：
+          - 旧方案（按日期）：10天 × 5000股票 = 50000 次 API
+          - 新方案（按股票）：5000股票 × 1次 = 5000 次 API
+        - 效率提升约 10 倍
     """
     logger.info("=" * 60)
     logger.info("开始增量更新筹码分布详情数据 (cyq_chips)...")
@@ -428,7 +430,7 @@ def update_cyq_chips(downloader: DataDownloader):
             start_date = '20180101'
             logger.info("数据库中没有筹码分布详情历史数据，将进行完整初始化")
             logger.info(f"  (数据起始日期: {start_date})")
-            logger.warning("  提示: 完整初始化数据量很大，可能需要很长时间")
+            logger.warning("  提示: 完整初始化数据量很大，可能需要较长时间")
         else:
             latest_dt = datetime.strptime(latest_date, '%Y%m%d')
             start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
@@ -436,40 +438,15 @@ def update_cyq_chips(downloader: DataDownloader):
 
         logger.info(f"更新范围: {start_date} → {today}")
 
-        # 2. 获取交易日
+        # 2. 检查是否需要更新
         if start_date > today:
             logger.info("无需更新")
             return
 
-        trading_dates_df = downloader.db.execute_query('''
-            SELECT cal_date
-            FROM trade_cal
-            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
-            ORDER BY cal_date
-        ''', [start_date, today])
+        # 3. 使用按股票遍历的方式增量下载（效率更高）
+        total_rows = downloader.download_cyq_chips_incremental(start_date, today)
 
-        if trading_dates_df.empty:
-            logger.info("期间无交易日")
-            return
-
-        trading_dates = trading_dates_df['cal_date'].tolist()
-        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
-
-        # 3. 逐日更新
-        success_count = 0
-        total_rows = 0
-        for trade_date in trading_dates:
-            try:
-                rows = downloader.download_cyq_chips_by_date(trade_date)
-                if rows > 0:
-                    success_count += 1
-                    total_rows += rows
-                    logger.info(f"  ✓ {trade_date}: {rows} 行")
-            except Exception as e:
-                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
-                # 不中断，继续下一个
-
-        logger.info(f"✓ 筹码分布详情更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+        logger.info(f"✓ 筹码分布详情更新完成: 共 {total_rows} 行")
 
     except Exception as e:
         logger.error(f"✗ 更新筹码分布详情数据失败: {e}")
