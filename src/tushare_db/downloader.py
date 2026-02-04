@@ -598,10 +598,32 @@ class DataDownloader:
             下载的总行数
 
         说明:
-            - 遍历所有上市股票，逐个下载技术因子
-            - 由于 API 限制，需要逐个股票下载
+            - 使用 trade_date 参数一次性获取当日所有股票的技术因子
+            - 单次 API 调用即可获取约 5000+ 只股票的数据
+            - 比逐股票下载效率高 5000x
         """
         logger.info(f"批量下载技术因子: {trade_date}")
+
+        df = self.fetcher.fetch(
+            'stk_factor_pro',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.info(f"无技术因子数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'stk_factor_pro', mode='append')
+        logger.info(f"技术因子: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+    def _download_stk_factor_pro_by_date_legacy(self, trade_date: str) -> int:
+        """
+        [已废弃] 按日期逐股票下载技术因子数据
+
+        保留此方法作为备用，新代码请使用 download_stk_factor_pro_by_date
+        """
+        logger.info(f"批量下载技术因子 (逐股票模式): {trade_date}")
 
         # 获取所有上市股票
         stocks_df = self.db.execute_query(
