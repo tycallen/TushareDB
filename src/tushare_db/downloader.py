@@ -1496,7 +1496,7 @@ class DataDownloader:
 
     def download_kpl_concept(self, trade_date: str) -> int:
         """
-        下载开盘啦题材列表数据
+        下载开盘啦题材列表数据（按日期）
 
         Args:
             trade_date: 交易日期 (YYYYMMDD)
@@ -1523,9 +1523,63 @@ class DataDownloader:
         logger.info(f"开盘啦题材列表: {len(df)} 行 ({trade_date})")
         return len(df)
 
+    def download_kpl_concept_batch(self, target_date: Optional[str] = None) -> int:
+        """
+        批量下载开盘啦题材列表数据（使用 offset 分页）
+
+        Args:
+            target_date: 目标日期，只保留该日期之后的数据（可选）
+                        如果指定，会过滤掉早于该日期的数据
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 使用 limit/offset 分页批量获取
+            - 单次最大 5000 条
+            - 比逐日下载效率高很多
+        """
+        logger.info(f"批量下载开盘啦题材列表 (目标日期: {target_date or '全部'})...")
+
+        total_rows = 0
+        offset = 0
+        limit = 5000
+
+        while True:
+            df = self.fetcher.fetch(
+                'kpl_concept',
+                limit=limit,
+                offset=offset
+            )
+
+            if df.empty:
+                break
+
+            # 如果指定了目标日期，过滤掉早于该日期的数据
+            if target_date and 'trade_date' in df.columns:
+                df = df[df['trade_date'] >= target_date]
+
+            if df.empty:
+                # 如果过滤后没有数据，说明已经获取到目标日期之前的数据了
+                break
+
+            self.db.write_dataframe(df, 'kpl_concept', mode='append')
+            total_rows += len(df)
+
+            logger.info(f"  offset={offset}: {len(df)} 行, 日期范围: {df['trade_date'].min()} ~ {df['trade_date'].max()}")
+
+            # 如果返回的数据少于 limit，说明没有更多数据了
+            if len(df) < limit:
+                break
+
+            offset += limit
+
+        logger.info(f"开盘啦题材列表批量下载完成: 共 {total_rows} 行")
+        return total_rows
+
     def download_kpl_concept_cons(self, trade_date: str) -> int:
         """
-        下载开盘啦题材成分股数据
+        下载开盘啦题材成分股数据（按日期）
 
         Args:
             trade_date: 交易日期 (YYYYMMDD)
@@ -1552,6 +1606,60 @@ class DataDownloader:
         self.db.write_dataframe(df, 'kpl_concept_cons', mode='append')
         logger.info(f"开盘啦题材成分: {len(df)} 行 ({trade_date})")
         return len(df)
+
+    def download_kpl_concept_cons_batch(self, target_date: Optional[str] = None) -> int:
+        """
+        批量下载开盘啦题材成分股数据（使用 offset 分页）
+
+        Args:
+            target_date: 目标日期，只保留该日期之后的数据（可选）
+                        如果指定，会过滤掉早于该日期的数据
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 使用 limit/offset 分页批量获取
+            - 单次最大 3000 条
+            - 比逐日下载效率高很多
+        """
+        logger.info(f"批量下载开盘啦题材成分 (目标日期: {target_date or '全部'})...")
+
+        total_rows = 0
+        offset = 0
+        limit = 3000
+
+        while True:
+            df = self.fetcher.fetch(
+                'kpl_concept_cons',
+                limit=limit,
+                offset=offset
+            )
+
+            if df.empty:
+                break
+
+            # 如果指定了目标日期，过滤掉早于该日期的数据
+            if target_date and 'trade_date' in df.columns:
+                df = df[df['trade_date'] >= target_date]
+
+            if df.empty:
+                # 如果过滤后没有数据，说明已经获取到目标日期之前的数据了
+                break
+
+            self.db.write_dataframe(df, 'kpl_concept_cons', mode='append')
+            total_rows += len(df)
+
+            logger.info(f"  offset={offset}: {len(df)} 行, 日期范围: {df['trade_date'].min()} ~ {df['trade_date'].max()}")
+
+            # 如果返回的数据少于 limit，说明没有更多数据了
+            if len(df) < limit:
+                break
+
+            offset += limit
+
+        logger.info(f"开盘啦题材成分批量下载完成: 共 {total_rows} 行")
+        return total_rows
 
     # ==================== 数据完整性验证 ====================
 

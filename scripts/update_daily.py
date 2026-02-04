@@ -1200,9 +1200,10 @@ def update_kpl_concept(downloader: DataDownloader):
 
     策略：
         1. 获取数据库中 kpl_concept 的最新日期
-        2. 从下一天开始更新到今天
+        2. 使用批量下载方法（offset 分页）获取该日期之后的所有数据
 
     说明：
+        - 使用 limit/offset 批量下载，比逐日下载效率高很多
         - 包含题材代码、名称、涨停数量、排名变化
         - 每日盘后更新
         - 需要 5000+ 积分
@@ -1216,50 +1217,25 @@ def update_kpl_concept(downloader: DataDownloader):
         today = datetime.now().strftime('%Y%m%d')
 
         if latest_date is None:
-            # 数据从较早时间开始，默认从30天前开始
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
-            logger.info("数据库中没有开盘啦题材历史数据，将从近30天开始初始化")
-            logger.info(f"  (数据起始日期: {start_date})")
+            # 初始化：使用批量下载获取所有可用数据
+            target_date = None
+            logger.info("数据库中没有开盘啦题材历史数据，将批量下载所有可用数据")
         else:
+            # 增量更新：只获取最新日期之后的数据
             latest_dt = datetime.strptime(latest_date, '%Y%m%d')
-            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            target_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
             logger.info(f"数据库最新日期: {latest_date}")
 
-        logger.info(f"更新范围: {start_date} → {today}")
+            if target_date > today:
+                logger.info("无需更新")
+                return
 
-        # 2. 获取交易日
-        if start_date > today:
-            logger.info("无需更新")
-            return
+            logger.info(f"更新范围: {target_date} → 最新")
 
-        trading_dates_df = downloader.db.execute_query('''
-            SELECT cal_date
-            FROM trade_cal
-            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
-            ORDER BY cal_date
-        ''', [start_date, today])
+        # 2. 批量下载
+        total_rows = downloader.download_kpl_concept_batch(target_date=target_date)
 
-        if trading_dates_df.empty:
-            logger.info("期间无交易日")
-            return
-
-        trading_dates = trading_dates_df['cal_date'].tolist()
-        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
-
-        # 3. 逐日更新
-        success_count = 0
-        total_rows = 0
-        for trade_date in trading_dates:
-            try:
-                rows = downloader.download_kpl_concept(trade_date)
-                if rows > 0:
-                    success_count += 1
-                    total_rows += rows
-            except Exception as e:
-                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
-                # 不中断，继续下一个
-
-        logger.info(f"✓ 开盘啦题材列表更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+        logger.info(f"✓ 开盘啦题材列表更新完成: 共 {total_rows} 行")
 
     except Exception as e:
         logger.error(f"✗ 更新开盘啦题材列表数据失败: {e}")
@@ -1272,9 +1248,10 @@ def update_kpl_concept_cons(downloader: DataDownloader):
 
     策略：
         1. 获取数据库中 kpl_concept_cons 的最新日期
-        2. 从下一天开始更新到今天
+        2. 使用批量下载方法（offset 分页）获取该日期之后的所有数据
 
     说明：
+        - 使用 limit/offset 批量下载，比逐日下载效率高很多
         - 包含题材与股票的关联关系
         - 包含股票在该题材中的描述和人气值
         - 每日盘后更新
@@ -1289,50 +1266,25 @@ def update_kpl_concept_cons(downloader: DataDownloader):
         today = datetime.now().strftime('%Y%m%d')
 
         if latest_date is None:
-            # 数据从较早时间开始，默认从30天前开始
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
-            logger.info("数据库中没有开盘啦题材成分历史数据，将从近30天开始初始化")
-            logger.info(f"  (数据起始日期: {start_date})")
+            # 初始化：使用批量下载获取所有可用数据
+            target_date = None
+            logger.info("数据库中没有开盘啦题材成分历史数据，将批量下载所有可用数据")
         else:
+            # 增量更新：只获取最新日期之后的数据
             latest_dt = datetime.strptime(latest_date, '%Y%m%d')
-            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            target_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
             logger.info(f"数据库最新日期: {latest_date}")
 
-        logger.info(f"更新范围: {start_date} → {today}")
+            if target_date > today:
+                logger.info("无需更新")
+                return
 
-        # 2. 获取交易日
-        if start_date > today:
-            logger.info("无需更新")
-            return
+            logger.info(f"更新范围: {target_date} → 最新")
 
-        trading_dates_df = downloader.db.execute_query('''
-            SELECT cal_date
-            FROM trade_cal
-            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
-            ORDER BY cal_date
-        ''', [start_date, today])
+        # 2. 批量下载
+        total_rows = downloader.download_kpl_concept_cons_batch(target_date=target_date)
 
-        if trading_dates_df.empty:
-            logger.info("期间无交易日")
-            return
-
-        trading_dates = trading_dates_df['cal_date'].tolist()
-        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
-
-        # 3. 逐日更新
-        success_count = 0
-        total_rows = 0
-        for trade_date in trading_dates:
-            try:
-                rows = downloader.download_kpl_concept_cons(trade_date)
-                if rows > 0:
-                    success_count += 1
-                    total_rows += rows
-            except Exception as e:
-                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
-                # 不中断，继续下一个
-
-        logger.info(f"✓ 开盘啦题材成分更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+        logger.info(f"✓ 开盘啦题材成分更新完成: 共 {total_rows} 行")
 
     except Exception as e:
         logger.error(f"✗ 更新开盘啦题材成分数据失败: {e}")
