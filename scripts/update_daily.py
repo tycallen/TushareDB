@@ -590,6 +590,143 @@ def update_dc_member(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_dc_index(downloader: DataDownloader):
+    """
+    增量更新龙虎榜每日上榜个股明细数据 (dc_index)
+
+    策略：
+        1. 获取数据库中 dc_index 的最新日期
+        2. 从下一天开始更新到今天
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新龙虎榜个股明细数据 (dc_index)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('dc_index', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            logger.info("数据库中没有龙虎榜个股明细历史数据，将从30天前开始更新")
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"  (初始化: 从30天前 {start_date} 开始)")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_dc_index(trade_date)
+                if rows > 0:
+                    success_count += 1
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 龙虎榜个股明细更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新龙虎榜个股明细数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_limit_list_d(downloader: DataDownloader):
+    """
+    增量更新涨跌停和炸板数据 (limit_list_d)
+
+    策略：
+        1. 获取数据库中 limit_list_d 的最新日期
+        2. 从下一天开始更新到今天
+
+    数据说明：
+        - 数据从2020年开始
+        - 包含涨停(U)、跌停(D)、炸板(Z)三种类型
+        - 不包含ST股票
+        - 需要 5000+ 积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新涨跌停数据 (limit_list_d)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('limit_list_d', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 数据从2020年开始
+            start_date = '20200101'
+            logger.info("数据库中没有涨跌停历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_limit_list_d(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 涨跌停数据更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新涨跌停数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def update_moneyflow_ind_dc(downloader: DataDownloader):
     """
     增量更新行业资金流向（沪深通）数据 (moneyflow_ind_dc)
@@ -1336,12 +1473,14 @@ def main():
     10. 筹码分布 (cyq_perf)
     11. 筹码分布详情 (cyq_chips) - 各价位占比
     12. 技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
-    13. 龙虎榜机构席位数据
-    14. 行业资金流向（沪深通）数据
-    15. 个股资金流向数据
-    16. 申万行业指数日线数据
-    17. 开盘啦题材列表 (kpl_concept)
-    18. 开盘啦题材成分股 (kpl_concept_cons)
+    13. 龙虎榜机构席位数据 (dc_member)
+    14. 龙虎榜个股明细数据 (dc_index)
+    15. 涨跌停炸板数据 (limit_list_d)
+    16. 行业资金流向（沪深通）数据
+    17. 个股资金流向数据
+    18. 申万行业指数日线数据
+    19. 开盘啦题材列表 (kpl_concept)
+    20. 开盘啦题材成分股 (kpl_concept_cons)
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -1381,6 +1520,8 @@ def main():
             update_cyq_chips(downloader)  # 筹码分布详情（各价位占比）
             update_stk_factor_pro(downloader)  # 技术因子（MACD、KDJ等）
             update_dc_member(downloader)
+            update_dc_index(downloader)  # 龙虎榜个股明细
+            update_limit_list_d(downloader)  # 涨跌停炸板数据
             update_moneyflow_ind_dc(downloader)
             update_moneyflow_dc(downloader)  # 个股资金流向（DC接口）
             update_moneyflow(downloader)  # 个股资金流向（标准接口）

@@ -443,6 +443,8 @@ class DataDownloader:
             if not df_adj.empty:
                 self.db.write_dataframe(df_adj, 'adj_factor', mode='append')
                 logger.info(f"复权因子: {len(df_adj)} 行")
+            else:
+                logger.warning(f"复权因子数据为空: {trade_date}，可能需要后续补充")
 
             # 3. 下载每日基本面（支持 trade_date）
             logger.info(f"下载每日基本面: {trade_date}")
@@ -450,6 +452,8 @@ class DataDownloader:
             if not df_basic.empty:
                 self.db.write_dataframe(df_basic, 'daily_basic', mode='append')
                 logger.info(f"每日基本面: {len(df_basic)} 行")
+            else:
+                logger.warning(f"每日基本面数据为空: {trade_date}，可能需要后续补充")
 
 
         logger.info(f"按日期下载完成: {trade_date}")
@@ -763,6 +767,87 @@ class DataDownloader:
 
         self.db.write_dataframe(df, 'dc_member', mode='append')
         logger.info(f"龙虎榜机构席位数据: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+    def download_dc_index(self, trade_date: str) -> int:
+        """
+        下载龙虎榜每日上榜个股明细数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 包含上榜原因、上榜次数、净买入额等
+            - 每日盘后更新
+        """
+        logger.debug(f"下载龙虎榜个股明细: {trade_date}")
+        df = self.fetcher.fetch(
+            'dc_index',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.debug(f"无龙虎榜个股明细数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'dc_index', mode='append')
+        logger.info(f"龙虎榜个股明细数据: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+    def download_limit_list_d(
+        self,
+        trade_date: Optional[str] = None,
+        ts_code: Optional[str] = None,
+        limit_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载涨跌停和炸板数据
+
+        Args:
+            trade_date: 交易日期 (YYYYMMDD)
+            ts_code: 股票代码（可选）
+            limit_type: 涨跌停类型 U涨停 D跌停 Z炸板（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 数据从2020年开始
+            - 不包含ST股票
+            - 单次最大2500条
+            - 需要 5000+ 积分
+
+        字段说明:
+            - limit: D跌停 U涨停 Z炸板
+            - fd_amount: 封单金额
+            - first_time/last_time: 首次/最后封板时间
+            - open_times: 炸板次数
+            - up_stat: 涨停统计（N/T 表示T天有N次涨停）
+            - limit_times: 连板数
+        """
+        logger.debug(f"下载涨跌停数据: trade_date={trade_date}, limit_type={limit_type}")
+        df = self.fetcher.fetch(
+            'limit_list_d',
+            trade_date=trade_date,
+            ts_code=ts_code,
+            limit_type=limit_type,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无涨跌停数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'limit_list_d', mode='append')
+        logger.info(f"涨跌停数据: {len(df)} 行 ({trade_date})")
         return len(df)
 
     def download_moneyflow_ind_dc(self, trade_date: str) -> int:

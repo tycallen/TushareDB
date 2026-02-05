@@ -49,6 +49,8 @@ TABLE_PRIMARY_KEYS = {
     # 开盘啦题材库
     "kpl_concept": ["ts_code", "trade_date"],
     "kpl_concept_cons": ["ts_code", "con_code", "trade_date"],
+    # 涨跌停炸板
+    "limit_list_d": ["ts_code", "trade_date", "limit"],
 }
 
 class DuckDBManager:
