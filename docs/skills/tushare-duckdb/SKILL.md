@@ -90,8 +90,9 @@ downloader.close()
 | `moneyflow` | moneyflow | ts_code, trade_date | — |
 | `moneyflow_dc` | moneyflow_dc | ts_code, trade_date | — |
 | `moneyflow_ind_dc` | moneyflow_ind_dc | trade_date, ts_code | — |
-| `dc_index` | dc_index | ts_code, trade_date | — |
-| `dc_member` | dc_member | ts_code, trade_date, con_code | — |
+| `dc_index` | dc_index | ts_code, trade_date | 龙虎榜个股明细 |
+| `dc_member` | dc_member | ts_code, trade_date, con_code | 龙虎榜机构席位 |
+| `limit_list_d` | limit_list_d | ts_code, trade_date, limit | 涨跌停炸板 (U/D/Z) |
 | `fina_indicator_vip` | fina_indicator_vip | ts_code, end_date | — |
 | `income` | income / income_vip | ts_code, end_date, report_type | — |
 | `balancesheet` | balancesheet / balancesheet_vip | ts_code, end_date, report_type | — |
@@ -100,5 +101,7 @@ downloader.close()
 | `margin_detail` | margin_detail | ts_code, trade_date | — |
 | `hs_const` | hs_const | ts_code, in_date | — |
 | `sw_daily` | sw_daily | ts_code, trade_date | 申万2021版 |
+| `kpl_concept` | kpl_concept | ts_code, trade_date | 开盘啦题材列表 |
+| `kpl_concept_cons` | kpl_concept_cons | ts_code, con_code, trade_date | 开盘啦题材成分 |
 
 For column details and parameter meanings, invoke `/tushare-finance <api_name>`.
