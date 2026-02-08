@@ -1853,6 +1853,141 @@ class DataDownloader:
         logger.info(f"开盘啦题材成分批量下载完成: 共 {total_rows} 行")
         return total_rows
 
+    # ==================== 同花顺板块 ====================
+
+    def download_ths_index(
+        self,
+        ts_code: Optional[str] = None,
+        exchange: Optional[str] = None,
+        type: Optional[str] = None
+    ) -> int:
+        """
+        下载同花顺板块指数信息
+
+        Args:
+            ts_code: 指数代码（可选）
+            exchange: 交易所代码（可选）
+            type: 指数类型（可选）
+                - N: 概念板块
+                - I: 行业板块
+                - R: 地域板块
+                - S: 特色指数
+                - ST: 风格指数
+                - TH: 同花顺特色
+                - BB: 宽基指数
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 不指定参数时下载所有板块信息
+            - 本项目默认只下载 I(行业)、N(概念)、R(地域)、BB(宽基) 四类
+            - 需要 6000 积分
+        """
+        logger.debug(f"下载同花顺板块指数: ts_code={ts_code}, type={type}")
+        df = self.fetcher.fetch(
+            'ths_index',
+            ts_code=ts_code,
+            exchange=exchange,
+            type=type
+        )
+
+        if df.empty:
+            logger.debug(f"无同花顺板块数据")
+            return 0
+
+        self.db.write_dataframe(df, 'ths_index', mode='append')
+        logger.info(f"同花顺板块指数: {len(df)} 行")
+        return len(df)
+
+    def download_ths_member(
+        self,
+        ts_code: Optional[str] = None,
+        code: Optional[str] = None
+    ) -> int:
+        """
+        下载同花顺板块成分股数据
+
+        Args:
+            ts_code: 板块指数代码（可选）
+            code: 股票代码（可选，查询股票所属板块）
+
+        Returns:
+            下载的行数
+
+        说明:
+            - ts_code 和 code 必须输入一个
+            - ts_code 获取该板块的所有成分股
+            - code 获取该股票所属的所有板块
+            - 需要 6000 积分
+        """
+        logger.debug(f"下载同花顺板块成分: ts_code={ts_code}, code={code}")
+        df = self.fetcher.fetch(
+            'ths_member',
+            ts_code=ts_code,
+            code=code
+        )
+
+        if df.empty:
+            logger.debug(f"无同花顺板块成分数据")
+            return 0
+
+        self.db.write_dataframe(df, 'ths_member', mode='append')
+        logger.info(f"同花顺板块成分: {len(df)} 行")
+        return len(df)
+
+    def download_ths_daily(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载同花顺板块指数日行情数据
+
+        Args:
+            ts_code: 板块指数代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+
+        说明:
+            - 数据从 20180102 开始
+            - 单次最大 3000 条
+            - 需要 6000 积分
+
+        字段说明:
+            - ts_code: 板块代码
+            - trade_date: 交易日期
+            - open/high/low/close: OHLC
+            - pct_change: 涨跌幅
+            - vol: 成交量
+            - turnover_rate: 换手率
+            - pe/pb: 市盈率/市净率
+            - total_mv/float_mv: 总市值/流通市值
+        """
+        logger.debug(f"下载同花顺板块日行情: ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+        df = self.fetcher.fetch(
+            'ths_daily',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无同花顺板块日行情数据")
+            return 0
+
+        self.db.write_dataframe(df, 'ths_daily', mode='append')
+        logger.info(f"同花顺板块日行情: {len(df)} 行")
+        return len(df)
+
     # ==================== 数据完整性验证 ====================
 
     def validate_data_integrity(

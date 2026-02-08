@@ -51,6 +51,10 @@ TABLE_PRIMARY_KEYS = {
     "kpl_concept_cons": ["ts_code", "con_code", "trade_date"],
     # 涨跌停炸板
     "limit_list_d": ["ts_code", "trade_date", "limit"],
+    # 同花顺板块
+    "ths_index": ["ts_code"],
+    "ths_member": ["ts_code", "con_code"],
+    "ths_daily": ["ts_code", "trade_date"],
 }
 
 class DuckDBManager:

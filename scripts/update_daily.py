@@ -7,19 +7,21 @@
 1. 更新交易日历
 2. 更新股票列表
 3. 更新申万行业分类（仅初始化时下载）
-4. 更新所有股票的日线数据、复权因子、每日基本面
-5. 更新财务指标数据（VIP接口）
-6. 更新三大财务报表（利润表、资产负债表、现金流量表）
-7. 更新分红送股数据
-8. 更新融资融券交易明细
-9. 更新筹码分布数据 (cyq_perf)
-10. 更新筹码分布详情 (cyq_chips) - 各价位占比
-11. 更新技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
-12. 更新龙虎榜机构席位数据
-13. 更新行业资金流向（沪深通）数据
-14. 更新个股资金流向数据
-15. 更新申万行业指数日线数据
-16. 更新开盘啦题材库 (kpl_concept, kpl_concept_cons)
+4. 更新同花顺板块指数（仅初始化时下载）
+5. 更新所有股票的日线数据、复权因子、每日基本面
+6. 更新财务指标数据（VIP接口）
+7. 更新三大财务报表（利润表、资产负债表、现金流量表）
+8. 更新分红送股数据
+9. 更新融资融券交易明细
+10. 更新筹码分布数据 (cyq_perf)
+11. 更新筹码分布详情 (cyq_chips) - 各价位占比
+12. 更新技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
+13. 更新龙虎榜机构席位数据
+14. 更新行业资金流向（沪深通）数据
+15. 更新个股资金流向数据
+16. 更新申万行业指数日线数据
+17. 更新同花顺板块日行情 (ths_daily)
+18. 更新开盘啦题材库 (kpl_concept, kpl_concept_cons)
 
 使用方法：
     python scripts/update_daily.py
@@ -35,6 +37,7 @@
 更新：2026-01-19 - 添加财务报表、分红送股、融资融券明细更新
 更新：2026-01-31 - 添加申万行业指数日线数据更新
 更新：2026-02-03 - 添加筹码分布详情、技术因子、开盘啦题材库更新
+更新：2026-02-05 - 添加同花顺板块指数、成分、日行情更新
 """
 
 import os
@@ -1405,6 +1408,207 @@ def update_kpl_concept_cons(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_ths_index(downloader: DataDownloader):
+    """
+    更新同花顺板块指数信息 (ths_index)
+
+    策略：
+        1. 检查数据库中是否已有数据
+        2. 如果没有数据，下载指定类型的板块信息
+        3. 如果已有数据，跳过（板块信息相对稳定，不需要频繁更新）
+
+    下载的类型：
+        - I: 行业板块 (1077个)
+        - N: 概念板块 (411个)
+        - R: 地域板块 (33个)
+        - BB: 宽基指数 (46个)
+
+    不下载的类型：
+        - S: 特色指数 (126个) - 技术面筛选，实际使用少
+        - ST: 风格指数 (21个) - 可用其他方式构建
+        - TH: 同花顺特色 (10个) - 专有指数，可替代性强
+    """
+    logger.info("=" * 60)
+    logger.info("开始检查同花顺板块指数数据 (ths_index)...")
+
+    try:
+        # 检查是否已有数据
+        if downloader.db.table_exists('ths_index'):
+            result = downloader.db.execute_query("SELECT COUNT(*) as count FROM ths_index")
+            if not result.empty and result.iloc[0]['count'] > 0:
+                logger.info(f"数据库中已有 {result.iloc[0]['count']} 条板块指数数据，跳过更新")
+                return
+
+        logger.info("数据库中没有同花顺板块数据，开始初始化...")
+
+        total_rows = 0
+
+        # 只下载 I(行业)、N(概念)、R(地域)、BB(宽基) 四类
+        types_to_download = [
+            ('I', '行业板块'),
+            ('N', '概念板块'),
+            ('R', '地域板块'),
+            ('BB', '宽基指数'),
+        ]
+
+        for type_code, type_name in types_to_download:
+            rows = downloader.download_ths_index(type=type_code)
+            logger.info(f"  - {type_name} ({type_code}): {rows} 条")
+            total_rows += rows
+
+        logger.info(f"✓ 同花顺板块指数初始化完成: 总计 {total_rows} 条")
+
+    except Exception as e:
+        logger.error(f"✗ 更新同花顺板块指数数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_ths_member(downloader: DataDownloader):
+    """
+    更新同花顺板块成分股数据 (ths_member)
+
+    策略：
+        1. 使用元数据表记录上次更新时间
+        2. 如果距离上次更新 < 7天，跳过更新（周更新策略）
+        3. 否则下载所有板块的成分股
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新同花顺板块成分股数据 (ths_member)...")
+
+    try:
+        # 1. 检查上次更新时间
+        import time
+        last_update = downloader.db.get_cache_metadata('ths_member')
+        if last_update is not None:
+            days_since_update = (time.time() - last_update) / 86400
+            if days_since_update < 7:
+                logger.info(f"  距离上次更新仅 {days_since_update:.1f} 天，跳过（每周更新一次）")
+                return
+            else:
+                logger.info(f"  距离上次更新 {days_since_update:.1f} 天，开始更新...")
+        else:
+            logger.info("  首次运行，开始初始化...")
+
+        # 2. 获取所有板块代码
+        if not downloader.db.table_exists('ths_index'):
+            logger.warning("  ths_index 表不存在，请先运行 update_ths_index()")
+            return
+
+        indices_df = downloader.db.execute_query(
+            "SELECT ts_code, name, type FROM ths_index ORDER BY type, ts_code"
+        )
+
+        if indices_df.empty:
+            logger.warning("  未找到同花顺板块数据，请先运行 update_ths_index()")
+            return
+
+        logger.info(f"  共 {len(indices_df)} 个板块")
+
+        # 3. 逐个板块下载成分股
+        success_count = 0
+        total_rows = 0
+
+        for idx, row in indices_df.iterrows():
+            ts_code = row['ts_code']
+
+            try:
+                rows = downloader.download_ths_member(ts_code=ts_code)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+
+                # 每 100 个板块打印一次进度
+                if (idx + 1) % 100 == 0:
+                    logger.info(f"  进度: {idx + 1}/{len(indices_df)}, 已下载 {total_rows} 条")
+
+            except Exception as e:
+                logger.debug(f"  {ts_code} 下载失败: {e}")
+                continue
+
+        logger.info(f"✓ 同花顺板块成分股更新完成: 成功 {success_count}/{len(indices_df)}, 总计 {total_rows} 条")
+
+        # 更新元数据
+        downloader.db.update_cache_metadata('ths_member', time.time())
+
+    except Exception as e:
+        logger.error(f"✗ 更新同花顺板块成分股数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_ths_daily(downloader: DataDownloader):
+    """
+    增量更新同花顺板块指数日行情数据 (ths_daily)
+
+    策略：
+        1. 获取数据库中 ths_daily 的最新日期
+        2. 从下一天开始更新到今天
+        3. 按日期批量下载所有板块的日行情
+
+    数据说明：
+        - 数据从 20180102 开始
+        - 包含 OHLC、涨跌幅、成交量、换手率、PE/PB、市值等
+        - 需要 6000 积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新同花顺板块日行情数据 (ths_daily)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('ths_daily', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 数据从 2018-01-02 开始
+            start_date = '20180102'
+            logger.info("数据库中没有同花顺板块日行情历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_ths_daily(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 同花顺板块日行情更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新同花顺板块日行情数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -1464,23 +1668,26 @@ def main():
     1. 交易日历（基础数据，其他任务依赖）
     2. 股票列表（基础数据）
     3. 申万行业分类（基础数据，仅初始化时下载）
-    4. 申万行业指数成分股（月度数据，超过30天自动更新）
-    5. 每日数据（日线、复权、基本面）
-    6. 财务指标（季度数据）
-    7. 三大财务报表（利润表、资产负债表、现金流量表）
-    8. 分红送股数据
-    9. 融资融券交易明细
-    10. 筹码分布 (cyq_perf)
-    11. 筹码分布详情 (cyq_chips) - 各价位占比
-    12. 技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
-    13. 龙虎榜机构席位数据 (dc_member)
-    14. 龙虎榜个股明细数据 (dc_index)
-    15. 涨跌停炸板数据 (limit_list_d)
-    16. 行业资金流向（沪深通）数据
-    17. 个股资金流向数据
-    18. 申万行业指数日线数据
-    19. 开盘啦题材列表 (kpl_concept)
-    20. 开盘啦题材成分股 (kpl_concept_cons)
+    4. 申万行业指数成分股（周度更新，支持历史回测）
+    5. 同花顺板块指数（基础数据，仅初始化时下载）
+    6. 同花顺板块成分股（周度更新）
+    7. 每日数据（日线、复权、基本面）
+    8. 财务指标（季度数据）
+    9. 三大财务报表（利润表、资产负债表、现金流量表）
+    10. 分红送股数据
+    11. 融资融券交易明细
+    12. 筹码分布 (cyq_perf)
+    13. 筹码分布详情 (cyq_chips) - 各价位占比
+    14. 技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
+    15. 龙虎榜机构席位数据 (dc_member)
+    16. 龙虎榜个股明细数据 (dc_index)
+    17. 涨跌停炸板数据 (limit_list_d)
+    18. 行业资金流向（沪深通）数据
+    19. 个股资金流向数据
+    20. 申万行业指数日线数据
+    21. 同花顺板块日行情 (ths_daily)
+    22. 开盘啦题材列表 (kpl_concept)
+    23. 开盘啦题材成分股 (kpl_concept_cons)
     """
     start_time = datetime.now()
     logger.info("=" * 60)
@@ -1510,6 +1717,8 @@ def main():
             update_index_classify(downloader)  # 申万行业分类（仅初始化时下载）
             update_index_member_all(downloader)  # 申万行业成分股（定期更新，支持历史回测）
             # update_index_weight(downloader)  # TODO: 市场指数成分股（月度更新，如沪深300等）- 暂未实现
+            update_ths_index(downloader)  # 同花顺板块指数（仅初始化时下载）
+            update_ths_member(downloader)  # 同花顺板块成分股（周度更新）
             update_daily_data(downloader)
             update_index_daily(downloader)  # 更新常见指数日线数据
             update_financial_indicators(downloader)
@@ -1526,6 +1735,7 @@ def main():
             update_moneyflow_dc(downloader)  # 个股资金流向（DC接口）
             update_moneyflow(downloader)  # 个股资金流向（标准接口）
             update_sw_daily(downloader)  # 申万行业指数日线
+            update_ths_daily(downloader)  # 同花顺板块日行情
             update_kpl_concept(downloader)  # 开盘啦题材列表
             update_kpl_concept_cons(downloader)  # 开盘啦题材成分股
 
