@@ -38,6 +38,7 @@
 更新：2026-01-31 - 添加申万行业指数日线数据更新
 更新：2026-02-03 - 添加筹码分布详情、技术因子、开盘啦题材库更新
 更新：2026-02-05 - 添加同花顺板块指数、成分、日行情更新
+更新：2026-02-14 - 添加基金模块和沪深港通数据更新
 """
 
 import os
@@ -1609,6 +1610,395 @@ def update_ths_daily(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_fund_basic(downloader: DataDownloader):
+    """
+    更新基金列表 (fund_basic)
+
+    策略：
+        每次全量更新所有市场和状态的基金
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新基金列表 (fund_basic)...")
+
+    try:
+        total_rows = 0
+        for market, market_name in [('E', '场内'), ('O', '场外')]:
+            for status, status_name in [('L', '上市'), ('D', '摘牌'), ('I', '发行中')]:
+                rows = downloader.download_fund_basic(market=market, status=status)
+                if rows > 0:
+                    logger.info(f"  - {market_name}{status_name}: {rows} 只")
+                    total_rows += rows
+
+        logger.info(f"✓ 基金列表更新完成: 总计 {total_rows} 只")
+
+    except Exception as e:
+        logger.error(f"✗ 更新基金列表失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_fund_daily(downloader: DataDownloader):
+    """
+    增量更新场内基金日线行情 (fund_daily)
+
+    策略：
+        1. 获取数据库中 fund_daily 的最新日期
+        2. 逐日下载（单次限2000条）
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新场内基金日线 (fund_daily)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('fund_daily', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"数据库中没有场内基金日线数据，从30天前 {start_date} 开始")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        total_rows = downloader.download_all_fund_daily(start_date, today)
+        logger.info(f"✓ 场内基金日线更新完成: 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新场内基金日线失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_fund_nav(downloader: DataDownloader):
+    """
+    增量更新基金净值 (fund_nav)
+
+    策略：
+        1. 获取数据库中 fund_nav 的最新日期
+        2. 逐日下载
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新基金净值 (fund_nav)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('fund_nav', 'nav_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"数据库中没有基金净值数据，从30天前 {start_date} 开始")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        total_rows = downloader.download_all_fund_nav(start_date, today)
+        logger.info(f"✓ 基金净值更新完成: 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新基金净值失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_fund_share(downloader: DataDownloader):
+    """
+    增量更新基金份额 (fund_share)
+
+    策略：
+        1. 获取数据库中 fund_share 的最新日期
+        2. 逐日下载
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新基金份额 (fund_share)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('fund_share', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"数据库中没有基金份额数据，从30天前 {start_date} 开始")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_fund_share(trade_date=trade_date)
+                total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+
+        logger.info(f"✓ 基金份额更新完成: 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新基金份额失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_moneyflow_hsgt(downloader: DataDownloader):
+    """
+    增量更新沪深港通资金流向 (moneyflow_hsgt)
+
+    策略：
+        1. 获取数据库中最新日期
+        2. 使用 start_date/end_date 批量下载（单次最大300条）
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新沪深港通资金流向 (moneyflow_hsgt)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('moneyflow_hsgt', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = '20141117'  # 沪港通开通日期
+            logger.info(f"数据库中没有沪深港通数据，从 {start_date} 开始初始化")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        logger.info(f"更新范围: {start_date} → {today}")
+        rows = downloader.download_moneyflow_hsgt(start_date=start_date, end_date=today)
+        logger.info(f"✓ 沪深港通资金流向更新完成: {rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新沪深港通资金流向失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_hsgt_top10(downloader: DataDownloader):
+    """
+    增量更新沪深股通十大成交股 (hsgt_top10)
+
+    策略：
+        1. 获取数据库中最新日期
+        2. 逐日下载
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新沪深股通十大成交 (hsgt_top10)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('hsgt_top10', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"数据库中没有数据，从30天前 {start_date} 开始")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_hsgt_top10(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+
+        logger.info(f"✓ 沪深股通十大成交更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新沪深股通十大成交失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_ggt_top10(downloader: DataDownloader):
+    """
+    增量更新港股通十大成交股 (ggt_top10)
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新港股通十大成交 (ggt_top10)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('ggt_top10', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"数据库中没有数据，从30天前 {start_date} 开始")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_ggt_top10(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+
+        logger.info(f"✓ 港股通十大成交更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新港股通十大成交失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_ggt_daily(downloader: DataDownloader):
+    """
+    增量更新港股通每日成交统计 (ggt_daily)
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新港股通每日成交 (ggt_daily)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('ggt_daily', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = '20141117'
+            logger.info(f"数据库中没有数据，从 {start_date} 开始初始化")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        logger.info(f"更新范围: {start_date} → {today}")
+        rows = downloader.download_ggt_daily(start_date=start_date, end_date=today)
+        logger.info(f"✓ 港股通每日成交更新完成: {rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新港股通每日成交失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_hk_hold(downloader: DataDownloader):
+    """
+    增量更新沪深港通持股明细 (hk_hold)
+
+    策略：
+        1. 获取数据库中最新日期
+        2. 逐日下载（单次最大3800条）
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新沪深港通持股明细 (hk_hold)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('hk_hold', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info(f"数据库中没有数据，从30天前 {start_date} 开始")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_hk_hold(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+
+        logger.info(f"✓ 沪深港通持股明细更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新沪深港通持股明细失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -1738,6 +2128,15 @@ def main():
             update_ths_daily(downloader)  # 同花顺板块日行情
             update_kpl_concept(downloader)  # 开盘啦题材列表
             update_kpl_concept_cons(downloader)  # 开盘啦题材成分股
+            update_fund_basic(downloader)  # 基金列表
+            update_fund_daily(downloader)  # 场内基金日线
+            update_fund_nav(downloader)  # 基金净值
+            update_fund_share(downloader)  # 基金份额
+            update_moneyflow_hsgt(downloader)  # 沪深港通资金流向
+            update_hsgt_top10(downloader)  # 沪深股通十大成交
+            update_ggt_top10(downloader)  # 港股通十大成交
+            update_ggt_daily(downloader)  # 港股通每日成交
+            update_hk_hold(downloader)  # 沪深港通持股明细
 
             # 4. 完成
             end_time = datetime.now()

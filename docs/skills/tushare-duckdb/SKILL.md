@@ -119,6 +119,29 @@ downloader.close()
 | `cashflow` | cashflow_vip | ts_code, end_date, report_type | 19980331 | 现金流量表 |
 | `dividend` | dividend | ts_code, end_date | 19901231 | 分红送股 |
 
+### 基金数据表
+
+| Table | Tushare API | Primary Keys | 说明 |
+|-------|-------------|--------------|------|
+| `fund_basic` | fund_basic | ts_code | 基金列表 (E=场内 O=场外) |
+| `fund_daily` | fund_daily | ts_code, trade_date | 场内基金日线行情 |
+| `fund_nav` | fund_nav | ts_code, nav_date | 基金净值 (单位/累计/复权) |
+| `fund_div` | fund_div | ts_code, ann_date | 基金分红 |
+| `fund_portfolio` | fund_portfolio | ts_code, end_date, symbol | 基金持仓 (十大重仓股) |
+| `fund_share` | fund_share | ts_code, trade_date | 基金份额变动 |
+| `fund_manager` | fund_manager | ts_code, begin_date, name | 基金经理 |
+| `fund_adj` | fund_adj | ts_code, trade_date | 基金复权因子 |
+
+### 沪深港通数据表
+
+| Table | Tushare API | Primary Keys | 说明 |
+|-------|-------------|--------------|------|
+| `moneyflow_hsgt` | moneyflow_hsgt | trade_date | 沪深港通资金流向 (北向/南向) |
+| `hsgt_top10` | hsgt_top10 | trade_date, ts_code, market_type | 沪深股通十大成交股 |
+| `ggt_top10` | ggt_top10 | trade_date, ts_code, market_type | 港股通十大成交股 |
+| `ggt_daily` | ggt_daily | trade_date | 港股通每日成交统计 |
+| `hk_hold` | hk_hold | code, trade_date, exchange | 沪深港通持股明细 |
+
 ### 同花顺板块说明
 
 `ths_index` 表包含以下类型的板块指数，本项目**仅实现部分类型**：

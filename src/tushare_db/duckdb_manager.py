@@ -55,6 +55,21 @@ TABLE_PRIMARY_KEYS = {
     "ths_index": ["ts_code"],
     "ths_member": ["ts_code", "con_code"],
     "ths_daily": ["ts_code", "trade_date"],
+    # 基金
+    "fund_basic": ["ts_code"],
+    "fund_daily": ["ts_code", "trade_date"],
+    "fund_nav": ["ts_code", "nav_date"],
+    "fund_div": ["ts_code", "ann_date"],
+    "fund_portfolio": ["ts_code", "end_date", "symbol"],
+    "fund_share": ["ts_code", "trade_date"],
+    "fund_manager": ["ts_code", "begin_date", "name"],
+    "fund_adj": ["ts_code", "trade_date"],
+    # 沪深港通
+    "moneyflow_hsgt": ["trade_date"],
+    "hsgt_top10": ["trade_date", "ts_code", "market_type"],
+    "ggt_top10": ["trade_date", "ts_code", "market_type"],
+    "ggt_daily": ["trade_date"],
+    "hk_hold": ["code", "trade_date", "exchange"],
 }
 
 class DuckDBManager:

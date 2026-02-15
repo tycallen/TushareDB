@@ -1988,6 +1988,708 @@ class DataDownloader:
         logger.info(f"同花顺板块日行情: {len(df)} 行")
         return len(df)
 
+    # ==================== 基金数据 ====================
+
+    def download_fund_basic(
+        self,
+        market: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> int:
+        """
+        下载基金列表
+
+        数据说明：
+        - 获取公募基金基础信息
+        - 需要至少2000积分
+        - 单次最大15000条
+
+        Args:
+            market: 交易市场 E=场内 O=场外（默认E）
+            status: 存续状态 D=摘牌 I=发行中 L=已上市
+
+        Returns:
+            下载的行数
+        """
+        logger.info(f"开始下载基金列表: market={market}, status={status}")
+        df = self.fetcher.fetch(
+            'fund_basic',
+            market=market,
+            status=status
+        )
+
+        if df.empty:
+            logger.warning(f"基金列表为空: market={market}, status={status}")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_basic', mode='append')
+        logger.info(f"基金列表下载完成: {len(df)} 行")
+        return len(df)
+
+    def download_fund_daily(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载场内基金日线行情
+
+        数据说明：
+        - 获取场内基金（ETF/LOF等）日线行情数据
+        - 需要至少5000积分
+        - 单次最大2000条
+
+        Args:
+            ts_code: 基金代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载场内基金日线: ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+        df = self.fetcher.fetch(
+            'fund_daily',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无场内基金日线数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_daily', mode='append')
+        logger.info(f"场内基金日线: {len(df)} 行")
+        return len(df)
+
+    def download_fund_nav(
+        self,
+        ts_code: Optional[str] = None,
+        nav_date: Optional[str] = None,
+        market: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载基金净值数据
+
+        数据说明：
+        - 获取公募基金净值数据
+        - ts_code 和 nav_date 至少输入一个
+        - 需要至少2000积分
+
+        字段说明：
+        - unit_nav: 单位净值
+        - accum_nav: 累计净值
+        - accum_div: 累计分红
+        - net_asset: 资产净值
+        - total_netasset: 合计资产净值
+        - adj_nav: 复权净值
+
+        Args:
+            ts_code: 基金代码（可选）
+            nav_date: 净值日期 YYYYMMDD（可选）
+            market: E=场内 O=场外（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载基金净值: ts_code={ts_code}, nav_date={nav_date}, "
+                    f"market={market}, start_date={start_date}, end_date={end_date}")
+        df = self.fetcher.fetch(
+            'fund_nav',
+            ts_code=ts_code,
+            nav_date=nav_date,
+            market=market,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无基金净值数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_nav', mode='append')
+        logger.info(f"基金净值数据: {len(df)} 行")
+        return len(df)
+
+    def download_fund_div(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        ex_date: Optional[str] = None,
+        pay_date: Optional[str] = None
+    ) -> int:
+        """
+        下载基金分红数据
+
+        数据说明：
+        - 获取公募基金分红数据
+        - ts_code/ann_date/ex_date/pay_date 至少输入一个
+        - 需要至少400积分
+
+        Args:
+            ts_code: 基金代码（可选）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            ex_date: 除息日 YYYYMMDD（可选）
+            pay_date: 派息日 YYYYMMDD（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载基金分红: ts_code={ts_code}, ann_date={ann_date}")
+        df = self.fetcher.fetch(
+            'fund_div',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            ex_date=ex_date,
+            pay_date=pay_date
+        )
+
+        if df.empty:
+            logger.debug(f"无基金分红数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_div', mode='append')
+        logger.info(f"基金分红数据: {len(df)} 行")
+        return len(df)
+
+    def download_fund_portfolio(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        period: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载基金持仓数据
+
+        数据说明：
+        - 获取公募基金持仓数据（十大重仓股）
+        - ts_code/ann_date/period 至少输入一个
+        - 需要至少5000积分
+
+        Args:
+            ts_code: 基金代码（可选）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            period: 报告期 YYYYMMDD，如 20231231（可选）
+            start_date: 报告期开始日期（可选）
+            end_date: 报告期结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载基金持仓: ts_code={ts_code}, ann_date={ann_date}, period={period}")
+        df = self.fetcher.fetch(
+            'fund_portfolio',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            period=period,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无基金持仓数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_portfolio', mode='append')
+        logger.info(f"基金持仓数据: {len(df)} 行")
+        return len(df)
+
+    def download_fund_share(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        market: Optional[str] = None
+    ) -> int:
+        """
+        下载基金份额数据
+
+        数据说明：
+        - 获取基金份额变动数据
+        - 需要至少2000积分
+        - 单次最大2000条
+
+        Args:
+            ts_code: 基金代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            market: 市场 SH=上交所 SZ=深交所（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载基金份额: ts_code={ts_code}, trade_date={trade_date}")
+        df = self.fetcher.fetch(
+            'fund_share',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            market=market
+        )
+
+        if df.empty:
+            logger.debug(f"无基金份额数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_share', mode='append')
+        logger.info(f"基金份额数据: {len(df)} 行")
+        return len(df)
+
+    def download_fund_manager(
+        self,
+        ts_code: Optional[str] = None,
+        ann_date: Optional[str] = None,
+        name: Optional[str] = None
+    ) -> int:
+        """
+        下载基金经理数据
+
+        数据说明：
+        - 获取基金经理信息及任职情况
+        - 需要至少500积分
+        - 单次最大5000条
+
+        Args:
+            ts_code: 基金代码（可选，支持逗号分隔多个）
+            ann_date: 公告日期 YYYYMMDD（可选）
+            name: 基金经理名称（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载基金经理: ts_code={ts_code}, ann_date={ann_date}, name={name}")
+        df = self.fetcher.fetch(
+            'fund_manager',
+            ts_code=ts_code,
+            ann_date=ann_date,
+            name=name
+        )
+
+        if df.empty:
+            logger.debug(f"无基金经理数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_manager', mode='append')
+        logger.info(f"基金经理数据: {len(df)} 行")
+        return len(df)
+
+    def download_fund_adj(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载基金复权因子
+
+        数据说明：
+        - 获取基金复权因子数据
+        - 需要至少600积分
+        - 单次最大2000条
+
+        Args:
+            ts_code: 基金代码（可选，支持多个）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载基金复权因子: ts_code={ts_code}, trade_date={trade_date}")
+        df = self.fetcher.fetch(
+            'fund_adj',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无基金复权因子数据")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_adj', mode='append')
+        logger.info(f"基金复权因子: {len(df)} 行")
+        return len(df)
+
+    def download_all_fund_daily(
+        self,
+        start_date: str,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        按日期范围批量下载场内基金日线（逐日下载，因为单次限2000条）
+
+        Args:
+            start_date: 开始日期 YYYYMMDD
+            end_date: 结束日期 YYYYMMDD
+
+        Returns:
+            下载的总行数
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        logger.info(f"批量下载场内基金日线: {start_date} -> {end_date}")
+
+        trading_dates_df = self.db.execute_query(
+            """
+            SELECT cal_date FROM trade_cal
+            WHERE cal_date BETWEEN ? AND ?
+            AND (is_open = 1 OR is_open = '1')
+            ORDER BY cal_date
+            """,
+            [start_date, end_date]
+        )
+
+        if trading_dates_df.empty:
+            logger.warning("无交易日数据，请先下载交易日历")
+            return 0
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        total_rows = 0
+
+        for trade_date in tqdm(trading_dates, desc="下载场内基金日线"):
+            rows = self.download_fund_daily(trade_date=trade_date)
+            total_rows += rows
+
+        logger.info(f"场内基金日线下载完成: 共 {total_rows} 行")
+        return total_rows
+
+    def download_all_fund_nav(
+        self,
+        start_date: str,
+        end_date: Optional[str] = None,
+        market: Optional[str] = None
+    ) -> int:
+        """
+        按日期范围批量下载基金净值（逐日下载）
+
+        Args:
+            start_date: 开始日期 YYYYMMDD
+            end_date: 结束日期 YYYYMMDD
+            market: E=场内 O=场外（可选）
+
+        Returns:
+            下载的总行数
+        """
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y%m%d')
+
+        logger.info(f"批量下载基金净值: {start_date} -> {end_date}, market={market}")
+
+        trading_dates_df = self.db.execute_query(
+            """
+            SELECT cal_date FROM trade_cal
+            WHERE cal_date BETWEEN ? AND ?
+            AND (is_open = 1 OR is_open = '1')
+            ORDER BY cal_date
+            """,
+            [start_date, end_date]
+        )
+
+        if trading_dates_df.empty:
+            logger.warning("无交易日数据，请先下载交易日历")
+            return 0
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        total_rows = 0
+
+        for nav_date in tqdm(trading_dates, desc="下载基金净值"):
+            rows = self.download_fund_nav(nav_date=nav_date, market=market)
+            total_rows += rows
+
+        logger.info(f"基金净值下载完成: 共 {total_rows} 行")
+        return total_rows
+
+    def download_all_fund_portfolio(self, period: str) -> int:
+        """
+        按报告期批量下载所有基金持仓（使用 offset 分页）
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的总行数
+        """
+        logger.info(f"批量下载基金持仓: period={period}")
+
+        total_rows = 0
+        offset = 0
+        limit = 5000
+
+        while True:
+            df = self.fetcher.fetch(
+                'fund_portfolio',
+                period=period,
+                offset=offset,
+                limit=limit
+            )
+
+            if df.empty:
+                break
+
+            self.db.write_dataframe(df, 'fund_portfolio', mode='append')
+            total_rows += len(df)
+
+            logger.info(f"  offset={offset}: {len(df)} 行")
+
+            if len(df) < limit:
+                break
+
+            offset += limit
+
+        logger.info(f"基金持仓下载完成: 共 {total_rows} 行 (period={period})")
+        return total_rows
+
+    # ==================== 沪深港通 ====================
+
+    def download_moneyflow_hsgt(
+        self,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载沪深港通资金流向
+
+        数据说明：
+        - 获取沪深港通每日资金流向
+        - 每日18:00~20:00更新
+        - 需要至少2000积分
+        - 单次最大300条
+
+        字段说明：
+        - ggt_ss: 港股通（沪）
+        - ggt_sz: 港股通（深）
+        - hgt: 沪股通（百万元）
+        - sgt: 深股通（百万元）
+        - north_money: 北向资金（百万元）
+        - south_money: 南向资金（百万元）
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载沪深港通资金流向: trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+        df = self.fetcher.fetch(
+            'moneyflow_hsgt',
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无沪深港通资金流向数据")
+            return 0
+
+        self.db.write_dataframe(df, 'moneyflow_hsgt', mode='append')
+        logger.info(f"沪深港通资金流向: {len(df)} 行")
+        return len(df)
+
+    def download_hsgt_top10(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        market_type: Optional[str] = None
+    ) -> int:
+        """
+        下载沪深股通十大成交股
+
+        数据说明：
+        - 获取沪深股通每日十大成交个股数据
+        - 每日18:00~20:00更新
+        - ts_code 和 trade_date 至少输入一个
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            market_type: 市场类型 1=沪股通 3=深股通（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载沪深股通十大成交: trade_date={trade_date}, ts_code={ts_code}")
+        df = self.fetcher.fetch(
+            'hsgt_top10',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            market_type=market_type
+        )
+
+        if df.empty:
+            logger.debug(f"无沪深股通十大成交数据")
+            return 0
+
+        self.db.write_dataframe(df, 'hsgt_top10', mode='append')
+        logger.info(f"沪深股通十大成交: {len(df)} 行")
+        return len(df)
+
+    def download_ggt_top10(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        market_type: Optional[str] = None
+    ) -> int:
+        """
+        下载港股通十大成交股
+
+        数据说明：
+        - 获取港股通每日十大成交个股数据
+        - 每日18:00~20:00更新
+        - ts_code 和 trade_date 至少输入一个
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            market_type: 市场类型 2=港股通(沪) 4=港股通(深)（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载港股通十大成交: trade_date={trade_date}, ts_code={ts_code}")
+        df = self.fetcher.fetch(
+            'ggt_top10',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            market_type=market_type
+        )
+
+        if df.empty:
+            logger.debug(f"无港股通十大成交数据")
+            return 0
+
+        self.db.write_dataframe(df, 'ggt_top10', mode='append')
+        logger.info(f"港股通十大成交: {len(df)} 行")
+        return len(df)
+
+    def download_ggt_daily(
+        self,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载港股通每日成交统计
+
+        数据说明：
+        - 获取港股通每日成交汇总数据
+        - 数据从2014年开始
+        - 需要至少2000积分
+        - 单次最大1000条
+
+        字段说明：
+        - buy_amount: 买入成交金额（亿元）
+        - buy_volume: 买入成交笔数（万笔）
+        - sell_amount: 卖出成交金额（亿元）
+        - sell_volume: 卖出成交笔数（万笔）
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载港股通每日成交: trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+        df = self.fetcher.fetch(
+            'ggt_daily',
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无港股通每日成交数据")
+            return 0
+
+        self.db.write_dataframe(df, 'ggt_daily', mode='append')
+        logger.info(f"港股通每日成交: {len(df)} 行")
+        return len(df)
+
+    def download_hk_hold(
+        self,
+        code: Optional[str] = None,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        exchange: Optional[str] = None
+    ) -> int:
+        """
+        下载沪深港通持股明细
+
+        数据说明：
+        - 获取沪深港通持股明细数据
+        - 需要至少2000积分
+        - 单次最大3800条
+
+        Args:
+            code: 交易所代码（可选）
+            ts_code: TS股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            exchange: 类型 SH=沪股通(北向) SZ=深股通(北向) HK=港股通(南向)（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载沪深港通持股明细: trade_date={trade_date}, ts_code={ts_code}, "
+                    f"exchange={exchange}")
+        df = self.fetcher.fetch(
+            'hk_hold',
+            code=code,
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            exchange=exchange
+        )
+
+        if df.empty:
+            logger.debug(f"无沪深港通持股明细数据")
+            return 0
+
+        self.db.write_dataframe(df, 'hk_hold', mode='append')
+        logger.info(f"沪深港通持股明细: {len(df)} 行")
+        return len(df)
+
     # ==================== 数据完整性验证 ====================
 
     def validate_data_integrity(

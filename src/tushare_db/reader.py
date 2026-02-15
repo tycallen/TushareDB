@@ -927,6 +927,522 @@ class DataReader:
 
         return self.db.execute_query(query, params if params else None)
 
+    # ==================== 基金数据查询 ====================
+
+    def get_fund_basic(
+        self,
+        ts_code: Optional[str] = None,
+        market: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询基金列表
+
+        Args:
+            ts_code: 基金代码（可选）
+            market: 交易市场 E=场内 O=场外（可选）
+            status: 存续状态 D=摘牌 I=发行中 L=已上市（可选）
+
+        Returns:
+            基金基本信息 DataFrame
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if market:
+            conditions.append("market = ?")
+            params.append(market)
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+
+        query = "SELECT * FROM fund_basic"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_fund_daily(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询场内基金日线行情
+
+        Args:
+            ts_code: 基金代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            基金日线数据 DataFrame (open/high/low/close/vol/amount)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM fund_daily"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_fund_nav(
+        self,
+        ts_code: Optional[str] = None,
+        nav_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询基金净值数据
+
+        Args:
+            ts_code: 基金代码（可选）
+            nav_date: 净值日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            基金净值 DataFrame (unit_nav/accum_nav/accum_div/net_asset/adj_nav)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        if nav_date:
+            conditions.append("nav_date = ?")
+            params.append(nav_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("nav_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("nav_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("nav_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM fund_nav"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY nav_date DESC, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_fund_share(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询基金份额数据
+
+        Args:
+            ts_code: 基金代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            基金份额 DataFrame (ts_code/trade_date/fd_share)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM fund_share"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_fund_adj(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询基金复权因子
+
+        Args:
+            ts_code: 基金代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            基金复权因子 DataFrame (ts_code/trade_date/adj_factor)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM fund_adj"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_fund_portfolio(
+        self,
+        ts_code: Optional[str] = None,
+        period: Optional[str] = None,
+        symbol: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询基金持仓数据
+
+        Args:
+            ts_code: 基金代码（可选）
+            period: 报告期 YYYYMMDD（可选）
+            symbol: 持仓股票代码（可选）
+
+        Returns:
+            基金持仓 DataFrame (ts_code/ann_date/end_date/symbol/mkv/amount/stk_mkv_ratio)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if period:
+            conditions.append("end_date = ?")
+            params.append(period)
+        if symbol:
+            conditions.append("symbol = ?")
+            params.append(symbol)
+
+        query = "SELECT * FROM fund_portfolio"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY ts_code, end_date DESC"
+
+        return self.db.execute_query(query, params if params else None)
+
+    # ==================== 沪深港通数据查询 ====================
+
+    def get_moneyflow_hsgt(
+        self,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询沪深港通资金流向
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            DataFrame，包含字段：
+            - trade_date: 交易日期
+            - ggt_ss: 港股通（沪）
+            - ggt_sz: 港股通（深）
+            - hgt: 沪股通（百万元）
+            - sgt: 深股通（百万元）
+            - north_money: 北向资金（百万元）
+            - south_money: 南向资金（百万元）
+        """
+        conditions = []
+        params = []
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM moneyflow_hsgt"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_hsgt_top10(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        market_type: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询沪深股通十大成交股
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            market_type: 市场类型 1=沪股通 3=深股通（可选）
+
+        Returns:
+            DataFrame (trade_date/ts_code/name/close/change/rank/market_type/amount/net_amount/buy/sell)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if market_type:
+            conditions.append("market_type = ?")
+            params.append(market_type)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM hsgt_top10"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, rank"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_ggt_top10(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        market_type: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询港股通十大成交股
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            market_type: 市场类型 2=港股通(沪) 4=港股通(深)（可选）
+
+        Returns:
+            DataFrame (trade_date/ts_code/name/close/p_change/rank/market_type/amount/net_amount)
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if market_type:
+            conditions.append("market_type = ?")
+            params.append(market_type)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM ggt_top10"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, rank"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_ggt_daily(
+        self,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询港股通每日成交统计
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            DataFrame (trade_date/buy_amount/buy_volume/sell_amount/sell_volume)
+        """
+        conditions = []
+        params = []
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM ggt_daily"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC"
+
+        return self.db.execute_query(query, params if params else None)
+
+    def get_hk_hold(
+        self,
+        code: Optional[str] = None,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        exchange: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询沪深港通持股明细
+
+        Args:
+            code: 交易所代码（可选）
+            ts_code: TS股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            exchange: 类型 SH=沪股通 SZ=深股通 HK=港股通（可选）
+
+        Returns:
+            DataFrame (code/trade_date/ts_code/name/vol/ratio/exchange)
+        """
+        conditions = []
+        params = []
+
+        if code:
+            conditions.append("code = ?")
+            params.append(code)
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+        if exchange:
+            conditions.append("exchange = ?")
+            params.append(exchange)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM hk_hold"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
     # ==================== 自定义 SQL 查询 ====================
 
     def query(self, sql: str, params: Optional[List] = None) -> pd.DataFrame:
