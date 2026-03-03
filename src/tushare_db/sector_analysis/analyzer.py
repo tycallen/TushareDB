@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 class SectorAnalyzer:
     """板块关系分析器"""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None):
         """
         初始化分析器
 
         Args:
-            db_path: 数据库路径
+            db_path: 数据库路径（可选，默认使用 DB_PATH 环境变量或 tushare.db）
         """
         from ..reader import DataReader
         self.reader = DataReader(db_path)

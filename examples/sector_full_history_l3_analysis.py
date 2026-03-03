@@ -44,7 +44,7 @@ def main():
     """执行全历史L3分析"""
 
     # 初始化
-    db_path = str(project_root / "tushare.db")
+    db_path = os.getenv("DB_PATH", str(project_root / "tushare.db"))
     analyzer = SectorAnalyzer(db_path)
 
     # 定义分析时期（按市场周期划分）

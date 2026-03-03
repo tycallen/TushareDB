@@ -18,6 +18,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
 import duckdb
+import os
 
 # 添加项目路径
 project_root = Path(__file__).parent.parent
@@ -79,9 +80,9 @@ TABLE_CONFIG = {
 class DataIntegrityChecker:
     """数据完整性检查器"""
 
-    def __init__(self, db_path: str = 'tushare.db'):
-        self.db_path = db_path
-        self.conn = duckdb.connect(db_path, read_only=True)
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path or os.getenv('DB_PATH', 'tushare.db')
+        self.conn = duckdb.connect(self.db_path, read_only=True)
         self.today = datetime.now().strftime('%Y%m%d')
         self.issues = []
         self.stats = {}
@@ -585,7 +586,7 @@ def compare_with_reference(checker: DataIntegrityChecker, reference_table: str =
 
 def main():
     parser = argparse.ArgumentParser(description='数据完整性检测')
-    parser.add_argument('--db', default='tushare.db', help='数据库路径')
+    parser.add_argument('--db', default=os.getenv('DB_PATH', 'tushare.db'), help='数据库路径')
     parser.add_argument('--verbose', '-v', action='store_true', help='显示详细信息')
     parser.add_argument('--table', '-t', help='只检查指定表')
     parser.add_argument('--compare', '-c', action='store_true', help='与daily表对比分析')

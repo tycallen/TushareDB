@@ -22,13 +22,13 @@ from tushare_db import DataReader, get_logger
 logger = get_logger(__name__)
 
 def main():
-    db_path = str(project_root / "tushare.db")
-    
+    db_path = os.getenv('DB_PATH', str(project_root / "tushare.db"))
+
     logger.info("=" * 60)
     logger.info("开始修复 stock_basic 表结构")
     logger.info(f"数据库: {db_path}")
     logger.info("=" * 60)
-    
+
     reader = DataReader(db_path=db_path)
     
     try:

@@ -37,7 +37,7 @@ plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'STHeiti']
 plt.rcParams['axes.unicode_minus'] = False
 
 # 配置
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/pairs_trading_study.md'
 FIG_DIR = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/figures'
 

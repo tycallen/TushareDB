@@ -44,7 +44,7 @@ def query_task(process_id, db_path):
         return False
 
 def test_concurrent_read():
-    db_path = 'tushare.db'  # 确保这里指向正确的数据库路径
+    db_path = os.getenv('DUCKDB_PATH', '/data10/tyc/quant/tushare.db')
     
     if not os.path.exists(db_path):
         print(f"Error: Database {db_path} not found.")

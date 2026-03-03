@@ -43,7 +43,7 @@ OUTPUT_DIR = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/researc
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # 数据库路径
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 
 
 class CorrelationStructureAnalysis:

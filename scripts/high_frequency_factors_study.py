@@ -15,7 +15,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 配置
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 OUTPUT_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/high_frequency_factors_study.md'
 
 # 研究时间范围 (使用近5年数据)

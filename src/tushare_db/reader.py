@@ -35,14 +35,17 @@ class DataReader:
     - 数据分析（探索性分析）
     """
 
-    def __init__(self, db_path: str = "tushare.db", strict_mode: bool = False):
+    def __init__(self, db_path: Optional[str] = None, strict_mode: bool = False):
         """
         初始化查询器
 
         Args:
-            db_path: DuckDB 数据库文件路径
+            db_path: DuckDB 数据库文件路径（优先使用此参数，其次从 DB_PATH 环境变量读取，默认 tushare.db）
             strict_mode: 严格模式，数据不存在时抛出异常而不是返回空 DataFrame
         """
+        import os
+        # 数据库路径：参数 > 环境变量 > 默认值
+        db_path = db_path or os.getenv("DB_PATH", "tushare.db")
         self.db = DuckDBManager(db_path, read_only=True)
         self.strict_mode = strict_mode
         logger.info(f"DataReader 初始化完成: db={db_path}, strict_mode={strict_mode}")

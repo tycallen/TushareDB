@@ -164,7 +164,7 @@ def main():
     print("参数优化测试")
     print("=" * 80)
 
-    reader = DataReader('tushare.db')
+    reader = DataReader()
 
     # 使用2年数据快速测试
     print("\n加载数据（2023-2024）...")

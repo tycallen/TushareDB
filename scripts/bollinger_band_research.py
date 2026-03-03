@@ -960,7 +960,7 @@ class BollingerBandResearch:
 
 def main():
     """主函数"""
-    db_path = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+    db_path = os.getenv('DB_PATH', 'tushare.db')
     output_dir = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/research'
 
     print("=" * 60)

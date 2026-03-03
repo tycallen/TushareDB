@@ -171,7 +171,7 @@ def main():
     print("  3. 添加连续性要求")
     print("  4. 使用滚动窗口验证")
 
-    backtester = MoneySignalBacktest('tushare.db')
+    backtester = MoneySignalBacktest()
 
     # 滚动窗口测试
     results_df = test_with_walk_forward(backtester)

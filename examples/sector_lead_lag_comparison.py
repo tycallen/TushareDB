@@ -26,7 +26,7 @@ def main():
     print("=" * 70)
 
     # === 1. 初始化 ===
-    analyzer = SectorAnalyzer('tushare.db')
+    analyzer = SectorAnalyzer()
     output_manager = OutputManager('output/lead_lag_comparison')
 
     # === 2. 设置分析参数 ===

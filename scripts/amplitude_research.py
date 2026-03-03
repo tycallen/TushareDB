@@ -30,7 +30,7 @@ plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'Heiti TC']
 plt.rcParams['axes.unicode_minus'] = False
 
 # 数据库路径
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_DIR = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/research'
 
 # 确保报告目录存在

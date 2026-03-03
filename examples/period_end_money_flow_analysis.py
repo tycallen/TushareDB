@@ -28,7 +28,7 @@ from tushare_db import DataReader
 class PeriodEndMoneyFlowAnalyzer:
     """期末资金流分析器"""
 
-    def __init__(self, db_path: str = 'tushare.db'):
+    def __init__(self, db_path: str = None):
         self.reader = DataReader(db_path)
 
     def get_period_end_dates(self, start_date: str, end_date: str) -> pd.DataFrame:
@@ -358,7 +358,7 @@ def main():
     print("期末资金流入与未来收益分析")
     print("=" * 80)
 
-    analyzer = PeriodEndMoneyFlowAnalyzer('tushare.db')
+    analyzer = PeriodEndMoneyFlowAnalyzer()
 
     # 分析参数
     start_date = '20220101'

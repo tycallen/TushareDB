@@ -19,8 +19,8 @@ tushare_token = os.getenv("TUSHARE_TOKEN")
 if not tushare_token:
     raise ValueError("请设置 TUSHARE_TOKEN 环境变量")
 
-# client = tushare_db.TushareDBClient(tushare_token=tushare_token, db_path="/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db")
-downloader = DataDownloader(tushare_token=tushare_token, db_path="/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db")
+# 使用环境变量 DB_PATH，未设置时使用默认值 tushare.db
+downloader = DataDownloader(tushare_token=tushare_token)
 # 为了兼容旧代码（虽然 api 可能不存在了），保留 client 变量名，指向 downloader (如果接口兼容) 或者暂留
 # 由于 api.py 不存在，下面的 client 调用都会失败。我们逐步替换为 downloader。
 # client = None 

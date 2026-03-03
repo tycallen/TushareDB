@@ -20,7 +20,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Database connection
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/value_factor_study.md'
 
 def get_connection():

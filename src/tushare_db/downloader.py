@@ -41,7 +41,7 @@ class DataDownloader:
     def __init__(
         self,
         tushare_token: Optional[str] = None,
-        db_path: str = "tushare.db",
+        db_path: Optional[str] = None,
         rate_limit_profile: str = "standard"
     ):
         """
@@ -49,12 +49,15 @@ class DataDownloader:
 
         Args:
             tushare_token: Tushare API token（优先使用此参数，其次从环境变量读取）
-            db_path: DuckDB 数据库文件路径
+            db_path: DuckDB 数据库文件路径（优先使用此参数，其次从 DB_PATH 环境变量读取，默认 tushare.db）
             rate_limit_profile: 限速配置档位（'trial', 'standard', 'pro'）
         """
         self.tushare_token = tushare_token or os.getenv("TUSHARE_TOKEN")
         if not self.tushare_token:
             raise DataDownloaderError("请提供 Tushare token 或设置 TUSHARE_TOKEN 环境变量")
+
+        # 数据库路径：参数 > 环境变量 > 默认值
+        db_path = db_path or os.getenv("DB_PATH", "tushare.db")
 
         # 初始化核心组件
         rate_config = PRESET_PROFILES.get(rate_limit_profile, STANDARD_PROFILE)
@@ -608,9 +611,10 @@ class DataDownloader:
 
     def download_cyq_chips_by_date(self, trade_date: str) -> int:
         """
-        [已废弃] 按日期批量下载所有股票的筹码分布详情数据
+        按日期批量下载所有股票的筹码分布详情数据
 
-        推荐使用 download_cyq_chips_incremental 方法，效率更高
+        适用于日常增量更新（1-2 天），比按股票遍历更高效。
+        按股票遍历 (download_cyq_chips_incremental) 适用于大范围历史补全。
         """
         logger.info(f"批量下载筹码分布详情: {trade_date}")
 

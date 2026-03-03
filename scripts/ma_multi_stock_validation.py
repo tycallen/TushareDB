@@ -24,7 +24,7 @@ plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 REPORT_DIR = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/research'
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 
 
 class MultiStockMAValidation:

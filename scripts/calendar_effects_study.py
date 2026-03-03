@@ -22,7 +22,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 数据库路径
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 
 def get_connection():
     """获取只读数据库连接"""

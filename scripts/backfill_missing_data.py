@@ -8,6 +8,10 @@
 2. daily_basic - 每日基本面（与 daily 表对比）
 3. stk_factor_pro - 技术因子
 4. dc_index - 龙虎榜个股明细
+5. limit_list_d - 涨跌停统计
+6. ths_daily - 同花顺板块日线
+7. margin_detail - 融资融券明细
+8. sw_daily - 申万指数日线
 
 使用方法：
     # 补充所有表的缺失数据
@@ -18,6 +22,10 @@
     python scripts/backfill_missing_data.py --daily-basic
     python scripts/backfill_missing_data.py --stk-factor-pro
     python scripts/backfill_missing_data.py --dc-index
+    python scripts/backfill_missing_data.py --limit-list-d
+    python scripts/backfill_missing_data.py --ths-daily
+    python scripts/backfill_missing_data.py --margin-detail
+    python scripts/backfill_missing_data.py --sw-daily
 
     # 指定日期范围
     python scripts/backfill_missing_data.py --all --start-date 20240101 --end-date 20240131
@@ -329,6 +337,190 @@ def backfill_dc_index(downloader: DataDownloader, start_date: str, end_date: str
     }
 
 
+def backfill_limit_list_d(downloader: DataDownloader, start_date: str, end_date: str) -> dict:
+    """补充 limit_list_d 缺失的日期"""
+    logger.info("=" * 60)
+    logger.info("开始检测并补充 limit_list_d 缺失数据...")
+
+    trading_dates = set(get_trading_dates(downloader, start_date, end_date))
+    if not trading_dates:
+        logger.warning("交易日历中没有数据")
+        return {'total': 0, 'missing': 0, 'success': 0, 'failed': 0}
+
+    existing_dates = get_dates_in_table(downloader, 'limit_list_d', start_date, end_date)
+    missing_dates = sorted(trading_dates - existing_dates)
+
+    logger.info(f"交易日数: {len(trading_dates)}")
+    logger.info(f"limit_list_d 表日期数: {len(existing_dates)}")
+    logger.info(f"缺失日期数: {len(missing_dates)}")
+
+    if not missing_dates:
+        logger.info("limit_list_d 数据完整，无需补充")
+        return {'total': len(trading_dates), 'missing': 0, 'success': 0, 'failed': 0}
+
+    success_count = 0
+    failed_count = 0
+
+    for i, trade_date in enumerate(missing_dates):
+        try:
+            logger.info(f"  [{i+1}/{len(missing_dates)}] 补充 limit_list_d: {trade_date}")
+            rows = downloader.download_limit_list_d(trade_date)
+            if rows > 0:
+                logger.info(f"    ✓ 下载 {rows} 行")
+                success_count += 1
+            else:
+                logger.info(f"    - 当日无涨跌停数据")
+        except Exception as e:
+            logger.error(f"    ✗ 失败: {e}")
+            failed_count += 1
+
+    logger.info(f"✓ limit_list_d 补充完成: 成功 {success_count}, 失败 {failed_count}")
+    return {
+        'total': len(trading_dates),
+        'missing': len(missing_dates),
+        'success': success_count,
+        'failed': failed_count
+    }
+
+
+def backfill_ths_daily(downloader: DataDownloader, start_date: str, end_date: str) -> dict:
+    """补充 ths_daily 缺失的日期"""
+    logger.info("=" * 60)
+    logger.info("开始检测并补充 ths_daily 缺失数据...")
+
+    trading_dates = set(get_trading_dates(downloader, start_date, end_date))
+    if not trading_dates:
+        logger.warning("交易日历中没有数据")
+        return {'total': 0, 'missing': 0, 'success': 0, 'failed': 0}
+
+    existing_dates = get_dates_in_table(downloader, 'ths_daily', start_date, end_date)
+    missing_dates = sorted(trading_dates - existing_dates)
+
+    logger.info(f"交易日数: {len(trading_dates)}")
+    logger.info(f"ths_daily 表日期数: {len(existing_dates)}")
+    logger.info(f"缺失日期数: {len(missing_dates)}")
+
+    if not missing_dates:
+        logger.info("ths_daily 数据完整，无需补充")
+        return {'total': len(trading_dates), 'missing': 0, 'success': 0, 'failed': 0}
+
+    success_count = 0
+    failed_count = 0
+
+    for i, trade_date in enumerate(missing_dates):
+        try:
+            logger.info(f"  [{i+1}/{len(missing_dates)}] 补充 ths_daily: {trade_date}")
+            rows = downloader.download_ths_daily(trade_date=trade_date)
+            if rows > 0:
+                logger.info(f"    ✓ 下载 {rows} 行")
+                success_count += 1
+            else:
+                logger.info(f"    - 当日无数据")
+        except Exception as e:
+            logger.error(f"    ✗ 失败: {e}")
+            failed_count += 1
+
+    logger.info(f"✓ ths_daily 补充完成: 成功 {success_count}, 失败 {failed_count}")
+    return {
+        'total': len(trading_dates),
+        'missing': len(missing_dates),
+        'success': success_count,
+        'failed': failed_count
+    }
+
+
+def backfill_margin_detail(downloader: DataDownloader, start_date: str, end_date: str) -> dict:
+    """补充 margin_detail 缺失的日期"""
+    logger.info("=" * 60)
+    logger.info("开始检测并补充 margin_detail 缺失数据...")
+
+    trading_dates = set(get_trading_dates(downloader, start_date, end_date))
+    if not trading_dates:
+        logger.warning("交易日历中没有数据")
+        return {'total': 0, 'missing': 0, 'success': 0, 'failed': 0}
+
+    existing_dates = get_dates_in_table(downloader, 'margin_detail', start_date, end_date)
+    missing_dates = sorted(trading_dates - existing_dates)
+
+    logger.info(f"交易日数: {len(trading_dates)}")
+    logger.info(f"margin_detail 表日期数: {len(existing_dates)}")
+    logger.info(f"缺失日期数: {len(missing_dates)}")
+
+    if not missing_dates:
+        logger.info("margin_detail 数据完整，无需补充")
+        return {'total': len(trading_dates), 'missing': 0, 'success': 0, 'failed': 0}
+
+    success_count = 0
+    failed_count = 0
+
+    for i, trade_date in enumerate(missing_dates):
+        try:
+            logger.info(f"  [{i+1}/{len(missing_dates)}] 补充 margin_detail: {trade_date}")
+            rows = downloader.download_margin_detail(trade_date)
+            if rows > 0:
+                logger.info(f"    ✓ 下载 {rows} 行")
+                success_count += 1
+            else:
+                logger.info(f"    - 当日无数据")
+        except Exception as e:
+            logger.error(f"    ✗ 失败: {e}")
+            failed_count += 1
+
+    logger.info(f"✓ margin_detail 补充完成: 成功 {success_count}, 失败 {failed_count}")
+    return {
+        'total': len(trading_dates),
+        'missing': len(missing_dates),
+        'success': success_count,
+        'failed': failed_count
+    }
+
+
+def backfill_sw_daily(downloader: DataDownloader, start_date: str, end_date: str) -> dict:
+    """补充 sw_daily 缺失的日期"""
+    logger.info("=" * 60)
+    logger.info("开始检测并补充 sw_daily 缺失数据...")
+
+    trading_dates = set(get_trading_dates(downloader, start_date, end_date))
+    if not trading_dates:
+        logger.warning("交易日历中没有数据")
+        return {'total': 0, 'missing': 0, 'success': 0, 'failed': 0}
+
+    existing_dates = get_dates_in_table(downloader, 'sw_daily', start_date, end_date)
+    missing_dates = sorted(trading_dates - existing_dates)
+
+    logger.info(f"交易日数: {len(trading_dates)}")
+    logger.info(f"sw_daily 表日期数: {len(existing_dates)}")
+    logger.info(f"缺失日期数: {len(missing_dates)}")
+
+    if not missing_dates:
+        logger.info("sw_daily 数据完整，无需补充")
+        return {'total': len(trading_dates), 'missing': 0, 'success': 0, 'failed': 0}
+
+    success_count = 0
+    failed_count = 0
+
+    for i, trade_date in enumerate(missing_dates):
+        try:
+            logger.info(f"  [{i+1}/{len(missing_dates)}] 补充 sw_daily: {trade_date}")
+            rows = downloader.download_sw_daily(trade_date=trade_date)
+            if rows > 0:
+                logger.info(f"    ✓ 下载 {rows} 行")
+                success_count += 1
+            else:
+                logger.info(f"    - 当日无数据")
+        except Exception as e:
+            logger.error(f"    ✗ 失败: {e}")
+            failed_count += 1
+
+    logger.info(f"✓ sw_daily 补充完成: 成功 {success_count}, 失败 {failed_count}")
+    return {
+        'total': len(trading_dates),
+        'missing': len(missing_dates),
+        'success': success_count,
+        'failed': failed_count
+    }
+
+
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
@@ -353,13 +545,19 @@ def main():
     parser.add_argument('--daily-basic', action='store_true', help='补充 daily_basic 缺失数据')
     parser.add_argument('--stk-factor-pro', action='store_true', help='补充 stk_factor_pro 缺失数据')
     parser.add_argument('--dc-index', action='store_true', help='补充 dc_index 缺失数据')
+    parser.add_argument('--limit-list-d', action='store_true', help='补充 limit_list_d 缺失数据')
+    parser.add_argument('--ths-daily', action='store_true', help='补充 ths_daily 缺失数据')
+    parser.add_argument('--margin-detail', action='store_true', help='补充 margin_detail 缺失数据')
+    parser.add_argument('--sw-daily', action='store_true', help='补充 sw_daily 缺失数据')
     parser.add_argument('--start-date', type=str, help='开始日期 (YYYYMMDD)，默认为一年前')
     parser.add_argument('--end-date', type=str, help='结束日期 (YYYYMMDD)，默认为今天')
 
     args = parser.parse_args()
 
-    # 如果没有指定任何表，显示帮助
-    if not (args.all or args.adj_factor or args.daily_basic or args.stk_factor_pro or args.dc_index):
+    # 检查是否指定了任何表
+    has_table = (args.all or args.adj_factor or args.daily_basic or args.stk_factor_pro or
+                 args.dc_index or args.limit_list_d or args.ths_daily or args.margin_detail or args.sw_daily)
+    if not has_table:
         parser.print_help()
         return
 
@@ -399,6 +597,18 @@ def main():
 
             if args.all or args.dc_index:
                 results['dc_index'] = backfill_dc_index(downloader, start_date, end_date)
+
+            if args.all or args.limit_list_d:
+                results['limit_list_d'] = backfill_limit_list_d(downloader, start_date, end_date)
+
+            if args.all or args.ths_daily:
+                results['ths_daily'] = backfill_ths_daily(downloader, start_date, end_date)
+
+            if args.all or args.margin_detail:
+                results['margin_detail'] = backfill_margin_detail(downloader, start_date, end_date)
+
+            if args.all or args.sw_daily:
+                results['sw_daily'] = backfill_sw_daily(downloader, start_date, end_date)
 
             # 输出汇总
             logger.info("=" * 60)

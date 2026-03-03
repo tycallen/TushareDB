@@ -11,7 +11,7 @@ from tushare_db.sector_analysis import SectorAnalyzer
 @pytest.fixture
 def analyzer():
     """创建测试用的Analyzer"""
-    ana = SectorAnalyzer('tushare.db')
+    ana = SectorAnalyzer()
     yield ana
     ana.close()
 

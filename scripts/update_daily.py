@@ -74,14 +74,15 @@ def _ensure_table_primary_keys(downloader: DataDownloader):
     这是为了修复在 TABLE_PRIMARY_KEYS 添加主键定义之前创建的表。
     修复后的表将具有正确的主键约束，支持 UPSERT 操作。
 
-    注意：stk_factor_pro 表数据量太大（1400万+行），无法通过重建方式修复，
-    如需修复请手动删除表后重新下载。
+    注意：stk_factor_pro 表数据量较大（1400万+行），重建可能需要一些时间，
+    但 DuckDB 能够高效处理，且这只是一次性操作。
     """
-    # 需要检查的表（已知可能缺失主键的表，排除超大表）
+    # 需要检查的表（已知可能缺失主键的表）
     tables_to_check = [
         'fina_indicator_vip',
         'cyq_perf',
         'moneyflow_ind_dc',
+        'stk_factor_pro',  # 技术因子表，数据量大但需要主键支持 UPSERT
     ]
 
     rebuilt_count = 0
@@ -412,14 +413,8 @@ def update_cyq_chips(downloader: DataDownloader):
 
     策略：
         1. 获取数据库中 cyq_chips 的最新日期
-        2. 按股票遍历，每只股票一次性下载日期范围内的所有数据
-        3. 比按日期遍历效率高很多（减少 API 调用次数）
-
-    优化说明：
-        - 更新 10 天数据：
-          - 旧方案（按日期）：10天 × 5000股票 = 50000 次 API
-          - 新方案（按股票）：5000股票 × 1次 = 5000 次 API
-        - 效率提升约 10 倍
+        2. 获取期间的交易日列表
+        3. 按交易日逐日下载（日常更新通常只有 1-2 天，按日期更高效）
     """
     logger.info("=" * 60)
     logger.info("开始增量更新筹码分布详情数据 (cyq_chips)...")
@@ -447,8 +442,29 @@ def update_cyq_chips(downloader: DataDownloader):
             logger.info("无需更新")
             return
 
-        # 3. 使用按股票遍历的方式增量下载（效率更高）
-        total_rows = downloader.download_cyq_chips_incremental(start_date, today)
+        # 3. 获取交易日列表
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 4. 按交易日逐日下载
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_cyq_chips_by_date(trade_date)
+                total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
 
         logger.info(f"✓ 筹码分布详情更新完成: 共 {total_rows} 行")
 
@@ -1366,10 +1382,10 @@ def update_kpl_concept_cons(downloader: DataDownloader):
 
     策略：
         1. 获取数据库中 kpl_concept_cons 的最新日期
-        2. 使用批量下载方法（offset 分页）获取该日期之后的所有数据
+        2. 获取期间的交易日列表
+        3. 按交易日逐日下载
 
     说明：
-        - 使用 limit/offset 批量下载，比逐日下载效率高很多
         - 包含题材与股票的关联关系
         - 包含股票在该题材中的描述和人气值
         - 每日盘后更新
@@ -1384,23 +1400,43 @@ def update_kpl_concept_cons(downloader: DataDownloader):
         today = datetime.now().strftime('%Y%m%d')
 
         if latest_date is None:
-            # 初始化：使用批量下载获取所有可用数据
-            target_date = None
-            logger.info("数据库中没有开盘啦题材成分历史数据，将批量下载所有可用数据")
+            # 初始化：从近30天开始
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info("数据库中没有开盘啦题材成分历史数据，将从近30天开始初始化")
         else:
-            # 增量更新：只获取最新日期之后的数据
             latest_dt = datetime.strptime(latest_date, '%Y%m%d')
-            target_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
             logger.info(f"数据库最新日期: {latest_date}")
 
-            if target_date > today:
-                logger.info("无需更新")
-                return
+        if start_date > today:
+            logger.info("无需更新")
+            return
 
-            logger.info(f"更新范围: {target_date} → 最新")
+        logger.info(f"更新范围: {start_date} → {today}")
 
-        # 2. 批量下载
-        total_rows = downloader.download_kpl_concept_cons_batch(target_date=target_date)
+        # 2. 获取交易日列表
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 按交易日逐日下载
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_kpl_concept_cons(trade_date)
+                total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
 
         logger.info(f"✓ 开盘啦题材成分更新完成: 共 {total_rows} 行")
 

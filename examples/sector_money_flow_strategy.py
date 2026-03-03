@@ -1,3 +1,4 @@
+import os
 """
 板块资金流向策略示例
 
@@ -213,7 +214,7 @@ class SectorMoneyFlowAnalyzer:
 def demo_money_lurking_detection():
     """演示资金潜伏检测"""
 
-    db_path = "tushare.db"
+    db_path = os.getenv("DB_PATH", "tushare.db")
     analyzer = SectorMoneyFlowAnalyzer(db_path)
 
     # 检测最近3个月的资金潜伏信号
@@ -261,7 +262,7 @@ def demo_money_lurking_detection():
 def demo_money_flow_lead_lag():
     """演示资金流向与价格传导的关系"""
 
-    db_path = "tushare.db"
+    db_path = os.getenv("DB_PATH", "tushare.db")
     analyzer = SectorMoneyFlowAnalyzer(db_path)
 
     print("\n" + "=" * 80)

@@ -11,7 +11,7 @@ from tushare_db.sector_analysis.calculator import SectorCalculator
 @pytest.fixture
 def calculator():
     """创建测试用的Calculator"""
-    reader = DataReader('tushare.db')
+    reader = DataReader()
     calc = SectorCalculator(reader)
     yield calc
     reader.close()

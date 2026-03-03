@@ -23,7 +23,7 @@ from tushare_db import DataReader
 class PeriodEndVsDailyAnalyzer:
     """期末 vs 每日 资金流入分析器"""
 
-    def __init__(self, db_path: str = 'tushare.db'):
+    def __init__(self, db_path: str = None):
         self.reader = DataReader(db_path)
         self._market_returns_cache = None
 
@@ -500,7 +500,7 @@ def main():
     print("期末 vs 每日 资金流入信号对比分析（超额收益版）")
     print("=" * 80)
 
-    analyzer = PeriodEndVsDailyAnalyzer('tushare.db')
+    analyzer = PeriodEndVsDailyAnalyzer()
 
     # 分析参数
     start_date = '20200101'

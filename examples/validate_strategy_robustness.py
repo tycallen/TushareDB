@@ -190,7 +190,7 @@ def main():
     print("策略鲁棒性验证：严格样本外测试")
     print("=" * 80)
 
-    backtester = MoneySignalBacktest('tushare.db')
+    backtester = MoneySignalBacktest()
 
     # 1. 获取训练数据（2020-2022）
     print("\n[1/6] 加载训练期数据（2020-2022）...")

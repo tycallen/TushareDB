@@ -12,7 +12,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 数据库连接
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/sw_industry_analysis.md'
 
 def get_conn():

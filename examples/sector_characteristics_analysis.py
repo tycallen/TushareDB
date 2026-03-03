@@ -25,7 +25,7 @@ from tushare_db import DataReader
 class SectorCharacteristicsAnalyzer:
     """板块特征分析器"""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None):
         self.reader = DataReader(db_path)
 
     def get_sector_returns(self, start_date: str, end_date: str, level: str = 'L1'):
@@ -328,7 +328,7 @@ def main():
     print("板块特征全景分析")
     print("=" * 80)
 
-    analyzer = SectorCharacteristicsAnalyzer('tushare.db')
+    analyzer = SectorCharacteristicsAnalyzer()
 
     # 分析近3年数据
     start_date = '20220101'

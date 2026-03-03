@@ -28,7 +28,7 @@ from tushare_db.sector_analysis import SectorAnalyzer
 class MoneyConductionStrategy:
     """资金传导组合策略"""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None):
         self.reader = DataReader(db_path=db_path)
         self.analyzer = SectorAnalyzer(db_path)
 
@@ -327,7 +327,7 @@ def backtest_combined_strategy(
     print(f"测试期: {test_start} ~ {test_end}")
     print()
 
-    strategy = MoneyConductionStrategy('tushare.db')
+    strategy = MoneyConductionStrategy()
 
     # 第一步：学习传导关系（训练期）
     print("[1/5] 学习历史传导关系（训练期）...")

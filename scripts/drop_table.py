@@ -4,7 +4,7 @@ import argparse
 def drop_table(table_name: str):
     """删除指定的表"""
     try:
-        conn = duckdb.connect('/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db')
+        conn = duckdb.connect(os.getenv('DB_PATH', 'tushare.db'))
         conn.execute(f"DROP TABLE IF EXISTS {table_name}")
         print(f"成功删除表 {table_name}")
     except Exception as e:

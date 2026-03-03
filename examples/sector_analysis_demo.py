@@ -28,7 +28,7 @@ def main():
     print("=" * 60)
 
     # 创建分析器（使用本地数据库）
-    analyzer = SectorAnalyzer('tushare.db')
+    analyzer = SectorAnalyzer()
 
     # 创建输出管理器
     output_manager = OutputManager()  # 默认保存到 output/YYYY-MM-DD_analysis/

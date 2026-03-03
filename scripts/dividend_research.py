@@ -25,7 +25,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 数据库路径
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_DIR = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/research'
 
 def get_connection():

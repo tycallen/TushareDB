@@ -19,7 +19,7 @@ def run_optimized_backtest():
     print("优化参数策略回测（2020-2024完整数据）")
     print("=" * 80)
 
-    backtester = MoneySignalBacktest('tushare.db')
+    backtester = MoneySignalBacktest()
 
     # 获取数据
     print("\n[1/4] 获取数据...")

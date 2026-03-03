@@ -41,7 +41,7 @@ def main():
     print()
 
     # === 初始化 ===
-    analyzer = SectorAnalyzer('tushare.db')
+    analyzer = SectorAnalyzer()
     output_manager = OutputManager(f"output/long_term_{config['level']}_analysis")
 
     # === 分析各时期 ===

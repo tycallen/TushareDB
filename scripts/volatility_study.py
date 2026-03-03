@@ -36,7 +36,7 @@ except ImportError:
     HAS_MATPLOTLIB = False
 
 # 配置
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/volatility_modeling_study.md'
 FIGURE_DIR = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/quality_check/figures'
 

@@ -18,7 +18,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 配置
-DB_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/tushare.db'
+DB_PATH = os.getenv('DB_PATH', 'tushare.db')
 REPORT_PATH = '/Users/allen/workspace/python/stock/Tushare-DuckDB/reports/research'
 
 def get_connection():

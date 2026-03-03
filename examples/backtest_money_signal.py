@@ -20,7 +20,7 @@ from tushare_db import DataReader
 class MoneySignalBacktest:
     """资金信号回测器"""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str = None):
         self.reader = DataReader(db_path=db_path)
 
     def get_sector_data(
@@ -289,7 +289,7 @@ def run_backtest(
     print()
 
     # 初始化
-    backtester = MoneySignalBacktest('tushare.db')
+    backtester = MoneySignalBacktest()
 
     # 1. 获取数据
     print("[1/4] 正在获取板块数据...")
@@ -394,7 +394,7 @@ def parameter_optimization():
     print("参数优化测试")
     print("=" * 80)
 
-    backtester = MoneySignalBacktest('tushare.db')
+    backtester = MoneySignalBacktest()
 
     # 获取数据（2年数据用于快速测试）
     sector_data = backtester.get_sector_data('20230101', '20241231', 'L1')
