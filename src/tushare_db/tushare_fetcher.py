@@ -132,31 +132,35 @@ class TushareFetcher:
     def _wait_for_rate_limit(self, api_name: str) -> None:
         """
         Waits if necessary to ensure the API rate limit for the given API is not exceeded.
-        This method is thread-safe.
+        This method is thread-safe. The lock is released during sleep so that
+        calls to other APIs are not blocked.
         """
-        with self._lock:
-            config = self.rate_limit_config.get(api_name, self.rate_limit_config["default"])
-            limit = config["limit"]
-            period_seconds = config["period_seconds"]
-            
-            timestamps = self._api_call_timestamps[api_name]
-            current_time = time.time()
+        while True:
+            time_to_wait = 0
+            with self._lock:
+                config = self.rate_limit_config.get(api_name, self.rate_limit_config["default"])
+                limit = config["limit"]
+                period_seconds = config["period_seconds"]
 
-            # Remove timestamps older than the period
-            while timestamps and timestamps[0] <= current_time - period_seconds:
-                timestamps.popleft()
+                timestamps = self._api_call_timestamps[api_name]
+                current_time = time.time()
 
-            # If the limit is reached, calculate wait time and sleep
-            if len(timestamps) >= limit:
+                # Remove timestamps older than the period
+                while timestamps and timestamps[0] <= current_time - period_seconds:
+                    timestamps.popleft()
+
+                # If the limit is not reached, we can proceed
+                if len(timestamps) < limit:
+                    return
+
+                # Calculate wait time
                 oldest_request_time = timestamps[0]
                 time_to_wait = (oldest_request_time + period_seconds) - current_time
 
-                if time_to_wait > 0:
-                    logging.info(f"Rate limit for '{api_name}' reached. Waiting for {time_to_wait:.2f} seconds...")
-                    time.sleep(time_to_wait)
-                    # After sleeping, re-check and remove expired timestamps
-                    new_current_time = time.time()
-                    while timestamps and timestamps[0] <= new_current_time - period_seconds:
-                        timestamps.popleft()
+            # Sleep OUTSIDE the lock so other API calls are not blocked
+            if time_to_wait > 0:
+                logging.info(f"Rate limit for '{api_name}' reached. Waiting for {time_to_wait:.2f} seconds...")
+                time.sleep(time_to_wait)
+            # Loop back to re-check after sleep
 
 

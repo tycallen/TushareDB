@@ -3,6 +3,7 @@ import pandas as pd
 import logging
 import re
 import time
+import threading
 from typing import TYPE_CHECKING, Optional, Union, List, Any
 
 # Configure logging
@@ -92,10 +93,13 @@ class DuckDBManager:
             self.db_path = db_path
             self.read_only = read_only
             self.con = duckdb.connect(database=db_path, read_only=read_only)
-            
+            # RLock allows the same thread to acquire the lock multiple times
+            # (e.g., write_dataframe -> table_exists) without deadlocking
+            self._lock = threading.RLock()
+
             if not read_only:
                 self._create_metadata_table()
-                
+
             logging.info(f"Connected to DuckDB database: {db_path} (read_only={read_only})")
         except Exception as e:
             logging.error(f"Failed to connect to DuckDB at {db_path}: {e}")
@@ -112,7 +116,8 @@ class DuckDBManager:
             True if the table exists, False otherwise.
         """
         try:
-            result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
+            with self._lock:
+                result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
             return not result.empty
         except Exception as e:
             logging.error(f"Error checking existence of table {table_name}: {e}")
@@ -150,13 +155,13 @@ class DuckDBManager:
         try:
             log_query = self._truncate_query_for_logging(query)
             logging.info(f"Executing query: {log_query}")
-            
-            # Execute with parameters if they are provided
-            if params:
-                df = self.con.execute(query, params).fetchdf()
-            else:
-                df = self.con.execute(query).fetchdf()
-            
+
+            with self._lock:
+                if params:
+                    df = self.con.execute(query, params).fetchdf()
+                else:
+                    df = self.con.execute(query).fetchdf()
+
             return df
         except Exception as e:
             logging.error(f"Error executing query '{query}' with params {params}: {e}")
@@ -175,7 +180,8 @@ class DuckDBManager:
         if not self.table_exists(table_name):
             return []
         try:
-            result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
+            with self._lock:
+                result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
             return result['name'].tolist()
         except Exception as e:
             logging.error(f"Error getting columns for table {table_name}: {e}")
@@ -205,49 +211,55 @@ class DuckDBManager:
             logging.warning(f"DataFrame is empty. No data written to table {table_name}.")
             return
 
-        temp_view_name = f"temp_view_{table_name}_{int(time.time())}"
+        # Use thread ID for unique temp view name to avoid collisions in concurrent writes
+        temp_view_name = f"temp_view_{table_name}_{threading.get_ident()}_{int(time.time() * 1000)}"
         try:
-            self.con.register(temp_view_name, df)
+            with self._lock:
+                self.con.register(temp_view_name, df)
 
-            if mode == 'replace':
-                logging.info(f"Replacing table {table_name} with new data.")
-                self.con.execute(f"DROP TABLE IF EXISTS {table_name}")
+                if mode == 'replace':
+                    logging.info(f"Replacing table {table_name} with new data.")
+                    self.con.execute(f"DROP TABLE IF EXISTS {table_name}")
 
-            if not self.table_exists(table_name):
-                logging.info(f"Table {table_name} does not exist. Creating it...")
-                schema_str = self._get_sql_schema_from_df(df)
-                pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
-                create_sql = f"CREATE TABLE {table_name} ({schema_str}"
-                if pk_columns:
-                    missing_keys = [pk for pk in pk_columns if pk not in df.columns]
-                    if missing_keys:
-                        raise DuckDBManagerError(f"Primary key columns {missing_keys} not found in DataFrame for table {table_name}.")
-                    pk_str = ", ".join([f'"{col}"' for col in pk_columns])
-                    create_sql += f", PRIMARY KEY ({pk_str})"
-                create_sql += ")"
-                logging.error(f"Executing create SQL: {create_sql}")
-                self.con.execute(create_sql)
-                self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
-                logging.info(f"Table '{table_name}' created with {len(df)} rows.")
-            elif mode == 'append':
-                logging.info(f"Appending/updating data in table {table_name}.")
-                pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
-                all_columns_str = ", ".join([f'"{c}"' for c in df.columns])
-                if pk_columns:
-                    update_columns = [c for c in df.columns if c not in pk_columns]
-                    update_clause = "DO NOTHING" if not update_columns else "DO UPDATE SET " + ", ".join([f'"{c}"=excluded."{c}"' for c in update_columns])
-                    pk_str = ", ".join([f'"{col}"' for col in pk_columns])
-                    upsert_sql = f"INSERT INTO {table_name} ({all_columns_str}) SELECT * FROM {temp_view_name} ON CONFLICT ({pk_str}) {update_clause}"
-                    self.con.execute(upsert_sql)
-                else:
+                if not self.table_exists(table_name):
+                    logging.info(f"Table {table_name} does not exist. Creating it...")
+                    schema_str = self._get_sql_schema_from_df(df)
+                    pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
+                    create_sql = f"CREATE TABLE {table_name} ({schema_str}"
+                    if pk_columns:
+                        missing_keys = [pk for pk in pk_columns if pk not in df.columns]
+                        if missing_keys:
+                            raise DuckDBManagerError(f"Primary key columns {missing_keys} not found in DataFrame for table {table_name}.")
+                        pk_str = ", ".join([f'"{col}"' for col in pk_columns])
+                        create_sql += f", PRIMARY KEY ({pk_str})"
+                    create_sql += ")"
+                    logging.error(f"Executing create SQL: {create_sql}")
+                    self.con.execute(create_sql)
                     self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
-            
-            logging.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
+                    logging.info(f"Table '{table_name}' created with {len(df)} rows.")
+                elif mode == 'append':
+                    logging.info(f"Appending/updating data in table {table_name}.")
+                    pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
+                    all_columns_str = ", ".join([f'"{c}"' for c in df.columns])
+                    if pk_columns:
+                        update_columns = [c for c in df.columns if c not in pk_columns]
+                        update_clause = "DO NOTHING" if not update_columns else "DO UPDATE SET " + ", ".join([f'"{c}"=excluded."{c}"' for c in update_columns])
+                        pk_str = ", ".join([f'"{col}"' for col in pk_columns])
+                        upsert_sql = f"INSERT INTO {table_name} ({all_columns_str}) SELECT * FROM {temp_view_name} ON CONFLICT ({pk_str}) {update_clause}"
+                        self.con.execute(upsert_sql)
+                    else:
+                        self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
+
+                logging.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
+                self.con.unregister(temp_view_name)
         except Exception as e:
             logging.error(f"Error writing DataFrame to table {table_name} in {mode} mode: ", e, exc_info=True)
+            with self._lock:
+                try:
+                    self.con.unregister(temp_view_name)
+                except Exception:
+                    pass
             raise DuckDBManagerError(f"Failed to write DataFrame to DuckDB: {e}") from e
-        finally:
-            self.con.unregister(temp_view_name)
 
     def get_latest_date(self, table_name: str, date_col: str) -> Optional[str]:
         """
@@ -258,7 +270,8 @@ class DuckDBManager:
             return None
         try:
             query = f"SELECT MAX({date_col}) FROM {table_name}"
-            result = self.con.execute(query).fetchone()
+            with self._lock:
+                result = self.con.execute(query).fetchone()
             if result and result[0] is not None:
                 latest_date = str(result[0])
                 logging.info(f"Latest date in {table_name}.{date_col}: {latest_date}")
@@ -299,7 +312,8 @@ class DuckDBManager:
                 SELECT last_date FROM LatestDates WHERE last_date IS NOT NULL
                 GROUP BY last_date ORDER BY COUNT(*) DESC LIMIT 1;
             """
-            result = self.con.execute(query, [keys]).fetchone()
+            with self._lock:
+                result = self.con.execute(query, [keys]).fetchone()
             if result and result[0] is not None:
                 latest_date = str(result[0])
                 logging.info(f"Most common latest date for partition '{partition_key_col}' with keys {keys_for_log} in {table_name}.{date_col}: {latest_date}")
@@ -332,54 +346,55 @@ class DuckDBManager:
 
         # Check if table already has a primary key
         try:
-            constraints = self.con.execute(
-                f"SELECT constraint_type FROM duckdb_constraints() "
-                f"WHERE table_name = '{table_name}' AND constraint_type = 'PRIMARY KEY'"
-            ).fetchall()
+            with self._lock:
+                constraints = self.con.execute(
+                    f"SELECT constraint_type FROM duckdb_constraints() "
+                    f"WHERE table_name = '{table_name}' AND constraint_type = 'PRIMARY KEY'"
+                ).fetchall()
 
-            if len(constraints) > 0:
-                logging.debug(f"Table {table_name} already has a primary key.")
-                return False
+                if len(constraints) > 0:
+                    logging.debug(f"Table {table_name} already has a primary key.")
+                    return False
 
-            logging.info(f"Table {table_name} is missing primary key. Rebuilding...")
+                logging.info(f"Table {table_name} is missing primary key. Rebuilding...")
 
-            # Get current schema
-            schema_df = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
-            columns = schema_df['name'].tolist()
+                # Get current schema
+                schema_df = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
+                columns = schema_df['name'].tolist()
 
-            # Build column definitions with types
-            col_defs = []
-            for _, row in schema_df.iterrows():
-                col_defs.append(f'"{row["name"]}" {row["type"]}')
-            schema_str = ", ".join(col_defs)
+                # Build column definitions with types
+                col_defs = []
+                for _, row in schema_df.iterrows():
+                    col_defs.append(f'"{row["name"]}" {row["type"]}')
+                schema_str = ", ".join(col_defs)
 
-            pk_str = ", ".join([f'"{col}"' for col in pk_columns])
+                pk_str = ", ".join([f'"{col}"' for col in pk_columns])
 
-            # Create temp table with primary key, deduplicate on insert
-            temp_table = f"_{table_name}_temp_rebuild"
-            self.con.execute(f"DROP TABLE IF EXISTS {temp_table}")
-            self.con.execute(f"CREATE TABLE {temp_table} ({schema_str}, PRIMARY KEY ({pk_str}))")
+                # Create temp table with primary key, deduplicate on insert
+                temp_table = f"_{table_name}_temp_rebuild"
+                self.con.execute(f"DROP TABLE IF EXISTS {temp_table}")
+                self.con.execute(f"CREATE TABLE {temp_table} ({schema_str}, PRIMARY KEY ({pk_str}))")
 
-            # Insert deduplicated data (keep last occurrence for duplicates)
-            all_cols = ", ".join([f'"{c}"' for c in columns])
-            pk_cols_str = ", ".join(pk_columns)
+                # Insert deduplicated data (keep last occurrence for duplicates)
+                all_cols = ", ".join([f'"{c}"' for c in columns])
+                pk_cols_str = ", ".join(pk_columns)
 
-            # Use window function to deduplicate
-            self.con.execute(f"""
-                INSERT INTO {temp_table}
-                SELECT {all_cols} FROM (
-                    SELECT *, ROW_NUMBER() OVER (PARTITION BY {pk_cols_str} ORDER BY rowid DESC) as rn
-                    FROM {table_name}
-                ) WHERE rn = 1
-            """)
+                # Use window function to deduplicate
+                self.con.execute(f"""
+                    INSERT INTO {temp_table}
+                    SELECT {all_cols} FROM (
+                        SELECT *, ROW_NUMBER() OVER (PARTITION BY {pk_cols_str} ORDER BY rowid DESC) as rn
+                        FROM {table_name}
+                    ) WHERE rn = 1
+                """)
 
-            # Get counts for logging
-            old_count = self.con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
-            new_count = self.con.execute(f"SELECT COUNT(*) FROM {temp_table}").fetchone()[0]
+                # Get counts for logging
+                old_count = self.con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+                new_count = self.con.execute(f"SELECT COUNT(*) FROM {temp_table}").fetchone()[0]
 
-            # Swap tables
-            self.con.execute(f"DROP TABLE {table_name}")
-            self.con.execute(f"ALTER TABLE {temp_table} RENAME TO {table_name}")
+                # Swap tables
+                self.con.execute(f"DROP TABLE {table_name}")
+                self.con.execute(f"ALTER TABLE {temp_table} RENAME TO {table_name}")
 
             logging.info(f"Rebuilt {table_name} with primary key ({pk_str}). "
                         f"Rows: {old_count} -> {new_count} (removed {old_count - new_count} duplicates)")
@@ -392,7 +407,8 @@ class DuckDBManager:
     def close(self) -> None:
         """Closes the database connection."""
         try:
-            self.con.close()
+            with self._lock:
+                self.con.close()
             logging.info(f"Closed connection to DuckDB database: {self.db_path}")
         except Exception as e:
             logging.error(f"Error closing DuckDB connection: {e}")
@@ -401,12 +417,13 @@ class DuckDBManager:
     def _create_metadata_table(self) -> None:
         """Creates a metadata table to store cache information."""
         try:
-            self.con.execute("""
-                CREATE TABLE IF NOT EXISTS _tushare_cache_metadata (
-                    table_name VARCHAR PRIMARY KEY,
-                    last_updated_timestamp DOUBLE
-                )
-            """)
+            with self._lock:
+                self.con.execute("""
+                    CREATE TABLE IF NOT EXISTS _tushare_cache_metadata (
+                        table_name VARCHAR PRIMARY KEY,
+                        last_updated_timestamp DOUBLE
+                    )
+                """)
             logging.info("Ensured _tushare_cache_metadata table exists.")
         except Exception as e:
             logging.error(f"Error creating metadata table: {e}")
@@ -415,7 +432,8 @@ class DuckDBManager:
     def get_cache_metadata(self, table_name: str) -> Optional[float]:
         """Retrieves the last updated timestamp for a given table."""
         try:
-            result = self.con.execute(f"SELECT last_updated_timestamp FROM _tushare_cache_metadata WHERE table_name = '{table_name}'").fetchone()
+            with self._lock:
+                result = self.con.execute(f"SELECT last_updated_timestamp FROM _tushare_cache_metadata WHERE table_name = '{table_name}'").fetchone()
             return float(result[0]) if result and result[0] is not None else None
         except Exception as e:
             logging.error(f"Error getting cache metadata for {table_name}: {e}")
@@ -424,10 +442,11 @@ class DuckDBManager:
     def update_cache_metadata(self, table_name: str, timestamp: float) -> None:
         """Updates or inserts the last updated timestamp for a given table."""
         try:
-            self.con.execute("""
-                INSERT INTO _tushare_cache_metadata (table_name, last_updated_timestamp) VALUES (?, ?)
-                ON CONFLICT (table_name) DO UPDATE SET last_updated_timestamp = EXCLUDED.last_updated_timestamp
-            """, [table_name, timestamp])
+            with self._lock:
+                self.con.execute("""
+                    INSERT INTO _tushare_cache_metadata (table_name, last_updated_timestamp) VALUES (?, ?)
+                    ON CONFLICT (table_name) DO UPDATE SET last_updated_timestamp = EXCLUDED.last_updated_timestamp
+                """, [table_name, timestamp])
             logging.info(f"Updated cache metadata for {table_name} with timestamp {timestamp}.")
         except Exception as e:
             logging.error(f"Error updating cache metadata for {table_name}: {e}")
@@ -454,18 +473,18 @@ class DuckDBManager:
             raise ValueError("A WHERE clause is required to prevent accidental full-table deletion.")
 
         try:
-            # Use a CTE to count the rows to be deleted first
-            count_query = f"SELECT count(*) FROM {table_name} WHERE {where_clause}"
-            rows_to_delete = self.con.execute(count_query).fetchone()[0]
+            with self._lock:
+                count_query = f"SELECT count(*) FROM {table_name} WHERE {where_clause}"
+                rows_to_delete = self.con.execute(count_query).fetchone()[0]
 
-            if rows_to_delete > 0:
-                delete_query = f"DELETE FROM {table_name} WHERE {where_clause}"
-                logging.info(f"Executing delete: {delete_query}")
-                self.con.execute(delete_query)
-                logging.info(f"Successfully deleted {rows_to_delete} rows from {table_name} where {where_clause}.")
-            else:
-                logging.info(f"No rows matched the criteria for deletion in {table_name} where {where_clause}.")
-            
+                if rows_to_delete > 0:
+                    delete_query = f"DELETE FROM {table_name} WHERE {where_clause}"
+                    logging.info(f"Executing delete: {delete_query}")
+                    self.con.execute(delete_query)
+                    logging.info(f"Successfully deleted {rows_to_delete} rows from {table_name} where {where_clause}.")
+                else:
+                    logging.info(f"No rows matched the criteria for deletion in {table_name} where {where_clause}.")
+
             return rows_to_delete
         except Exception as e:
             logging.error(f"Error deleting data from {table_name} with condition '{where_clause}': {e}")

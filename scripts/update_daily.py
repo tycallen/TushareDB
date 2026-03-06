@@ -43,6 +43,7 @@
 
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -312,15 +313,24 @@ def update_financial_indicators(downloader: DataDownloader):
 
     策略：
         使用 VIP 接口按报告期批量下载全部股票的财务指标
-        - 获取最近8个季度的数据，确保捕获所有延迟披露的财报
-        - 每个季度一次API调用即可获取全部股票数据
+        - 财报季（1-4/7-8/10-11月）：每日更新，捕获新披露财报
+        - 非财报季（5-6/9/12月）：每周更新，数据几乎无变化
         - 需要5000积分
     """
     logger.info("=" * 60)
-    logger.info("开始更新财务指标数据（VIP批量模式）...")
 
     try:
-        # 生成最近8个季度的结束日期
+        import time as _time
+
+        if not _is_earnings_season():
+            last_update = downloader.db.get_cache_metadata('fina_indicator_vip_update')
+            if last_update is not None:
+                days_since = (_time.time() - last_update) / 86400
+                if days_since < 7:
+                    logger.info(f"非财报季，距上次更新仅 {days_since:.1f} 天，跳过财务指标（每周更新）")
+                    return
+
+        logger.info("开始更新财务指标数据（VIP批量模式）...")
         quarters = _generate_recent_quarters(8)
         logger.info(f"将更新 {len(quarters)} 个季度的财务指标: {quarters}")
 
@@ -333,11 +343,11 @@ def update_financial_indicators(downloader: DataDownloader):
                 logger.error(f"  ✗ {period} 更新失败: {e}")
                 continue
 
+        downloader.db.update_cache_metadata('fina_indicator_vip_update', _time.time())
         logger.info(f"✓ 财务指标数据更新完成: 共 {total_rows} 行")
 
     except Exception as e:
         logger.error(f"✗ 更新财务指标数据失败: {e}")
-        # 财务数据不阻塞主流程
         logger.warning("  继续执行其他更新任务...")
 
 
@@ -411,21 +421,37 @@ def update_cyq_chips(downloader: DataDownloader):
     """
     增量更新筹码分布详情数据 (cyq_chips)
 
-    策略：
-        1. 获取数据库中 cyq_chips 的最新日期
-        2. 获取期间的交易日列表
-        3. 按交易日逐日下载（日常更新通常只有 1-2 天，按日期更高效）
+    策略（周更新）：
+        1. 使用元数据表记录上次更新时间
+        2. 如果距离上次更新 < 7天，跳过（周更新策略）
+        3. 否则获取期间的交易日列表，按日期逐日下载
+
+    性能说明：
+        - cyq_chips 是更新耗时最长的表（~5500次API调用，限速200/min，约27分钟）
+        - 筹码分布变化缓慢，周级粒度足够支撑技术分析
+        - 改为周更新后，每日更新总耗时从 ~30分钟 降至 ~3分钟
     """
     logger.info("=" * 60)
-    logger.info("开始增量更新筹码分布详情数据 (cyq_chips)...")
+    logger.info("开始检查筹码分布详情数据 (cyq_chips, 周更新)...")
 
     try:
-        # 1. 获取最新日期
+        import time as _time
+
+        # 1. 检查上次更新时间（周更新策略）
+        last_update = downloader.db.get_cache_metadata('cyq_chips')
+        if last_update is not None:
+            days_since_update = (_time.time() - last_update) / 86400
+            if days_since_update < 7:
+                logger.info(f"  距离上次更新仅 {days_since_update:.1f} 天，跳过（每周更新一次）")
+                return
+            else:
+                logger.info(f"  距离上次更新 {days_since_update:.1f} 天，开始更新...")
+
+        # 2. 获取最新日期
         latest_date = downloader.db.get_latest_date('cyq_chips', 'trade_date')
         today = datetime.now().strftime('%Y%m%d')
 
         if latest_date is None:
-            # cyq_chips 数据从 2018 年开始
             start_date = '20180101'
             logger.info("数据库中没有筹码分布详情历史数据，将进行完整初始化")
             logger.info(f"  (数据起始日期: {start_date})")
@@ -437,7 +463,6 @@ def update_cyq_chips(downloader: DataDownloader):
 
         logger.info(f"更新范围: {start_date} → {today}")
 
-        # 2. 检查是否需要更新
         if start_date > today:
             logger.info("无需更新")
             return
@@ -465,6 +490,9 @@ def update_cyq_chips(downloader: DataDownloader):
                 total_rows += rows
             except Exception as e:
                 logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+
+        # 4. 更新元数据
+        downloader.db.update_cache_metadata('cyq_chips', _time.time())
 
         logger.info(f"✓ 筹码分布详情更新完成: 共 {total_rows} 行")
 
@@ -1088,23 +1116,30 @@ def update_financial_statements(downloader: DataDownloader):
 
     策略：
         使用 VIP 接口按报告期批量下载全部股票数据（需要5000积分）
-        - 获取最近8个季度的财务报表
-        - 每个季度一次API调用即可获取全部股票数据
-        - 相比按股票逐个下载，速度提升约500倍
+        - 财报季（1-4/7-8/10-11月）：每日更新，捕获新披露财报
+        - 非财报季（5-6/9/12月）：每周更新，数据几乎无变化
 
     说明：
         - income_vip / balancesheet_vip / cashflow_vip 按报告期批量获取
         - UPSERT 机制确保数据不会重复
     """
     logger.info("=" * 60)
-    logger.info("开始更新三大财务报表数据（VIP批量模式）...")
 
     try:
-        # 生成最近8个季度的报告期
+        import time as _time
+
+        if not _is_earnings_season():
+            last_update = downloader.db.get_cache_metadata('financial_statements_update')
+            if last_update is not None:
+                days_since = (_time.time() - last_update) / 86400
+                if days_since < 7:
+                    logger.info(f"非财报季，距上次更新仅 {days_since:.1f} 天，跳过三大报表（每周更新）")
+                    return
+
+        logger.info("开始更新三大财务报表数据（VIP批量模式）...")
         quarters = _generate_recent_quarters(8)
         logger.info(f"将更新 {len(quarters)} 个季度的财务报表: {quarters}")
 
-        # 统计
         income_total = 0
         balance_total = 0
         cashflow_total = 0
@@ -1113,15 +1148,12 @@ def update_financial_statements(downloader: DataDownloader):
             logger.info(f"  正在获取 {period} 的财务报表...")
 
             try:
-                # 利润表
                 rows = downloader.download_income_vip(period=period)
                 income_total += rows
 
-                # 资产负债表
                 rows = downloader.download_balancesheet_vip(period=period)
                 balance_total += rows
 
-                # 现金流量表
                 rows = downloader.download_cashflow_vip(period=period)
                 cashflow_total += rows
 
@@ -1129,6 +1161,7 @@ def update_financial_statements(downloader: DataDownloader):
                 logger.error(f"    ✗ {period} 更新失败: {e}")
                 continue
 
+        downloader.db.update_cache_metadata('financial_statements_update', _time.time())
         logger.info(f"✓ 三大财务报表更新完成:")
         logger.info(f"  - 利润表: {income_total} 行")
         logger.info(f"  - 资产负债表: {balance_total} 行")
@@ -1144,18 +1177,17 @@ def update_dividend(downloader: DataDownloader):
     更新分红送股数据
 
     策略：
-        按公告日期批量下载最近60天的分红数据
+        按公告日期批量下载最近7天的分红数据
         - dividend 接口支持按 ann_date 批量获取当日所有公告
-        - 相比按股票逐个下载，速度大幅提升
+        - 7天窗口足以捕获绝大多数分红公告（原60天过于冗余）
         - UPSERT 机制确保数据不会重复
     """
     logger.info("=" * 60)
     logger.info("开始更新分红送股数据（按公告日期批量模式）...")
 
     try:
-        # 获取最近60天的交易日作为查询范围
         today = datetime.now().strftime('%Y%m%d')
-        start_date = (datetime.now() - timedelta(days=60)).strftime('%Y%m%d')
+        start_date = (datetime.now() - timedelta(days=7)).strftime('%Y%m%d')
 
         trading_dates_df = downloader.db.execute_query('''
             SELECT cal_date
@@ -2035,6 +2067,22 @@ def update_hk_hold(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def _is_earnings_season() -> bool:
+    """
+    判断当前是否处于财报季
+
+    财报季定义（A股财报披露规则）：
+        - 1月~4月：年报季（上年年报 + 一季报密集披露）
+        - 7月~8月：中报季
+        - 10月~11月：三季报季
+
+    非财报季（5-6月、9月、12月）财务数据几乎无变化，
+    可降低更新频率至每周一次。
+    """
+    month = datetime.now().month
+    return month in (1, 2, 3, 4, 7, 8, 10, 11)
+
+
 def _generate_recent_quarters(count: int = 8) -> list:
     """
     生成最近 N 个季度的结束日期
@@ -2086,109 +2134,150 @@ def _generate_recent_quarters(count: int = 8) -> list:
     return quarters
 
 
+def _run_parallel_tasks(downloader: DataDownloader, tasks: list, max_workers: int = 4):
+    """
+    并行执行多个互不依赖的更新任务
+
+    当一个任务因 API 限速而等待时，其他任务可以同时调用不同的 API，
+    从而大幅提升整体更新速度。
+
+    Args:
+        downloader: DataDownloader 实例
+        tasks: (函数, 描述) 元组的列表
+        max_workers: 最大并发线程数
+    """
+    failed_tasks = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_name = {}
+        for func, name in tasks:
+            future = executor.submit(func, downloader)
+            future_to_name[future] = name
+
+        for future in as_completed(future_to_name):
+            name = future_to_name[future]
+            try:
+                future.result()
+            except Exception as e:
+                logger.error(f"✗ 并行任务 [{name}] 失败: {e}")
+                failed_tasks.append(name)
+
+    if failed_tasks:
+        logger.warning(f"以下并行任务执行失败: {', '.join(failed_tasks)}")
+
+
 def main():
     """
     主函数：执行所有每日更新任务
 
-    执行顺序：
-    1. 交易日历（基础数据，其他任务依赖）
-    2. 股票列表（基础数据）
-    3. 申万行业分类（基础数据，仅初始化时下载）
-    4. 申万行业指数成分股（周度更新，支持历史回测）
-    5. 同花顺板块指数（基础数据，仅初始化时下载）
-    6. 同花顺板块成分股（周度更新）
-    7. 每日数据（日线、复权、基本面）
-    8. 财务指标（季度数据）
-    9. 三大财务报表（利润表、资产负债表、现金流量表）
-    10. 分红送股数据
-    11. 融资融券交易明细
-    12. 筹码分布 (cyq_perf)
-    13. 筹码分布详情 (cyq_chips) - 各价位占比
-    14. 技术因子 (stk_factor_pro) - MACD、KDJ、RSI等
-    15. 龙虎榜机构席位数据 (dc_member)
-    16. 龙虎榜个股明细数据 (dc_index)
-    17. 涨跌停炸板数据 (limit_list_d)
-    18. 行业资金流向（沪深通）数据
-    19. 个股资金流向数据
-    20. 申万行业指数日线数据
-    21. 同花顺板块日行情 (ths_daily)
-    22. 开盘啦题材列表 (kpl_concept)
-    23. 开盘啦题材成分股 (kpl_concept_cons)
+    执行策略（分阶段并行）：
+    阶段1（串行）：基础数据，其他任务的依赖
+        - 交易日历、股票列表
+        - 申万行业分类、同花顺板块指数（仅初始化时下载）
+    阶段2（并行）：所有互不依赖的数据更新任务
+        - 利用不同 API 各自独立的限速窗口，当一个 API 限速等待时，
+          其他 API 的任务可以同时执行，从而大幅提升整体速度
     """
     start_time = datetime.now()
     logger.info("=" * 60)
-    logger.info("开始每日数据更新任务")
+    logger.info("开始每日数据更新任务（并行模式）")
     logger.info(f"启动时间: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("=" * 60)
-    
+
     try:
         # 1. 获取配置
         tushare_token, db_path = get_env_config()
         logger.info(f"数据库路径: {db_path}")
-        
+
         # 2. 初始化下载器
         downloader = DataDownloader(
             tushare_token=tushare_token,
             db_path=db_path,
             rate_limit_profile="standard"  # 根据你的账号权限调整：trial/standard/pro
         )
-        
+
         try:
             # 2.5 修复缺失主键的表（一次性操作）
             _ensure_table_primary_keys(downloader)
 
-            # 3. 执行更新任务
+            # ========== 阶段 1：串行执行基础数据（其他任务的依赖） ==========
+            logger.info("")
+            logger.info("=" * 60)
+            logger.info("阶段 1/2：更新基础数据（串行）...")
+            logger.info("=" * 60)
+
             update_trade_calendar(downloader)
             update_stock_basic(downloader)
-            update_index_classify(downloader)  # 申万行业分类（仅初始化时下载）
-            update_index_member_all(downloader)  # 申万行业成分股（定期更新，支持历史回测）
-            # update_index_weight(downloader)  # TODO: 市场指数成分股（月度更新，如沪深300等）- 暂未实现
-            update_ths_index(downloader)  # 同花顺板块指数（仅初始化时下载）
-            update_ths_member(downloader)  # 同花顺板块成分股（周度更新）
-            update_daily_data(downloader)
-            update_index_daily(downloader)  # 更新常见指数日线数据
-            update_financial_indicators(downloader)
-            update_financial_statements(downloader)  # 三大财务报表
-            update_dividend(downloader)  # 分红送股数据
-            update_margin_detail(downloader)  # 融资融券交易明细
-            update_cyq_perf(downloader)
-            update_cyq_chips(downloader)  # 筹码分布详情（各价位占比）
-            update_stk_factor_pro(downloader)  # 技术因子（MACD、KDJ等）
-            update_dc_member(downloader)
-            update_dc_index(downloader)  # 龙虎榜个股明细
-            update_limit_list_d(downloader)  # 涨跌停炸板数据
-            update_moneyflow_ind_dc(downloader)
-            update_moneyflow_dc(downloader)  # 个股资金流向（DC接口）
-            update_moneyflow(downloader)  # 个股资金流向（标准接口）
-            update_sw_daily(downloader)  # 申万行业指数日线
-            update_ths_daily(downloader)  # 同花顺板块日行情
-            update_kpl_concept(downloader)  # 开盘啦题材列表
-            update_kpl_concept_cons(downloader)  # 开盘啦题材成分股
-            update_fund_basic(downloader)  # 基金列表
-            update_fund_daily(downloader)  # 场内基金日线
-            update_fund_nav(downloader)  # 基金净值
-            update_fund_share(downloader)  # 基金份额
-            update_moneyflow_hsgt(downloader)  # 沪深港通资金流向
-            update_hsgt_top10(downloader)  # 沪深股通十大成交
-            update_ggt_top10(downloader)  # 港股通十大成交
-            update_ggt_daily(downloader)  # 港股通每日成交
-            update_hk_hold(downloader)  # 沪深港通持股明细
+            update_index_classify(downloader)      # 申万行业分类（仅初始化时下载）
+            update_ths_index(downloader)            # 同花顺板块指数（仅初始化时下载）
+            update_fund_basic(downloader)           # 基金列表
+
+            # ========== 阶段 2：并行执行所有独立的更新任务 ==========
+            logger.info("")
+            logger.info("=" * 60)
+            logger.info("阶段 2/2：并行更新所有独立数据...")
+            logger.info("=" * 60)
+
+            parallel_tasks = [
+                # 依赖 index_classify 的任务
+                (update_index_member_all, "申万行业成分股"),
+                # 依赖 ths_index 的任务
+                (update_ths_member, "同花顺板块成分股"),
+                # 每日行情数据
+                (update_daily_data, "每日数据(日线/复权/基本面)"),
+                (update_index_daily, "指数日线"),
+                # 财务数据
+                (update_financial_indicators, "财务指标(VIP)"),
+                (update_financial_statements, "三大财务报表"),
+                (update_dividend, "分红送股"),
+                # 交易数据
+                (update_margin_detail, "融资融券明细"),
+                (update_cyq_perf, "筹码分布"),
+                (update_cyq_chips, "筹码分布详情"),
+                (update_stk_factor_pro, "技术因子"),
+                # 龙虎榜
+                (update_dc_member, "龙虎榜机构席位"),
+                (update_dc_index, "龙虎榜个股明细"),
+                (update_limit_list_d, "涨跌停炸板"),
+                # 资金流向
+                (update_moneyflow_ind_dc, "行业资金流向"),
+                (update_moneyflow_dc, "个股资金流向(DC)"),
+                (update_moneyflow, "个股资金流向"),
+                # 行业/板块
+                (update_sw_daily, "申万行业指数日线"),
+                (update_ths_daily, "同花顺板块日行情"),
+                # 题材
+                (update_kpl_concept, "开盘啦题材列表"),
+                (update_kpl_concept_cons, "开盘啦题材成分股"),
+                # 基金
+                (update_fund_daily, "场内基金日线"),
+                (update_fund_nav, "基金净值"),
+                (update_fund_share, "基金份额"),
+                # 沪深港通
+                (update_moneyflow_hsgt, "沪深港通资金流向"),
+                (update_hsgt_top10, "沪深股通十大成交"),
+                (update_ggt_top10, "港股通十大成交"),
+                (update_ggt_daily, "港股通每日成交"),
+                (update_hk_hold, "沪深港通持股明细"),
+            ]
+
+            _run_parallel_tasks(downloader, parallel_tasks, max_workers=4)
 
             # 4. 完成
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
-            
+
             logger.info("=" * 60)
             logger.info("✓ 所有每日数据更新任务完成！")
             logger.info(f"结束时间: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info(f"总耗时: {duration:.1f} 秒")
+            logger.info(f"总耗时: {duration:.1f} 秒 ({duration/60:.1f} 分钟)")
             logger.info("=" * 60)
-            
+
         finally:
             # 5. 关闭连接
             downloader.close()
             logger.info("数据库连接已关闭")
-    
+
     except Exception as e:
         logger.error("=" * 60)
         logger.error(f"✗ 每日更新任务失败: {e}")
