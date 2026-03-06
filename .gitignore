@@ -53,3 +53,6 @@ frontend/package-lock.json
 market_width_*.png
 test_chinese*.png
 .claude/
+
+# Git worktrees
+.worktrees/
