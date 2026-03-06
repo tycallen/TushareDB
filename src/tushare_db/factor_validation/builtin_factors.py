@@ -856,6 +856,124 @@ def atr_breakdown(
 
 
 # =============================================================================
+# Momentum Factors
+# =============================================================================
+
+def momentum_20_day(
+    df: pd.DataFrame,
+    period: int = 20,
+    threshold: float = 0.05
+) -> pd.Series:
+    """20-day momentum factor: price makes new high AND momentum crosses above threshold.
+
+    This is a bullish momentum signal indicating strong upward price movement.
+    Uses crossover logic to detect when momentum transitions from below to above threshold.
+
+    Args:
+        df: DataFrame with 'close' column
+        period: Momentum lookback period (default 20)
+        threshold: Momentum threshold for signal (default 0.05 = 5%)
+
+    Returns:
+        Boolean Series indicating momentum signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+
+    # Calculate momentum: (close - close.shift(period)) / close.shift(period)
+    momentum = (df['close'] - df['close'].shift(period)) / df['close'].shift(period)
+
+    # Calculate rolling high
+    rolling_high = df['close'].rolling(window=period).max()
+
+    # Previous momentum for crossover detection
+    prev_momentum = momentum.shift(1)
+
+    # Signal: price at new high AND momentum crosses above threshold
+    new_high = df['close'] >= rolling_high
+    momentum_cross = (momentum > threshold) & (prev_momentum <= threshold)
+
+    return new_high & momentum_cross
+
+
+def price_momentum_breakout(
+    df: pd.DataFrame,
+    lookback: int = 20,
+    breakout_threshold: float = 0.03
+) -> pd.Series:
+    """Price momentum breakout: price breaks above consolidation with volume confirmation.
+
+    This identifies breakouts from price consolidation with volume surge confirmation.
+    Volume confirmation requires volume > 1.5x rolling average when volume column exists.
+
+    Args:
+        df: DataFrame with 'close' column, optionally 'vol' column
+        lookback: Lookback period for rolling high (default 20)
+        breakout_threshold: Breakout threshold above rolling high (default 0.03 = 3%)
+
+    Returns:
+        Boolean Series indicating breakout signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+
+    # Calculate rolling high (excluding current value to detect breakout)
+    rolling_high = df['close'].shift(1).rolling(window=lookback).max()
+
+    # Price breakout: close breaks above rolling high * (1 + threshold)
+    breakout_level = rolling_high * (1 + breakout_threshold)
+    price_breakout = df['close'] > breakout_level
+
+    # Volume confirmation (if volume column exists)
+    if 'vol' in df.columns:
+        avg_volume = df['vol'].shift(1).rolling(window=lookback).mean()
+        volume_surge = df['vol'] > (avg_volume * 1.5)
+        return price_breakout & volume_surge
+
+    # Without volume, just use price breakout
+    return price_breakout
+
+
+def price_acceleration(
+    df: pd.DataFrame,
+    short_period: int = 5,
+    long_period: int = 20
+) -> pd.Series:
+    """Price acceleration: second-order momentum (acceleration of price).
+
+    This detects when price momentum is accelerating (short-term momentum > long-term momentum)
+    and the acceleration itself is increasing.
+
+    Args:
+        df: DataFrame with 'close' column
+        short_period: Short-term momentum period (default 5)
+        long_period: Long-term momentum period (default 20)
+
+    Returns:
+        Boolean Series indicating price acceleration signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+
+    # Calculate short and long term momentum
+    short_momentum = (df['close'] - df['close'].shift(short_period)) / df['close'].shift(short_period)
+    long_momentum = (df['close'] - df['close'].shift(long_period)) / df['close'].shift(long_period)
+
+    # Calculate acceleration (difference between short and long momentum)
+    acceleration = short_momentum - long_momentum
+
+    # Previous acceleration for detecting increasing acceleration
+    prev_acceleration = acceleration.shift(1)
+
+    # Signal: positive acceleration that is increasing
+    # Short momentum > long momentum AND acceleration is increasing
+    positive_accel = acceleration > 0
+    accel_increasing = acceleration > prev_acceleration
+
+    return positive_accel & accel_increasing
+
+
+# =============================================================================
 # Candlestick Pattern Factors
 # =============================================================================
 
