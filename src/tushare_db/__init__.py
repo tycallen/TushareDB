@@ -7,6 +7,16 @@ from .reader import DataReader          # 数据查询
 # 工具
 from .logger import setup_logging, get_logger
 
+# 因子验证模块
+from .factor_validation import (
+    FactorFilter,
+    FactorReport,
+    Factor,
+    FactorType,
+    FactorRegistry,
+    TestResult
+)
+
 # Define what is exposed when a user does 'from tushare_db import *'
 __all__ = [
     # 核心接口
@@ -15,4 +25,11 @@ __all__ = [
     # 工具
     'setup_logging',
     'get_logger',
+    # 因子验证
+    'FactorFilter',
+    'FactorReport',
+    'Factor',
+    'FactorType',
+    'FactorRegistry',
+    'TestResult',
 ]
