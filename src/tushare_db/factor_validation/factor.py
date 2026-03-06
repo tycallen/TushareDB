@@ -190,6 +190,48 @@ try:
         parameters={"period": 14, "threshold": 70.0}
     ))
 
+    # Register KDJ factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="kdj_golden_cross",
+        description="KDJ golden cross: K crosses above D in oversold region (<20)",
+        func=builtin_factors.kdj_golden_cross,
+        parameters={"n": 9, "m1": 3, "m2": 3}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="kdj_death_cross",
+        description="KDJ death cross: K crosses below D in overbought region (>80)",
+        func=builtin_factors.kdj_death_cross,
+        parameters={"n": 9, "m1": 3, "m2": 3}
+    ))
+
+    # Register Williams %R factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="williams_r_oversold",
+        description="Williams %R oversold: crosses above threshold (default -80)",
+        func=builtin_factors.williams_r_oversold,
+        parameters={"period": 14, "threshold": -80.0}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="williams_r_overbought",
+        description="Williams %R overbought: crosses below threshold (default -20)",
+        func=builtin_factors.williams_r_overbought,
+        parameters={"period": 14, "threshold": -20.0}
+    ))
+
+    # Register CCI factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="cci_oversold",
+        description="CCI oversold: crosses above threshold (default -100)",
+        func=builtin_factors.cci_oversold,
+        parameters={"period": 20, "threshold": -100.0}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="cci_overbought",
+        description="CCI overbought: crosses below threshold (default 100)",
+        func=builtin_factors.cci_overbought,
+        parameters={"period": 20, "threshold": 100.0}
+    ))
+
     # Register Moving Average factors
     FactorRegistry.register_builtin(FactorRegistry.create_from_function(
         name="golden_cross",
@@ -230,12 +272,70 @@ try:
         parameters={"period": 20, "std_dev": 2.0}
     ))
 
+    # Register ATR factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="atr_breakout",
+        description="ATR breakout: price breaks above previous close + multiplier * ATR",
+        func=builtin_factors.atr_breakout,
+        parameters={"period": 14, "multiplier": 2.0}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="atr_breakdown",
+        description="ATR breakdown: price breaks below previous close - multiplier * ATR",
+        func=builtin_factors.atr_breakdown,
+        parameters={"period": 14, "multiplier": 2.0}
+    ))
+
     # Register Volume factors
     FactorRegistry.register_builtin(FactorRegistry.create_from_function(
         name="volume_breakout",
         description="Volume breakout: volume exceeds average by multiplier",
         func=builtin_factors.volume_breakout,
         parameters={"period": 20, "multiplier": 2.0}
+    ))
+
+    # Register Candlestick Pattern factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="bullish_engulfing",
+        description="Bullish engulfing: bullish candle engulfs previous bearish candle",
+        func=builtin_factors.bullish_engulfing,
+        parameters={}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="bearish_engulfing",
+        description="Bearish engulfing: bearish candle engulfs previous bullish candle",
+        func=builtin_factors.bearish_engulfing,
+        parameters={}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="hammer",
+        description="Hammer: small body with long lower shadow in downtrend",
+        func=builtin_factors.hammer,
+        parameters={}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="shooting_star",
+        description="Shooting star: small body with long upper shadow in uptrend",
+        func=builtin_factors.shooting_star,
+        parameters={}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="doji",
+        description="Doji: open and close are nearly equal, indicating indecision",
+        func=builtin_factors.doji,
+        parameters={"max_body_pct": 0.1}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="three_white_soldiers",
+        description="Three white soldiers: three consecutive bullish candles with higher closes",
+        func=builtin_factors.three_white_soldiers,
+        parameters={}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="three_black_crows",
+        description="Three black crows: three consecutive bearish candles with lower closes",
+        func=builtin_factors.three_black_crows,
+        parameters={}
     ))
 
     # Register Price Pattern factors
