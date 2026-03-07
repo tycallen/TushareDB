@@ -364,6 +364,26 @@ try:
         parameters={"period": 20, "squeeze_threshold": 0.1}
     ))
 
+    # Register Multi-Timeframe factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="multi_timeframe_alignment",
+        description="Multi-timeframe alignment: price aligns bullish across short/medium/long term",
+        func=builtin_factors.multi_timeframe_alignment,
+        parameters={"short_period": 5, "medium_period": 20, "long_period": 60}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="higher_high_lower_low_sequence",
+        description="Higher High / Higher Low sequence: HHLL pattern indicating uptrend",
+        func=builtin_factors.higher_high_lower_low_sequence,
+        parameters={"lookback": 10}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="support_resistance_breakout",
+        description="Support/Resistance breakout: price breaks above resistance with volume",
+        func=builtin_factors.support_resistance_breakout,
+        parameters={"lookback": 20, "breakout_threshold": 0.03, "volume_confirm": True}
+    ))
+
     # Register Candlestick Pattern factors
     FactorRegistry.register_builtin(FactorRegistry.create_from_function(
         name="bullish_engulfing",

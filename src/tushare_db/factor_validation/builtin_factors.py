@@ -1509,6 +1509,157 @@ def accumulation_distribution_breakout(
     return (ad_line > breakout_level) & (prev_ad <= prev_breakout_level)
 
 
+# =============================================================================
+# Multi-Timeframe Factors
+# =============================================================================
+
+def multi_timeframe_alignment(
+    df: pd.DataFrame,
+    short_period: int = 5,
+    medium_period: int = 20,
+    long_period: int = 60
+) -> pd.Series:
+    """Multi-timeframe alignment: price aligns bullish across short/medium/long term.
+
+    This identifies when price is in a bullish alignment across multiple timeframes:
+    - Price > short-term MA (bullish short-term)
+    - Price > medium-term MA (bullish medium-term)
+    - Price > long-term MA (bullish long-term)
+    Signal triggers when price crosses above all three MAs simultaneously.
+
+    Args:
+        df: DataFrame with 'close' column
+        short_period: Short-term moving average period (default 5)
+        medium_period: Medium-term moving average period (default 20)
+        long_period: Long-term moving average period (default 60)
+
+    Returns:
+        Boolean Series indicating multi-timeframe alignment signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+
+    # Calculate moving averages
+    short_ma = _calculate_sma(df['close'], short_period)
+    medium_ma = _calculate_sma(df['close'], medium_period)
+    long_ma = _calculate_sma(df['close'], long_period)
+
+    # Current alignment conditions
+    above_short = df['close'] > short_ma
+    above_medium = df['close'] > medium_ma
+    above_long = df['close'] > long_ma
+
+    # Previous alignment conditions (for crossover detection)
+    prev_close = df['close'].shift(1)
+    prev_above_short = prev_close > short_ma.shift(1)
+    prev_above_medium = prev_close > medium_ma.shift(1)
+    prev_above_long = prev_close > long_ma.shift(1)
+
+    # Was not aligned before (at least one was False)
+    was_not_aligned = ~(prev_above_short & prev_above_medium & prev_above_long)
+
+    # Now aligned (all are True)
+    now_aligned = above_short & above_medium & above_long
+
+    # Signal: transitions from not aligned to aligned
+    return now_aligned & was_not_aligned
+
+
+def higher_high_lower_low_sequence(
+    df: pd.DataFrame,
+    lookback: int = 10
+) -> pd.Series:
+    """Higher High / Higher Low sequence: HHLL pattern indicating uptrend.
+
+    This identifies when price is making higher highs and higher lows,
+    which is a classic uptrend pattern. Signal triggers when we have
+    at least 2 consecutive higher highs AND 2 consecutive higher lows.
+
+    Args:
+        df: DataFrame with 'high' and 'low' columns
+        lookback: Lookback period for HHLL detection (default 10)
+
+    Returns:
+        Boolean Series indicating HHLL sequence signals
+    """
+    if 'high' not in df.columns or 'low' not in df.columns:
+        raise ValueError("DataFrame must have 'high' and 'low' columns")
+
+    # Detect higher highs
+    higher_high = df['high'] > df['high'].shift(1)
+    higher_high_prev = df['high'].shift(1) > df['high'].shift(2)
+
+    # Detect higher lows
+    higher_low = df['low'] > df['low'].shift(1)
+    higher_low_prev = df['low'].shift(1) > df['low'].shift(2)
+
+    # HHLL sequence: at least 2 consecutive higher highs AND higher lows
+    hh_sequence = higher_high & higher_high_prev
+    hl_sequence = higher_low & higher_low_prev
+
+    # Overall trend confirmation: close is above short-term MA
+    ma_period = max(2, lookback // 2)
+    ma_short = _calculate_sma(df['close'], ma_period)
+    above_ma = df['close'] > ma_short
+
+    # Previous state (for crossover detection): was already in HHLL sequence
+    was_hhll = (hh_sequence & hl_sequence).shift(1).fillna(False).infer_objects(copy=False)
+
+    # Signal: enters HHLL pattern
+    return hh_sequence & hl_sequence & above_ma & ~was_hhll
+
+
+def support_resistance_breakout(
+    df: pd.DataFrame,
+    lookback: int = 20,
+    breakout_threshold: float = 0.03,
+    volume_confirm: bool = True
+) -> pd.Series:
+    """Support/Resistance breakout: price breaks above resistance with volume.
+
+    This identifies breakouts above resistance levels. Resistance is calculated
+    as the maximum high over the lookback period. Signal triggers when price
+    breaks above this resistance level with optional volume confirmation.
+
+    Args:
+        df: DataFrame with 'close', 'high' columns, optionally 'vol'
+        lookback: Lookback period for resistance calculation (default 20)
+        breakout_threshold: Minimum percentage above resistance (default 0.03 = 3%)
+        volume_confirm: Whether to require volume confirmation (default True)
+
+    Returns:
+        Boolean Series indicating support/resistance breakout signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+    if 'high' not in df.columns:
+        raise ValueError("DataFrame must have 'high' column for resistance calculation")
+
+    # Calculate resistance level (rolling high, excluding current)
+    resistance = df['high'].shift(1).rolling(window=lookback).max()
+
+    # Breakout condition: close above resistance * (1 + threshold)
+    breakout_level = resistance * (1 + breakout_threshold)
+    price_breakout = df['close'] > breakout_level
+
+    # Previous price for crossover detection
+    prev_close = df['close'].shift(1)
+    prev_breakout_level = breakout_level.shift(1)
+
+    # Was not in breakout before
+    was_not_breakout = prev_close <= prev_breakout_level
+
+    # Volume confirmation (if requested and volume column exists)
+    if volume_confirm and 'vol' in df.columns:
+        avg_volume = df['vol'].shift(1).rolling(window=lookback).mean()
+        volume_confirmed = df['vol'] > (avg_volume * 1.3)  # 30% above average
+    else:
+        volume_confirmed = pd.Series(True, index=df.index)
+
+    # Signal: price breaks above resistance with volume confirmation
+    return price_breakout & was_not_breakout & volume_confirmed
+
+
 # List of all built-in factor functions for registration
 BUILTIN_FACTORS = [
     # MACD
@@ -1549,6 +1700,10 @@ BUILTIN_FACTORS = [
     on_balance_volume_breakout,
     volume_weighted_momentum,
     accumulation_distribution_breakout,
+    # Multi-Timeframe
+    multi_timeframe_alignment,
+    higher_high_lower_low_sequence,
+    support_resistance_breakout,
     # Candlestick Patterns
     bullish_engulfing,
     bearish_engulfing,
