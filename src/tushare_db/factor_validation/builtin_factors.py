@@ -11,6 +11,7 @@ This module provides common technical indicator factors including:
 
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
 
@@ -974,6 +975,160 @@ def price_acceleration(
 
 
 # =============================================================================
+# Volatility Factors
+# =============================================================================
+
+def volatility_expansion(
+    df: pd.DataFrame,
+    period: int = 20,
+    expansion_threshold: float = 1.5
+) -> pd.Series:
+    """Volatility expansion: ATR expands significantly above recent average.
+
+    This signals increasing volatility which often accompanies significant price moves.
+    Uses crossover logic to detect when ATR transitions from normal to expanded.
+
+    Args:
+        df: DataFrame with 'high', 'low', 'close' columns
+        period: Lookback period for ATR average (default 20)
+        expansion_threshold: Multiplier above average ATR to signal expansion (default 1.5)
+
+    Returns:
+        Boolean Series indicating volatility expansion signals
+    """
+    if 'high' not in df.columns or 'low' not in df.columns or 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'high', 'low', and 'close' columns")
+
+    atr = _calculate_atr(df, period)
+    atr_average = atr.rolling(window=period).mean()
+
+    # Current ATR vs threshold
+    atr_current = atr
+    threshold_level = atr_average * expansion_threshold
+
+    # Previous values for crossover detection
+    prev_atr = atr_current.shift(1)
+    prev_threshold = threshold_level.shift(1)
+
+    # Signal: ATR crosses above threshold (expansion)
+    return (atr_current > threshold_level) & (prev_atr <= prev_threshold)
+
+
+def volatility_contraction(
+    df: pd.DataFrame,
+    period: int = 20,
+    contraction_threshold: float = 0.7
+) -> pd.Series:
+    """Volatility contraction (squeeze): ATR contracts below threshold.
+
+    This signals decreasing volatility which often precedes significant price moves
+    (volatility squeeze pattern). Uses crossover logic to detect when ATR transitions
+    from normal to contracted.
+
+    Args:
+        df: DataFrame with 'high', 'low', 'close' columns
+        period: Lookback period for ATR average (default 20)
+        contraction_threshold: Multiplier below average ATR to signal contraction (default 0.7)
+
+    Returns:
+        Boolean Series indicating volatility contraction (squeeze) signals
+    """
+    if 'high' not in df.columns or 'low' not in df.columns or 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'high', 'low', and 'close' columns")
+
+    atr = _calculate_atr(df, period)
+    atr_average = atr.rolling(window=period).mean()
+
+    # Current ATR vs threshold
+    atr_current = atr
+    threshold_level = atr_average * contraction_threshold
+
+    # Previous values for crossover detection
+    prev_atr = atr_current.shift(1)
+    prev_threshold = threshold_level.shift(1)
+
+    # Signal: ATR crosses below threshold (contraction)
+    return (atr_current < threshold_level) & (prev_atr >= prev_threshold)
+
+
+def atr_percent_b(
+    df: pd.DataFrame,
+    period: int = 20,
+    upper: float = 0.8,
+    lower: float = 0.2
+) -> pd.Series:
+    """ATR %B: Position within ATR-based bands (similar to Bollinger %B).
+
+    Calculates ATR-based bands (upper = SMA + 2*ATR, lower = SMA - 2*ATR) and
+    returns %B = (close - lower) / (upper - lower). Signals when %B crosses above
+    upper threshold (near upper band) or below lower threshold (near lower band).
+
+    Args:
+        df: DataFrame with 'high', 'low', 'close' columns
+        period: ATR calculation period (default 20)
+        upper: Upper %B threshold for signal (default 0.8)
+        lower: Lower %B threshold for signal (default 0.2)
+
+    Returns:
+        Boolean Series indicating extreme %B readings
+    """
+    if 'high' not in df.columns or 'low' not in df.columns or 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'high', 'low', and 'close' columns")
+
+    atr = _calculate_atr(df, period)
+    close = df['close']
+
+    # ATR-based bands using SMA as middle band
+    middle_band = _calculate_sma(close, period)
+    upper_band = middle_band + (2 * atr)
+    lower_band = middle_band - (2 * atr)
+
+    # Calculate %B (handle division by zero)
+    band_range = upper_band - lower_band
+    percent_b = pd.Series(np.where(band_range != 0, (close - lower_band) / band_range, 0.5), index=close.index)
+
+    # Previous %B for crossover detection
+    prev_percent_b = percent_b.shift(1)
+
+    # Signal: %B crosses above upper threshold OR crosses below lower threshold
+    cross_above_upper = (percent_b > upper) & (prev_percent_b <= upper)
+    cross_below_lower = (percent_b < lower) & (prev_percent_b >= lower)
+
+    return cross_above_upper | cross_below_lower
+
+
+def bollinger_squeeze(
+    df: pd.DataFrame,
+    period: int = 20,
+    squeeze_threshold: float = 0.1
+) -> pd.Series:
+    """Bollinger Bands squeeze: band width contracts to extreme narrow level.
+
+    This signals potential breakout when Bollinger Bands contract to an extreme
+    narrow width. Band width = (upper - lower) / middle. A squeeze occurs when
+    band width falls below the squeeze_threshold.
+
+    Args:
+        df: DataFrame with 'close' column
+        period: Bollinger Bands period (default 20)
+        squeeze_threshold: Band width threshold for squeeze detection (default 0.1)
+
+    Returns:
+        Boolean Series indicating Bollinger squeeze signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+
+    upper, middle, lower = _calculate_bollinger(df['close'], period, std_dev=2.0)
+
+    # Calculate band width (handle division by zero)
+    band_width = pd.Series(np.where(middle != 0, (upper - lower) / middle, 0), index=middle.index)
+
+    # Signal: band width below squeeze threshold
+    return band_width < squeeze_threshold
+
+
+# =============================================================================
 # Candlestick Pattern Factors
 # =============================================================================
 
@@ -1185,6 +1340,11 @@ BUILTIN_FACTORS = [
     # ATR
     atr_breakout,
     atr_breakdown,
+    # Volatility
+    volatility_expansion,
+    volatility_contraction,
+    atr_percent_b,
+    bollinger_squeeze,
     # Volume
     volume_breakout,
     # Candlestick Patterns
