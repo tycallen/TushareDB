@@ -1311,6 +1311,204 @@ def three_black_crows(df: pd.DataFrame) -> pd.Series:
     return c1_bearish & c2_bearish & c3_bearish & lower_closes
 
 
+# =============================================================================
+# Volume Factors
+# =============================================================================
+
+def volume_price_divergence(
+    df: pd.DataFrame,
+    lookback: int = 10,
+    divergence_threshold: float = 0.05
+) -> pd.Series:
+    """Volume-price divergence: price and volume move in opposite directions.
+
+    This detects potential reversal signals when price makes new lows but
+    volume expands (bullish divergence), or price makes new highs with
+    declining volume (bearish divergence).
+
+    Args:
+        df: DataFrame with 'close' and 'vol' columns
+        lookback: Lookback period for detecting divergence (default 10)
+        divergence_threshold: Minimum price change for divergence detection (default 0.05)
+
+    Returns:
+        Boolean Series indicating volume-price divergence signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+    if 'vol' not in df.columns:
+        raise ValueError("DataFrame must have 'vol' column for volume divergence")
+
+    # Calculate price momentum
+    price_change = df['close'].pct_change(lookback)
+
+    # Calculate volume momentum (normalized by moving average)
+    vol_ma = df['vol'].rolling(window=lookback).mean()
+    volume_change = (df['vol'] - vol_ma) / vol_ma
+
+    # Bullish divergence: price down but volume up (potential accumulation)
+    price_down = price_change < -divergence_threshold
+    volume_up = volume_change > 0.5  # Volume 50% above average
+
+    # Bearish divergence: price up but volume down (potential distribution)
+    price_up = price_change > divergence_threshold
+    volume_down = volume_change < -0.3  # Volume 30% below average
+
+    # Signal: either bullish or bearish divergence
+    bullish_divergence = price_down & volume_up
+    bearish_divergence = price_up & volume_down
+
+    # Previous values for crossover detection (signal onset)
+    bullish_prev = bullish_divergence.shift(1).fillna(False).infer_objects(copy=False)
+    bearish_prev = bearish_divergence.shift(1).fillna(False).infer_objects(copy=False)
+
+    bullish_signal = bullish_divergence & ~bullish_prev
+    bearish_signal = bearish_divergence & ~bearish_prev
+
+    return bullish_signal | bearish_signal
+
+
+def on_balance_volume_breakout(
+    df: pd.DataFrame,
+    lookback: int = 20,
+    breakout_threshold: float = 1.02
+) -> pd.Series:
+    """On-Balance Volume (OBV) breakout: OBV breaks above recent highs.
+
+    OBV is a cumulative indicator that adds volume on up days and subtracts
+    volume on down days. An OBV breakout signals strong accumulation.
+
+    Args:
+        df: DataFrame with 'close' and 'vol' columns
+        lookback: Lookback period for OBV high (default 20)
+        breakout_threshold: Multiplier above OBV high for breakout (default 1.02)
+
+    Returns:
+        Boolean Series indicating OBV breakout signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+    if 'vol' not in df.columns:
+        raise ValueError("DataFrame must have 'vol' column for OBV calculation")
+
+    # Calculate daily volume direction
+    close_change = df['close'].diff()
+    volume_direction = pd.Series(0, index=df.index)
+    volume_direction[close_change > 0] = df['vol'][close_change > 0]
+    volume_direction[close_change < 0] = -df['vol'][close_change < 0]
+
+    # Calculate OBV (cumulative)
+    obv = volume_direction.cumsum()
+
+    # Calculate OBV rolling high (excluding current value)
+    obv_high = obv.shift(1).rolling(window=lookback).max()
+
+    # OBV breakout: OBV exceeds previous high by threshold
+    breakout_level = obv_high * breakout_threshold
+    obv_breakout = obv > breakout_level
+
+    # Previous OBV for crossover detection
+    prev_obv = obv.shift(1)
+    prev_breakout_level = breakout_level.shift(1)
+
+    # Signal: OBV crosses above breakout level
+    return (obv > breakout_level) & (prev_obv <= prev_breakout_level)
+
+
+def volume_weighted_momentum(
+    df: pd.DataFrame,
+    lookback: int = 10,
+    threshold: float = 0.05
+) -> pd.Series:
+    """Volume-weighted momentum: momentum confirmed by above-average volume.
+
+    This combines price momentum with volume confirmation to filter out
+    weak moves and identify strong trends.
+
+    Args:
+        df: DataFrame with 'close' and 'vol' columns
+        lookback: Lookback period for momentum and volume average (default 10)
+        threshold: Minimum momentum for signal (default 0.05 = 5%)
+
+    Returns:
+        Boolean Series indicating volume-weighted momentum signals
+    """
+    if 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'close' column")
+    if 'vol' not in df.columns:
+        raise ValueError("DataFrame must have 'vol' column for volume weighting")
+
+    # Calculate price momentum
+    momentum = (df['close'] - df['close'].shift(lookback)) / df['close'].shift(lookback)
+
+    # Calculate volume condition (current volume > 1.5x average)
+    vol_avg = df['vol'].shift(1).rolling(window=lookback).mean()
+    volume_confirmed = df['vol'] > (vol_avg * 1.5)
+
+    # Price makes new high
+    rolling_high = df['close'].shift(1).rolling(window=lookback).max()
+    new_high = df['close'] > rolling_high
+
+    # Combined signal: momentum + new high + volume confirmation
+    strong_momentum = momentum > threshold
+
+    # Previous values for crossover detection
+    prev_momentum = momentum.shift(1)
+    momentum_cross = (momentum > threshold) & (prev_momentum <= threshold)
+
+    return momentum_cross & new_high & volume_confirmed
+
+
+def accumulation_distribution_breakout(
+    df: pd.DataFrame,
+    lookback: int = 20,
+    breakout_threshold: float = 1.01
+) -> pd.Series:
+    """Accumulation/Distribution (A/D) Line breakout.
+
+    The A/D Line is a volume-based indicator that measures cumulative money flow.
+    A breakout indicates strong accumulation or distribution.
+
+    Args:
+        df: DataFrame with 'high', 'low', 'close', 'vol' columns
+        lookback: Lookback period for A/D Line high (default 20)
+        breakout_threshold: Multiplier above A/D high for breakout (default 1.01)
+
+    Returns:
+        Boolean Series indicating A/D Line breakout signals
+    """
+    if 'high' not in df.columns or 'low' not in df.columns or 'close' not in df.columns:
+        raise ValueError("DataFrame must have 'high', 'low', and 'close' columns")
+    if 'vol' not in df.columns:
+        raise ValueError("DataFrame must have 'vol' column for A/D calculation")
+
+    # Calculate Money Flow Multiplier
+    high_low_range = df['high'] - df['low']
+    money_flow_multiplier = pd.Series(0.0, index=df.index)
+    mask = high_low_range != 0
+    money_flow_multiplier[mask] = ((df['close'] - df['low']) - (df['high'] - df['close']))[mask] / high_low_range[mask]
+
+    # Calculate Money Flow Volume
+    money_flow_volume = money_flow_multiplier * df['vol']
+
+    # Calculate A/D Line (cumulative)
+    ad_line = money_flow_volume.cumsum()
+
+    # Calculate A/D Line rolling high (excluding current value)
+    ad_high = ad_line.shift(1).rolling(window=lookback).max()
+
+    # A/D Line breakout
+    breakout_level = ad_high * breakout_threshold
+    ad_breakout = ad_line > breakout_level
+
+    # Previous values for crossover detection
+    prev_ad = ad_line.shift(1)
+    prev_breakout_level = breakout_level.shift(1)
+
+    # Signal: A/D Line crosses above breakout level
+    return (ad_line > breakout_level) & (prev_ad <= prev_breakout_level)
+
+
 # List of all built-in factor functions for registration
 BUILTIN_FACTORS = [
     # MACD
@@ -1347,6 +1545,10 @@ BUILTIN_FACTORS = [
     bollinger_squeeze,
     # Volume
     volume_breakout,
+    volume_price_divergence,
+    on_balance_volume_breakout,
+    volume_weighted_momentum,
+    accumulation_distribution_breakout,
     # Candlestick Patterns
     bullish_engulfing,
     bearish_engulfing,

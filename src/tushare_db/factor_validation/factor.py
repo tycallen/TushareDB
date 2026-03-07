@@ -293,6 +293,76 @@ try:
         func=builtin_factors.volume_breakout,
         parameters={"period": 20, "multiplier": 2.0}
     ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="volume_price_divergence",
+        description="Volume-price divergence: price and volume move in opposite directions",
+        func=builtin_factors.volume_price_divergence,
+        parameters={"lookback": 10, "divergence_threshold": 0.05}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="on_balance_volume_breakout",
+        description="On-Balance Volume (OBV) breakout: OBV breaks above recent highs",
+        func=builtin_factors.on_balance_volume_breakout,
+        parameters={"lookback": 20, "breakout_threshold": 1.02}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="volume_weighted_momentum",
+        description="Volume-weighted momentum: momentum confirmed by above-average volume",
+        func=builtin_factors.volume_weighted_momentum,
+        parameters={"lookback": 10, "threshold": 0.05}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="accumulation_distribution_breakout",
+        description="Accumulation/Distribution Line breakout: A/D line breaks above recent highs",
+        func=builtin_factors.accumulation_distribution_breakout,
+        parameters={"lookback": 20, "breakout_threshold": 1.01}
+    ))
+
+    # Register Momentum factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="momentum_20_day",
+        description="20-day momentum: price makes new high AND momentum crosses above threshold",
+        func=builtin_factors.momentum_20_day,
+        parameters={"period": 20, "threshold": 0.05}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="price_momentum_breakout",
+        description="Price momentum breakout: price breaks above consolidation with volume confirmation",
+        func=builtin_factors.price_momentum_breakout,
+        parameters={"lookback": 20, "breakout_threshold": 0.03}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="price_acceleration",
+        description="Price acceleration: second-order momentum (acceleration of price)",
+        func=builtin_factors.price_acceleration,
+        parameters={"short_period": 5, "long_period": 20}
+    ))
+
+    # Register Volatility factors
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="volatility_expansion",
+        description="Volatility expansion: ATR expands significantly above recent average",
+        func=builtin_factors.volatility_expansion,
+        parameters={"period": 20, "expansion_threshold": 1.5}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="volatility_contraction",
+        description="Volatility contraction (squeeze): ATR contracts below threshold",
+        func=builtin_factors.volatility_contraction,
+        parameters={"period": 20, "contraction_threshold": 0.7}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="atr_percent_b",
+        description="ATR %B: position within ATR-based bands (similar to Bollinger %B)",
+        func=builtin_factors.atr_percent_b,
+        parameters={"period": 20, "upper": 0.8, "lower": 0.2}
+    ))
+    FactorRegistry.register_builtin(FactorRegistry.create_from_function(
+        name="bollinger_squeeze",
+        description="Bollinger Bands squeeze: band width contracts to extreme narrow level",
+        func=builtin_factors.bollinger_squeeze,
+        parameters={"period": 20, "squeeze_threshold": 0.1}
+    ))
 
     # Register Candlestick Pattern factors
     FactorRegistry.register_builtin(FactorRegistry.create_from_function(
