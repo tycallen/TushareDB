@@ -56,6 +56,8 @@ def init_fina_indicator_vip():
     初始化所有股票的财务指标数据（VIP接口）
     从2000年至今，按季度获取。
     """
+    from tushare_db import DataReader
+    reader = DataReader()
     print("开始初始化所有股票的财务指标数据...")
     current_year = datetime.now().year
     # for year in range(1990, current_year + 1):
@@ -68,29 +70,36 @@ def init_fina_indicator_vip():
 
             print(f"正在获取 {period} 的财务指标数据...")
             try:
-                d = tushare_db.api.fina_indicator_vip(client, period=period)
+                # 使用 reader.db.execute_query() 查询本地数据
+                d = reader.db.execute_query("SELECT * FROM fina_indicator_vip WHERE end_date = ?", [period])
                 print(d.head())
             except Exception as e:
                 print(f"获取 {period} 财务指标数据时出错: {e}")
+    reader.close()
     print("财务指标数据初始化完成。")
 
 
 def init_index_basic():
     """初始化所有指数的基本信息"""
+    from tushare_db import DataReader
+    reader = DataReader()
     print("开始初始化所有指数的基本信息...")
     markets = ['MSCI', 'CSI', 'SSE', 'SZSE', 'CICC', 'SW', 'OTH']
     for market in markets:
         print(f"正在获取 {market} 的指数基本信息...")
         try:
-            d = tushare_db.api.index_basic(client, market=market)
+            d = reader.get_index_basic(market=market)
             print(d.head())
         except Exception as e:
             print(f"获取 {market} 指数基本信息时出错: {e}")
+    reader.close()
     print("所有指数的基本信息初始化完成。")
 
 
 def init_index_weight():
     """初始化主要指数的权重"""
+    from tushare_db import DataReader
+    reader = DataReader()
     print("开始初始化主要指数的权重...")
     today = datetime.today()
     # 常见指数列表
@@ -119,10 +128,11 @@ def init_index_weight():
             month = target_date.month
             print(f"  - 获取 {year}年{month}月 的数据...")
             try:
-                d = tushare_db.api.index_weight(client, index_code=index_code, year=year, month=month)
+                d = reader.get_index_weight(index_code=index_code, year=year, month=month)
                 print(d.head())
             except Exception as e:
                 print(f"获取 {index_code} 在 {year}-{month} 的权重数据时出错: {e}")
+    reader.close()
     print("主要指数的权重初始化完成。")
 
 
@@ -131,65 +141,67 @@ from tqdm import tqdm
 
 def init_daily_basic():
     """初始化所有股票的每日基本面指标"""
+    from tushare_db import DataReader
+    reader = DataReader()
     print("开始初始化所有股票的每日基本面指标...")
     # 获取所有A股上市公司列表
-    all_stocks = tushare_db.api.stock_basic(client, market='主板')
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='创业板')])
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='科创板')])
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, market='北交所')])
-    
+    all_stocks = reader.get_stock_basic(list_status='L')
 
     for _, stock in all_stocks.iterrows():
         ts_code = stock['ts_code']
         list_date = stock['list_date']
         # print(f"正在获取 {ts_code} (上市日期: {list_date}) 的每日基本面指标...")
         try:
-            d = tushare_db.api.daily_basic(client, ts_code=ts_code, start_date=list_date, end_date=today)
+            d = reader.get_daily_basic(ts_code=ts_code, start_date=list_date, end_date=today)
             print(d.head())
         except Exception as e:
             print(f"获取 {ts_code} 数据时出错: {e}")
+    reader.close()
     print("所有股票的每日基本面指标初始化完成。")
 
 
 def init_adj_factor_data():
     """初始化所有股票的历史复权因子数据"""
+    from tushare_db import DataReader
+    reader = DataReader()
     print("开始初始化所有股票的历史复权因子数据...")
-    
+
     # 获取所有股票代码
-    all_stocks = tushare_db.api.stock_basic(client, list_status='L')
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='D')])
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='P')])
-    
+    all_stocks = reader.get_stock_basic(list_status='L')
+
     ts_codes = all_stocks["ts_code"].unique().tolist()
-    
+
     for ts_code in tqdm(ts_codes, desc="正在初始化复权因子"):
         try:
-            tushare_db.api.adj_factor(client=client, ts_code=ts_code, start_date='20000101', end_date=today)
-            print(f"获取 {ts_code} 复权因子数据成功")
+            d = reader.get_adj_factor(ts_code=ts_code, start_date='20000101', end_date=today)
+            print(f"获取 {ts_code} 复权因子数据成功，共 {len(d)} 条记录")
         except Exception as e:
             print(f"获取 {ts_code} 复权因子数据时出错: {e}")
-            
+
+    reader.close()
     print("所有股票的历史复权因子数据初始化完成。")
 
 
 def init_cyq_chips():
     """初始化所有股票的历史筹码分布数据"""
+    from tushare_db import DataReader
+    reader = DataReader()
     print("开始初始化所有股票的历史筹码分布数据...")
 
     # 获取所有股票代码
-    all_stocks = tushare_db.api.stock_basic(client, list_status='L')
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='D')])
-    all_stocks = pd.concat([all_stocks, tushare_db.api.stock_basic(client, list_status='P')])
+    all_stocks = reader.get_stock_basic(list_status='L')
 
     ts_codes = all_stocks["ts_code"].unique().tolist()
 
     for ts_code in tqdm(ts_codes, desc="正在初始化筹码分布"):
         try:
-            tushare_db.api.cyq_chips(client=client, ts_code=ts_code, start_date='20000101', end_date=today)
-            print(f"获取 {ts_code} 筹码分布数据成功")
+            # cyq_chips 对应 cyq_perf 表
+            d = reader.get_cyq_perf(ts_code=ts_code, start_date='20000101', end_date=today)
+            print(f"获取 {ts_code} 筹码分布数据成功，共 {len(d)} 条记录")
         except Exception as e:
             print(f"获取 {ts_code} 筹码分布数据时出错: {e}")
 
+    reader.close()
     print("所有股票的历史筹码分布数据初始化完成。")
 
 # python3 scripts/init_data.py --moneyflow-cnt-ths --start-date 20200101 --end-date 20251031
@@ -198,30 +210,35 @@ def init_moneyflow_cnt_ths(start_date: str, end_date: str):
     初始化同花顺概念板块资金流向数据。
     按天循环获取指定日期范围内的数据。
     """
+    from tushare_db import DataReader
+    reader = DataReader()
     print(f"开始初始化同花顺概念板块资金流向数据，从 {start_date} 到 {end_date}...")
-    
+
     # 1. 获取指定范围内的所有交易日
     try:
-        trade_cal_df = tushare_db.api.trade_cal(client, start_date=start_date, end_date=end_date, is_open='1')
+        trade_cal_df = reader.get_trade_calendar(start_date=start_date, end_date=end_date, is_open='1')
         # 按日期升序排序
         trade_cal_df = trade_cal_df.sort_values('cal_date', ascending=True)
         trade_dates = trade_cal_df['cal_date'].tolist()
         if not trade_dates:
             print("指定日期范围内没有交易日，任务结束。")
+            reader.close()
             return
     except Exception as e:
         print(f"获取交易日历失败: {e}")
+        reader.close()
         return
 
     # 2. 遍历每个交易日，获取资金流向数据
     for trade_date in tqdm(trade_dates, desc="正在初始化同花顺概念资金流向"):
         try:
-            df = tushare_db.api.moneyflow_cnt_ths(client=client, trade_date=trade_date)
+            df = reader.db.execute_query("SELECT * FROM moneyflow_cnt_ths WHERE trade_date = ?", [trade_date])
             print(f"获取 {trade_date} 的资金流向数据成功，共 {len(df)} 条记录。")
         except Exception as e:
             print(f"获取 {trade_date} 的资金流向数据时出错: {e}")
             # 如果某一天出错，可以选择跳过继续
             continue
+    reader.close()
     print("同花顺概念板块资金流向数据初始化完成。")
 
 # python3 scripts/init_data.py --moneyflow-ind-dc --start-date 20200101 --end-date 20251031
@@ -230,30 +247,35 @@ def init_moneyflow_ind_dc(start_date: str, end_date: str):
     初始化东方财富概念及行业板块资金流向数据。
     按天循环获取指定日期范围内的数据。
     """
+    from tushare_db import DataReader
+    reader = DataReader()
     print(f"开始初始化东方财富概念及行业板块资金流向数据，从 {start_date} 到 {end_date}...")
-    
+
     # 1. 获取指定范围内的所有交易日
     try:
-        trade_cal_df = tushare_db.api.trade_cal(client, start_date=start_date, end_date=end_date, is_open='1')
+        trade_cal_df = reader.get_trade_calendar(start_date=start_date, end_date=end_date, is_open='1')
         # 按日期升序排序
         trade_cal_df = trade_cal_df.sort_values('cal_date', ascending=True)
         trade_dates = trade_cal_df['cal_date'].tolist()
         if not trade_dates:
             print("指定日期范围内没有交易日，任务结束。")
+            reader.close()
             return
     except Exception as e:
         print(f"获取交易日历失败: {e}")
+        reader.close()
         return
 
     # 2. 遍历每个交易日，获取资金流向数据
     for trade_date in tqdm(trade_dates, desc="正在初始化东方财富概念及行业资金流向"):
         try:
-            df = tushare_db.api.moneyflow_ind_dc(client=client, trade_date=trade_date)
+            df = reader.db.execute_query("SELECT * FROM moneyflow_ind_dc WHERE trade_date = ?", [trade_date])
             print(f"获取 {trade_date} 的资金流向数据成功，共 {len(df)} 条记录。")
         except Exception as e:
             print(f"获取 {trade_date} 的资金流向数据时出错: {e}")
             # 如果某一天出错，可以选择跳过继续
             continue
+    reader.close()
     print("东方财富概念及行业板块资金流向数据初始化完成。")
 
 
