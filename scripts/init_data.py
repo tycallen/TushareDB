@@ -88,7 +88,10 @@ def init_index_basic():
     for market in markets:
         print(f"正在获取 {market} 的指数基本信息...")
         try:
-            d = reader.get_index_basic(market=market)
+            d = reader.db.execute_query(
+                "SELECT * FROM index_basic WHERE market = ?",
+                [market]
+            )
             print(d.head())
         except Exception as e:
             print(f"获取 {market} 指数基本信息时出错: {e}")
@@ -216,7 +219,9 @@ def init_moneyflow_cnt_ths(start_date: str, end_date: str):
 
     # 1. 获取指定范围内的所有交易日
     try:
-        trade_cal_df = reader.get_trade_calendar(start_date=start_date, end_date=end_date, is_open='1')
+        trade_cal_df = reader.get_trade_calendar(start_date=start_date, end_date=end_date)
+        # 过滤交易日
+        trade_cal_df = trade_cal_df[trade_cal_df['is_open'] == '1']
         # 按日期升序排序
         trade_cal_df = trade_cal_df.sort_values('cal_date', ascending=True)
         trade_dates = trade_cal_df['cal_date'].tolist()
@@ -253,7 +258,9 @@ def init_moneyflow_ind_dc(start_date: str, end_date: str):
 
     # 1. 获取指定范围内的所有交易日
     try:
-        trade_cal_df = reader.get_trade_calendar(start_date=start_date, end_date=end_date, is_open='1')
+        trade_cal_df = reader.get_trade_calendar(start_date=start_date, end_date=end_date)
+        # 过滤交易日
+        trade_cal_df = trade_cal_df[trade_cal_df['is_open'] == '1']
         # 按日期升序排序
         trade_cal_df = trade_cal_df.sort_values('cal_date', ascending=True)
         trade_dates = trade_cal_df['cal_date'].tolist()
