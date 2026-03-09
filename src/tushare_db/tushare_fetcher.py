@@ -43,7 +43,8 @@ class TushareFetcher:
         ts.set_token(self.token)
         df = self.pro.user(token=self.token)
         
-        logging.info(f"User with token {self.token}, credit info: {df}")
+        masked_token = self.token[:4] + "****" + self.token[-4:] if len(self.token) > 8 else "****"
+        logging.info(f"User with token {masked_token}, credit info: {df}")
 
         self._lock: threading.Lock = threading.Lock()
         self._api_call_timestamps: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)
