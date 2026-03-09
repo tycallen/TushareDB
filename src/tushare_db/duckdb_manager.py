@@ -233,7 +233,7 @@ class DuckDBManager:
                         pk_str = ", ".join([f'"{col}"' for col in pk_columns])
                         create_sql += f", PRIMARY KEY ({pk_str})"
                     create_sql += ")"
-                    logging.error(f"Executing create SQL: {create_sql}")
+                    logging.info(f"Executing create SQL: {create_sql}")
                     self.con.execute(create_sql)
                     self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
                     logging.info(f"Table '{table_name}' created with {len(df)} rows.")
