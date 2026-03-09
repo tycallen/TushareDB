@@ -433,7 +433,10 @@ class DuckDBManager:
         """Retrieves the last updated timestamp for a given table."""
         try:
             with self._lock:
-                result = self.con.execute(f"SELECT last_updated_timestamp FROM _tushare_cache_metadata WHERE table_name = '{table_name}'").fetchone()
+                result = self.con.execute(
+                    "SELECT last_updated_timestamp FROM _tushare_cache_metadata WHERE table_name = ?",
+                    [table_name]
+                ).fetchone()
             return float(result[0]) if result and result[0] is not None else None
         except Exception as e:
             logging.error(f"Error getting cache metadata for {table_name}: {e}")
