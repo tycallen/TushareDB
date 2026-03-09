@@ -35,7 +35,7 @@ class ValidationConfig:
 
     # 模拟配置
     n_paths: int = 100_000  # 模拟路径数（增加到10万）
-    simulation_years: int = 5  # 单次模拟年限（从1年增加到5年）
+    simulation_years: int = 10  # 单次模拟年限（与历史数据一致，10年）
 
     # 低频信号特殊处理
     min_samples_threshold: int = 100  # 低频因子最小样本数
