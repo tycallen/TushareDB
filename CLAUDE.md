@@ -118,6 +118,89 @@ The library enforces Tushare API rate limits based on subscription level. Config
 ### Date Format
 All dates use `YYYYMMDD` string format (e.g., `'20240101'`).
 
+## Factor Validation (Monte Carlo)
+
+The project includes a Monte Carlo factor validation system for testing technical indicators.
+
+### Quick Start
+
+```python
+from tushare_db import EnhancedFactorFilter
+
+# Create filter with auto-save
+filter_obj = EnhancedFactorFilter(db_path="tushare.db")
+
+# Run validation
+report = filter_obj.filter(
+    factor="macd_golden_cross",
+    ts_codes=['000001.SZ']
+)
+
+# View results
+print(report.markdown)
+print(f"Alpha Ratio: {report.summary['alpha_ratio_median']}")
+
+# Query history
+history = filter_obj.get_factor_history("macd_golden_cross")
+stats = filter_obj.get_statistics(days=30)
+```
+
+### Builtin Factors (30 total)
+
+**Trend Indicators:**
+- `macd_golden_cross`, `macd_death_cross`, `macd_zero_golden_cross`
+- `golden_cross`, `death_cross` (MA cross)
+- `price_above_sma`, `price_below_sma`
+
+**Momentum Indicators:**
+- `rsi_oversold`, `rsi_overbought`
+- `kdj_golden_cross`, `kdj_death_cross`
+- `williams_r_oversold`, `williams_r_overbought`
+- `cci_oversold`, `cci_overbought`
+
+**Volatility Indicators:**
+- `bollinger_lower_break`, `bollinger_upper_break`
+- `atr_breakout`, `atr_breakdown`
+
+**Volume Indicators:**
+- `volume_breakout`
+
+**Candlestick Patterns:**
+- `bullish_engulfing`, `bearish_engulfing`
+- `hammer`, `shooting_star`, `doji`
+- `three_white_soldiers`, `three_black_crows`
+
+**Price Patterns:**
+- `close_gt_open`, `gap_up`, `gap_down`
+
+### Report Management
+
+Validation results are automatically saved to `~/.factor_validation/reports.db`:
+
+```python
+from src.tushare_db.factor_validation.report_manager import ReportManager
+
+manager = ReportManager()
+
+# Query records
+df = manager.query_records(
+    factor_name="macd_golden_cross",
+    recommendation="KEEP"
+)
+
+# Compare over time
+df_time = manager.compare_factor_over_time(
+    factor_name="macd_golden_cross",
+    ts_code="000001.SZ"
+)
+
+# Export
+manager.export_to_csv("reports.csv")
+manager.export_to_excel("reports.xlsx")
+```
+
+See `REPORT_MANAGER_GUIDE.md` for detailed documentation.
+
 ## Skill Maintenance
 
 This project provides a Claude Code skill at `docs/skills/tushare-duckdb/SKILL.md`.
