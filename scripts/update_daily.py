@@ -1074,7 +1074,9 @@ def update_index_member_all(downloader: DataDownloader):
 
         logger.info(f"  共 {len(industries_df)} 个申万行业（L2+L3）")
 
-        # 3. 逐个行业下载成分股数据（不指定is_new，下载完整历史）
+        # 3. 逐个行业下载成分股数据（同时下载 is_new='Y' 和 is_new='N' 支持PIT）
+        # 关键：is_new='Y' 是当前成员，is_new='N' 是历史成员（out_date 有值）
+        # 两者合在一起才能支持完整的 Point-in-Time 回测
         success_count = 0
         total_rows = 0
 
@@ -1084,16 +1086,19 @@ def update_index_member_all(downloader: DataDownloader):
             level = row['level']
 
             try:
-                # 根据level决定使用哪个参数
-                if level == 'L2':
-                    rows = downloader.download_index_member_all(l2_code=index_code)
-                else:  # L3
-                    rows = downloader.download_index_member_all(l3_code=index_code)
+                # 构建参数：根据 level 选择 l2_code 或 l3_code
+                code_param = {f"l{level[-1].lower()}_code": index_code}
 
+                # 下载当前成员 (is_new='Y') 和历史成员 (is_new='N')
+                # 两者合在一起才构成完整的 PIT 数据
+                rows_y = downloader.download_index_member_all(**code_param, is_new='Y')
+                rows_n = downloader.download_index_member_all(**code_param, is_new='N')
+
+                rows = rows_y + rows_n
                 if rows > 0:
                     success_count += 1
                     total_rows += rows
-                    logger.info(f"  [{idx+1}/{len(industries_df)}] {level} {industry_name} ({index_code}): {rows} 条")
+                    logger.info(f"  [{idx+1}/{len(industries_df)}] {level} {industry_name} ({index_code}): Y={rows_y} 条, N={rows_n} 条, 共={rows} 条")
 
             except Exception as e:
                 logger.error(f"  [{idx+1}/{len(industries_df)}] {level} {industry_name} ({index_code}): 失败 - {e}")

@@ -98,7 +98,7 @@ Primary keys are defined in `TABLE_PRIMARY_KEYS` dict in `duckdb_manager.py`. Ke
 | `stock_basic` | ts_code | Stock metadata |
 | `trade_cal` | exchange, cal_date | Trading calendar |
 | `index_classify` | index_code | 申万行业分类 |
-| `index_member_all` | ts_code, l1_code, in_date | 申万行业成分（历史） |
+| `index_member_all` | ts_code, l3_code, in_date | 申万行业成分（PIT支持） |
 | `index_weight` | index_code, con_code, trade_date | 指数成分权重 |
 | `moneyflow` | ts_code, trade_date | 个股资金流向 |
 | `cyq_perf` | ts_code, trade_date | 筹码分布 |
@@ -117,6 +117,36 @@ The library enforces Tushare API rate limits based on subscription level. Config
 
 ### Date Format
 All dates use `YYYYMMDD` string format (e.g., `'20240101'`).
+
+### Point-in-Time (PIT) Data Support
+
+`index_member_all` table now supports Point-in-Time queries for backtesting:
+
+```python
+from tushare_db import DataReader
+
+reader = DataReader(db_path="tushare.db")
+
+# PIT query: Get sector constituents on a specific historical date
+df = reader.get_index_member_all(
+    l1_code='801010.SI',  # 农林牧渔
+    trade_date='20230115'  # Query as of 2023-01-15
+)
+# Returns only stocks that were in the sector on that date
+# (in_date <= trade_date AND (out_date IS NULL OR out_date > trade_date))
+```
+
+**Data Structure:**
+- `is_new='Y'`: Current members (out_date is NULL)
+- `is_new='N'`: Historical members (out_date has value)
+
+**Important:** Always use `trade_date` parameter for PIT queries. Using only `is_new='Y'` gives current snapshot which causes look-ahead bias in backtests.
+
+**Manual Data Backfill:**
+```bash
+# If your existing database lacks PIT data, run:
+python scripts/backfill_index_member_pit.py
+```
 
 ## Factor Validation (Monte Carlo)
 
@@ -200,7 +230,6 @@ manager.export_to_excel("reports.xlsx")
 ```
 
 See `REPORT_MANAGER_GUIDE.md` for detailed documentation.
-
 ## Skill Maintenance
 
 This project provides a Claude Code skill at `docs/skills/tushare-duckdb/SKILL.md`.
