@@ -60,6 +60,40 @@ downloader.download_daily_data_by_date('20241218')
 downloader.close()
 ```
 
+## Point-in-Time (PIT) Queries
+
+For backtesting, always use PIT queries to avoid look-ahead bias:
+
+```python
+from tushare_db import DataReader
+
+reader = DataReader(db_path="tushare.db")
+
+# ❌ Wrong: Current snapshot (causes look-ahead bias)
+df = reader.get_index_member_all(l1_code='801010.SI', is_new='Y')
+
+# ✅ Correct: PIT query as of historical date
+df = reader.get_index_member_all(
+    l1_code='801010.SI',
+    trade_date='20230115'  # Only stocks in sector on this date
+)
+```
+
+**Correct SQL for PIT joins:**
+```sql
+SELECT *
+FROM my_data d
+JOIN index_member_all im ON d.ts_code = im.ts_code
+WHERE im.in_date <= d.trade_date
+  AND (im.out_date IS NULL OR im.out_date > d.trade_date)
+```
+
+**Manual PIT data backfill:**
+```bash
+# If database lacks historical out_date data
+python scripts/backfill_index_member_pit.py
+```
+
 ## Key Notes
 
 - **Date format**: `YYYYMMDD` string (e.g., `'20240101'`)
@@ -81,7 +115,7 @@ downloader.close()
 | `stock_company` | stock_company | ts_code | 上市公司信息 |
 | `index_basic` | index_basic | ts_code | 指数列表 |
 | `index_classify` | index_classify | industry_code | 申万行业分类，src='SW2021' |
-| `index_member_all` | index_member_all | ts_code, l3_code, in_date | 申万行业成分股 |
+| `index_member_all` | index_member_all | ts_code, l3_code, in_date | 申万行业成分股（PIT支持） |
 | `hs_const` | hs_const | ts_code, in_date | 沪深港通成分 |
 | `ths_index` | ths_index | ts_code | 同花顺板块列表 (见下方说明) |
 | `ths_member` | ths_member | ts_code, con_code | 同花顺板块成分股 |
