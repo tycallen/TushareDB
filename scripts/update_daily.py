@@ -22,6 +22,7 @@
 16. 更新申万行业指数日线数据
 17. 更新同花顺板块日行情 (ths_daily)
 18. 更新开盘啦题材库 (kpl_concept, kpl_concept_cons)
+19. 更新指数成分权重数据 (index_weight) - 月度更新，覆盖沪深300/中证500/中证800/中证1000/上证50/科创50
 
 使用方法：
     python scripts/update_daily.py
@@ -39,6 +40,7 @@
 更新：2026-02-03 - 添加筹码分布详情、技术因子、开盘啦题材库更新
 更新：2026-02-05 - 添加同花顺板块指数、成分、日行情更新
 更新：2026-02-14 - 添加基金模块和沪深港通数据更新
+更新：2026-03-12 - 添加中证800指数，新增指数成分权重数据更新（月度）
 """
 
 import os
@@ -224,6 +226,119 @@ def update_daily_data(downloader: DataDownloader):
         raise
 
 
+def update_index_weight_data(downloader: DataDownloader):
+    """
+    更新指数成分和权重数据 (index_weight)
+
+    更新策略：
+    - 每月更新一次（指数成分在月末调整）
+    - 使用元数据表记录上次更新时间
+    - 如果距离上次更新 < 25天，跳过（月更新策略）
+
+    覆盖指数：
+    - 000300.SH 沪深300
+    - 000905.SH 中证500
+    - 000906.SH 中证800
+    - 000852.SH 中证1000
+    - 932000.CSI 中证2000
+    - 000016.SH 上证50
+    - 000688.SH 科创50
+
+    数据说明：
+    - index_weight 表为月度数据，仅在月末最后一个交易日更新
+    - 使用 end_date 参数查询历史月份数据
+    """
+    import time as _time
+
+    logger.info("=" * 60)
+    logger.info("开始检查指数成分权重数据 (index_weight, 月更新)...")
+
+    try:
+        # 1. 检查上次更新时间（月更新策略）
+        last_update = downloader.db.get_cache_metadata('index_weight')
+        if last_update is not None:
+            days_since_update = (_time.time() - last_update) / 86400
+            if days_since_update < 25:
+                logger.info(f"  距离上次更新仅 {days_since_update:.1f} 天，跳过（每月更新一次）")
+                return
+            else:
+                logger.info(f"  距离上次更新 {days_since_update:.1f} 天，开始更新...")
+
+        # 2. 获取最新日期
+        latest_date = downloader.db.get_latest_date('index_weight', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 首次更新，从历史数据开始
+            start_date = '20050101'
+            logger.info("数据库中没有指数成分权重历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} -> {today}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        # 3. 获取月末交易日（指数成分调整日）
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        # 4. 要更新的指数列表
+        indices = [
+            ('000300.SH', '沪深300'),
+            ('000905.SH', '中证500'),
+            ('000906.SH', '中证800'),
+            ('000852.SH', '中证1000'),
+            ('932000.SH', '中证2000'),
+            ('000016.SH', '上证50'),
+            ('000688.SH', '科创50'),
+        ]
+
+        # 5. 按交易日逐日下载（只下载月末数据）
+        total_rows = 0
+        for trade_date in trading_dates_df['cal_date'].tolist():
+            # 检查是否是月末最后一个交易日
+            next_day = (datetime.strptime(trade_date, '%Y%m%d') + timedelta(days=1)).strftime('%Y%m%d')
+            is_month_end = next_day[6:8] == '01' or trade_date == today
+
+            if not is_month_end:
+                continue
+
+            logger.info(f"  更新 {trade_date} (月末)...")
+
+            for ts_code, name in indices:
+                try:
+                    rows = downloader.download_index_weight(
+                        index_code=ts_code,
+                        trade_date=trade_date
+                    )
+                    total_rows += rows
+                except Exception as e:
+                    logger.warning(f"    {name} ({ts_code}) 更新失败: {e}")
+
+        # 6. 更新元数据
+        downloader.db.update_cache_metadata('index_weight', _time.time())
+
+        logger.info(f"✓ 指数成分权重更新完成: 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新指数成分权重数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def update_index_daily(downloader: DataDownloader):
     """
     更新常见指数日线数据 (index_daily)
@@ -234,7 +349,9 @@ def update_index_daily(downloader: DataDownloader):
     - 399006.SZ 创业板指
     - 000300.SH 沪深300
     - 000905.SH 中证500
+    - 000906.SH 中证800
     - 000852.SH 中证1000
+    - 932000.SH 中证2000
     - 000688.SH 科创50
     - 000016.SH 上证50
 
@@ -250,7 +367,9 @@ def update_index_daily(downloader: DataDownloader):
         ('399006.SZ', '创业板指'),
         ('000300.SH', '沪深300'),
         ('000905.SH', '中证500'),
+        ('000906.SH', '中证800'),
         ('000852.SH', '中证1000'),
+        ('932000.CSI', '中证2000'),
         ('000688.SH', '科创50'),
         ('000016.SH', '上证50'),
     ]
@@ -2231,6 +2350,7 @@ def main():
                 # 每日行情数据
                 (update_daily_data, "每日数据(日线/复权/基本面)"),
                 (update_index_daily, "指数日线"),
+                (update_index_weight_data, "指数成分权重"),
                 # 财务数据
                 (update_financial_indicators, "财务指标(VIP)"),
                 (update_financial_statements, "三大财务报表"),

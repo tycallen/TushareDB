@@ -108,17 +108,17 @@ python scripts/backfill_index_member_pit.py
 
 ### 基础信息表（静态数据）
 
-| Table | Tushare API | Primary Keys | 说明 |
-|-------|-------------|--------------|------|
-| `trade_cal` | trade_cal | exchange, cal_date | 交易日历，exchange='SSE' |
-| `stock_basic` | stock_basic | ts_code | 股票列表 |
-| `stock_company` | stock_company | ts_code | 上市公司信息 |
-| `index_basic` | index_basic | ts_code | 指数列表 |
-| `index_classify` | index_classify | industry_code | 申万行业分类，src='SW2021' |
-| `index_member_all` | index_member_all | ts_code, l3_code, in_date | 申万行业成分股（PIT支持） |
-| `hs_const` | hs_const | ts_code, in_date | 沪深港通成分 |
-| `ths_index` | ths_index | ts_code | 同花顺板块列表 (见下方说明) |
-| `ths_member` | ths_member | ts_code, con_code | 同花顺板块成分股 |
+| Table | Tushare API | Primary Keys | 官方最早日期 | 说明 |
+|-------|-------------|--------------|-------------|------|
+| `trade_cal` | trade_cal | exchange, cal_date | 19910404 | 交易日历，exchange='SSE' |
+| `stock_basic` | stock_basic | ts_code | - | 股票列表 |
+| `stock_company` | stock_company | ts_code | - | 上市公司信息 |
+| `index_basic` | index_basic | ts_code | - | 指数列表 |
+| `index_classify` | index_classify | industry_code | - | 申万行业分类，src='SW2021' |
+| `index_member_all` | index_member_all | ts_code, l3_code, in_date | - | 申万行业成分股（PIT支持） |
+| `hs_const` | hs_const | ts_code, in_date | 20141117 | 沪深港通成分 |
+| `ths_index` | ths_index | ts_code | - | 同花顺板块列表 (见下方说明) |
+| `ths_member` | ths_member | ts_code, con_code | - | 同花顺板块成分股 |
 
 ### 日频时间序列表
 
@@ -140,41 +140,41 @@ python scripts/backfill_index_member_pit.py
 | `dc_index` | dc_index | ts_code, trade_date | **20241220** | 龙虎榜个股明细 |
 | `dc_member` | dc_member | ts_code, trade_date, con_code | **20241220** | 龙虎榜机构席位 |
 | `kpl_concept` | kpl_concept | ts_code, trade_date | **20241014** | 开盘啦题材列表 |
-| `kpl_concept_cons` | kpl_concept_cons | ts_code, con_code, trade_date | **20251001** | 开盘啦题材成分 |
+| `kpl_concept_cons` | kpl_concept_cons | ts_code, con_code, trade_date | **20241014** | 开盘啦题材成分 |
 | `index_weight` | index_weight | index_code, trade_date, con_code | **20050930** | 指数成分权重（月度） |
 
 ### 财务数据表（季度更新）
 
 | Table | Tushare API | Primary Keys | 官方最早日期 | 说明 |
 |-------|-------------|--------------|-------------|------|
-| `fina_indicator_vip` | fina_indicator_vip | ts_code, end_date | 19901231 | 财务指标 |
-| `income` | income_vip | ts_code, end_date, report_type | 19941231 | 利润表 |
-| `balancesheet` | balancesheet_vip | ts_code, end_date, report_type | 19891231 | 资产负债表 |
-| `cashflow` | cashflow_vip | ts_code, end_date, report_type | 19980331 | 现金流量表 |
-| `dividend` | dividend | ts_code, end_date | 19901231 | 分红送股 |
+| `fina_indicator_vip` | fina_indicator_vip | ts_code, end_date | **19901231** | 财务指标 |
+| `income` | income_vip | ts_code, end_date, report_type | **19941231** | 利润表 |
+| `balancesheet` | balancesheet_vip | ts_code, end_date, report_type | **19891231** | 资产负债表 |
+| `cashflow` | cashflow_vip | ts_code, end_date, report_type | **19980331** | 现金流量表 |
+| `dividend` | dividend | ts_code, end_date | **19901231** | 分红送股 |
 
 ### 基金数据表
 
-| Table | Tushare API | Primary Keys | 说明 |
-|-------|-------------|--------------|------|
-| `fund_basic` | fund_basic | ts_code | 基金列表 (E=场内 O=场外) |
-| `fund_daily` | fund_daily | ts_code, trade_date | 场内基金日线行情 |
-| `fund_nav` | fund_nav | ts_code, nav_date | 基金净值 (单位/累计/复权) |
-| `fund_div` | fund_div | ts_code, ann_date | 基金分红 |
-| `fund_portfolio` | fund_portfolio | ts_code, end_date, symbol | 基金持仓 (十大重仓股) |
-| `fund_share` | fund_share | ts_code, trade_date | 基金份额变动 |
-| `fund_manager` | fund_manager | ts_code, begin_date, name | 基金经理 |
-| `fund_adj` | fund_adj | ts_code, trade_date | 基金复权因子 |
+| Table | Tushare API | Primary Keys | 官方最早日期 | 说明 |
+|-------|-------------|--------------|-------------|------|
+| `fund_basic` | fund_basic | ts_code | - | 基金列表 (E=场内 O=场外) |
+| `fund_daily` | fund_daily | ts_code, trade_date | **20050104** | 场内基金日线行情 |
+| `fund_nav` | fund_nav | ts_code, nav_date | **20000101** | 基金净值 (单位/累计/复权) |
+| `fund_div` | fund_div | ts_code, ann_date | **19991231** | 基金分红 |
+| `fund_portfolio` | fund_portfolio | ts_code, end_date, symbol | **20000101** | 基金持仓 (十大重仓股) |
+| `fund_share` | fund_share | ts_code, trade_date | **20050104** | 基金份额变动 |
+| `fund_manager` | fund_manager | ts_code, begin_date, name | **19991231** | 基金经理 |
+| `fund_adj` | fund_adj | ts_code, trade_date | **20050104** | 基金复权因子 |
 
 ### 沪深港通数据表
 
-| Table | Tushare API | Primary Keys | 说明 |
-|-------|-------------|--------------|------|
-| `moneyflow_hsgt` | moneyflow_hsgt | trade_date | 沪深港通资金流向 (北向/南向) |
-| `hsgt_top10` | hsgt_top10 | trade_date, ts_code, market_type | 沪深股通十大成交股 |
-| `ggt_top10` | ggt_top10 | trade_date, ts_code, market_type | 港股通十大成交股 |
-| `ggt_daily` | ggt_daily | trade_date | 港股通每日成交统计 |
-| `hk_hold` | hk_hold | code, trade_date, exchange | 沪深港通持股明细 |
+| Table | Tushare API | Primary Keys | 官方最早日期 | 说明 |
+|-------|-------------|--------------|-------------|------|
+| `moneyflow_hsgt` | moneyflow_hsgt | trade_date | **20141117** | 沪深港通资金流向 (北向/南向) |
+| `hsgt_top10` | hsgt_top10 | trade_date, ts_code, market_type | **20141117** | 沪深股通十大成交股 |
+| `ggt_top10` | ggt_top10 | trade_date, ts_code, market_type | **20141117** | 港股通十大成交股 |
+| `ggt_daily` | ggt_daily | trade_date | **20141117** | 港股通每日成交统计 |
+| `hk_hold` | hk_hold | code, trade_date, exchange | **20141117** | 沪深港通持股明细 |
 
 ### 同花顺板块说明
 
@@ -191,3 +191,32 @@ python scripts/backfill_index_member_pit.py
 | TH | 同花顺特色 | 10 | ❌ 未实现 (专有指数，可替代性强) |
 
 For column details and parameter meanings, invoke `/tushare-finance <api_name>`.
+
+## Special Notes
+
+### Update Frequency
+
+| Table | Frequency | Notes |
+|-------|-----------|-------|
+| `index_weight` | **Monthly** | Updated on the last trading day of each month; query using month-end dates |
+| `fina_indicator_vip` | **Quarterly** | Financial indicator data; use `end_date` as the reporting period (e.g., 20231231) |
+| `income` | **Quarterly** | Income statement data; use `end_date` as the reporting period |
+| `balancesheet` | **Quarterly** | Balance sheet data; use `end_date` as the reporting period |
+| `cashflow` | **Quarterly** | Cash flow statement data; use `end_date` as the reporting period |
+| `dividend` | **Quarterly/Annual** | Dividend data; use `end_date` as the reporting period |
+| `fund_portfolio` | **Quarterly** | Fund holdings data; use `end_date` as the reporting period |
+| `trade_cal` | **Static** | Trading calendar; query using `cal_date` field |
+
+### Date Field Notes
+
+- **Daily data tables**: Use `trade_date` field for queries
+- **Financial data tables**: Use `end_date` field (reporting period), not announcement date
+- **Fund NAV tables**: Use `nav_date` field
+- **Membership tables** (`hs_const`, `index_member_all`): Contains `in_date`/`out_date` fields for tracking historical changes
+
+### Important Query Tips
+
+1. **index_weight**: Only query for month-end dates (e.g., 20240131, 20240229); daily data is not available
+2. **Financial reports**: When querying quarterly data, use the period-end date (e.g., 20240331 for Q1 2024)
+3. **trade_cal**: Use `is_open='1'` to filter trading days only
+4. **hs_const**: Contains historical records; filter by `in_date` and `out_date` to get valid constituents for a specific date
