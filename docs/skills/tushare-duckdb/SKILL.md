@@ -1,6 +1,6 @@
 ---
 name: tushare-duckdb
-description: Query Chinese stock data from local DuckDB cache. Use when user wants local data access instead of direct Tushare API calls.
+description: Query Chinese stock data from local DuckDB cache. Includes Tushare Pro data and jquant_data_sync concept sector data.
 ---
 
 <!--
@@ -11,7 +11,7 @@ INSTALLATION:
 
 # tushare-duckdb
 
-Local DuckDB cache layer for Tushare Pro data. For API parameter details, use `/tushare-finance <api_name>`.
+Local DuckDB cache layer for Tushare Pro data with integrated concept sector data from jquant_data_sync.
 
 ## Quick Start
 
@@ -27,6 +27,12 @@ df = reader.get_stock_daily('000001.SZ', '20240101', adj='qfq')
 
 # Multiple stocks
 df = reader.get_multiple_stocks_daily(['000001.SZ', '600519.SH'], '20240101')
+
+# Concept sector constituents (from jquant_data_sync)
+df = reader.get_concept_stocks('20240115', concept_name='人工智能')
+
+# Stock's concept sectors
+df = reader.get_stock_concepts('20240115', ts_code='000001.SZ')
 
 # Trade calendar
 df = reader.get_trade_calendar('20240101', '20241231')
@@ -60,6 +66,47 @@ downloader.download_daily_data_by_date('20241218')
 downloader.close()
 ```
 
+## Concept Sector Data (jquant_data_sync)
+
+External concept sector data integrated via `DataReader`:
+
+```python
+from tushare_db import DataReader
+
+reader = DataReader(db_path="tushare.db")
+
+# Get concept constituents for a specific date (PIT)
+df = reader.get_concept_stocks('20240115', concept_name='人工智能')
+# Returns: ts_code, concept_name, in_date, out_date
+
+# Get all concept sectors for a stock
+df = reader.get_stock_concepts('20240115', ts_code='000001.SZ')
+# Returns: concept_code, concept_name, in_date, out_date
+
+# Get full cross-section for a date
+df = reader.get_concept_cross_section('20240115')
+# Returns all concept-stock relationships for the date
+
+# Search concept sectors
+df = reader.search_concepts('芯片')  # Fuzzy search
+
+# List all concept sectors
+df = reader.get_all_concepts()  # concept_code, concept_name
+
+# Force refresh data from GitHub
+reader.refresh_concept_data()
+
+# Check cache status
+info = reader.get_concept_cache_info()
+reader.close()
+```
+
+**Data Characteristics:**
+- **Source**: [jquant_data_sync](https://github.com/tycallen/jquant_data_sync) GitHub Releases
+- **Format**: SCD (Slowly Changing Dimension) with in_date/out_date
+- **Update**: Daily auto-download with local caching
+- **Cache Location**: `.concept_cache/all_concepts_pit_scd.csv`
+
 ## Point-in-Time (PIT) Queries
 
 For backtesting, always use PIT queries to avoid look-ahead bias:
@@ -77,15 +124,26 @@ df = reader.get_index_member_all(
     l1_code='801010.SI',
     trade_date='20230115'  # Only stocks in sector on this date
 )
+
+# ✅ Correct: Concept sector PIT query
+df = reader.get_concept_stocks('20230115', concept_name='人工智能')
 ```
 
 **Correct SQL for PIT joins:**
 ```sql
+-- For index_member_all
 SELECT *
 FROM my_data d
 JOIN index_member_all im ON d.ts_code = im.ts_code
 WHERE im.in_date <= d.trade_date
   AND (im.out_date IS NULL OR im.out_date > d.trade_date)
+
+-- For concept sectors (from jquant_data_sync)
+SELECT *
+FROM my_data d
+JOIN concept_data c ON d.ts_code = c.ts_code
+WHERE c.in_date <= d.trade_date
+  AND c.out_date >= d.trade_date
 ```
 
 **Manual PIT data backfill:**
@@ -105,6 +163,12 @@ python scripts/backfill_index_member_pit.py
 - **Rate limit profiles**: `'trial'`, `'standard'`, `'pro'`
 
 ## Implemented Tables
+
+### External Data Sources
+
+| Data Source | Type | Access | Update | Description |
+|-------------|------|--------|--------|-------------|
+| `concept_data` | External | `DataReader.get_concept_*()` | Daily auto-download | A-share concept sectors from jquant_data_sync |
 
 ### 基础信息表（静态数据）
 
@@ -198,6 +262,7 @@ For column details and parameter meanings, invoke `/tushare-finance <api_name>`.
 
 | Table | Frequency | Notes |
 |-------|-----------|-------|
+| `concept_data` | **Daily** | Auto-downloaded from GitHub Release, cached locally |
 | `index_weight` | **Monthly** | Updated on the last trading day of each month; query using month-end dates |
 | `fina_indicator_vip` | **Quarterly** | Financial indicator data; use `end_date` as the reporting period (e.g., 20231231) |
 | `income` | **Quarterly** | Income statement data; use `end_date` as the reporting period |
@@ -213,6 +278,7 @@ For column details and parameter meanings, invoke `/tushare-finance <api_name>`.
 - **Financial data tables**: Use `end_date` field (reporting period), not announcement date
 - **Fund NAV tables**: Use `nav_date` field
 - **Membership tables** (`hs_const`, `index_member_all`): Contains `in_date`/`out_date` fields for tracking historical changes
+- **Concept sectors**: Use PIT queries with `in_date`/`out_date` range
 
 ### Important Query Tips
 
@@ -220,3 +286,4 @@ For column details and parameter meanings, invoke `/tushare-finance <api_name>`.
 2. **Financial reports**: When querying quarterly data, use the period-end date (e.g., 20240331 for Q1 2024)
 3. **trade_cal**: Use `is_open='1'` to filter trading days only
 4. **hs_const**: Contains historical records; filter by `in_date` and `out_date` to get valid constituents for a specific date
+5. **Concept sectors**: Always use PIT queries (e.g., `get_concept_stocks('20240115', concept_name='AI')`) to avoid look-ahead bias

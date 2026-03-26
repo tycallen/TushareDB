@@ -2,8 +2,8 @@
 """
 数据查询模块
 
-职责：只从 DuckDB 读取数据，不触发任何网络请求
-设计理念：高性能、零开销、假设数据已经存在
+职责：从 DuckDB 和外部数据源读取数据，不触发写入操作
+设计理念：高性能、零开销、统一接口
 """
 import pandas as pd
 from typing import Optional, List, Union
@@ -11,6 +11,7 @@ from datetime import datetime
 
 from .logger import get_logger
 from .duckdb_manager import DuckDBManager
+from .concept_manager import ConceptDataManager
 
 logger = get_logger(__name__)
 
@@ -22,12 +23,12 @@ class DataReaderError(Exception):
 
 class DataReader:
     """
-    数据查询器：专门负责从 DuckDB 读取数据
+    数据查询器：统一查询所有金融数据
 
     特点：
-    - 只读模式：不会触发任何网络请求或数据写入
-    - 高性能：直接 SQL 查询，毫秒级响应
-    - 简单直接：如果数据不存在，返回空 DataFrame 或抛出异常
+    - 只读模式：不会触发任何写入操作
+    - 高性能：DuckDB 毫秒级响应 + CSV 内存缓存
+    - 统一接口：无论数据来自 Tushare 还是外部源，API 一致
 
     使用场景：
     - 回测系统（高频读取）
@@ -48,7 +49,19 @@ class DataReader:
         db_path = db_path or os.getenv("DB_PATH", "tushare.db")
         self.db = DuckDBManager(db_path, read_only=True)
         self.strict_mode = strict_mode
+
+        # 初始化概念板块数据管理器（共享缓存目录）
+        self._concept_manager = ConceptDataManager(db_path=db_path)
+        # 延迟加载：首次查询概念数据时才 pull
+        self._concept_loaded = False
+
         logger.info(f"DataReader 初始化完成: db={db_path}, strict_mode={strict_mode}")
+
+    def _ensure_concept_loaded(self):
+        """确保概念数据已加载"""
+        if not self._concept_loaded:
+            self._concept_manager.pull_data()
+            self._concept_loaded = True
 
     # ==================== 基础信息查询 ====================
 
@@ -1777,6 +1790,169 @@ class DataReader:
         df = self.db.execute_query(query, params)
         self._check_empty(df, f"指数日线 ts_code={ts_code}, trade_date={trade_date}")
         return df
+
+    # ==================== 概念板块数据查询 (jquant_data_sync) ====================
+
+    def get_concept_stocks(
+        self,
+        trade_date: str,
+        concept_name: Optional[str] = None,
+        concept_code: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        获取指定日期某概念板块的所有成分股
+
+        数据来源：https://github.com/tycallen/jquant_data_sync
+        数据更新：每日自动从 GitHub Release 拉取（带本地缓存）
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD
+            concept_name: 概念板块名称（如 '人工智能'）
+            concept_code: 概念板块代码（如 'GN036'）
+
+        Returns:
+            成分股 DataFrame，列: ts_code, concept_name, in_date, out_date
+
+        Example:
+            >>> # 获取2024年1月15日人工智能板块的所有股票
+            >>> df = reader.get_concept_stocks('20240115', concept_name='人工智能')
+            >>> print(df['ts_code'].tolist())
+            ['000001.SZ', '000002.SZ', ...]
+        """
+        self._ensure_concept_loaded()
+        df = self._concept_manager.get_concept_stocks(
+            trade_date=trade_date,
+            concept_name=concept_name,
+            concept_code=concept_code
+        )
+        self._check_empty(df, f"概念板块成分股 concept_name={concept_name}, trade_date={trade_date}")
+        return df
+
+    def get_stock_concepts(
+        self,
+        trade_date: str,
+        ts_code: str
+    ) -> pd.DataFrame:
+        """
+        获取指定日期某股票所属的所有概念板块
+
+        数据来源：https://github.com/tycallen/jquant_data_sync
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD
+            ts_code: 股票代码（支持 .SZ/.SH 格式）
+
+        Returns:
+            概念板块 DataFrame，列: concept_code, concept_name, in_date, out_date
+
+        Example:
+            >>> # 查询平安银行在2024年1月15日所属的所有概念
+            >>> df = reader.get_stock_concepts('20240115', ts_code='000001.SZ')
+            >>> print(df['concept_name'].tolist())
+            ['人工智能', '区块链', '互联网金融', ...]
+        """
+        self._ensure_concept_loaded()
+        df = self._concept_manager.get_stock_concepts(
+            trade_date=trade_date,
+            ts_code=ts_code
+        )
+        self._check_empty(df, f"股票所属概念 ts_code={ts_code}, trade_date={trade_date}")
+        return df
+
+    def get_concept_cross_section(self, trade_date: str) -> pd.DataFrame:
+        """
+        获取指定日期的概念板块截面数据（完整数据）
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD
+
+        Returns:
+            完整截面数据 DataFrame，包含所有概念-股票关系
+            列: concept_code, concept_name, stock_code, ts_code, in_date, out_date
+
+        Example:
+            >>> # 获取2024年1月15日的完整概念板块截面
+            >>> df = reader.get_concept_cross_section('20240115')
+            >>> # 可用于批量分析，如计算每只股票的所属概念数量
+            >>> concept_counts = df.groupby('ts_code').size()
+        """
+        self._ensure_concept_loaded()
+        df = self._concept_manager.get_cross_section(trade_date=trade_date)
+        self._check_empty(df, f"概念板块截面 trade_date={trade_date}")
+        return df
+
+    def get_all_concepts(self) -> pd.DataFrame:
+        """
+        获取所有概念板块列表
+
+        Returns:
+            概念板块 DataFrame，列: concept_code, concept_name
+
+        Example:
+            >>> df = reader.get_all_concepts()
+            >>> print(f"共有 {len(df)} 个概念板块")
+            >>> print(df.head())
+               concept_code concept_name
+            0          GN001         5G
+            1          GN002       人工智能
+            ...
+        """
+        self._ensure_concept_loaded()
+        return self._concept_manager.get_all_concepts()
+
+    def search_concepts(self, keyword: str) -> pd.DataFrame:
+        """
+        搜索概念板块
+
+        Args:
+            keyword: 搜索关键词（支持部分匹配）
+
+        Returns:
+            匹配的概念板块 DataFrame
+
+        Example:
+            >>> # 搜索含"芯片"的概念板块
+            >>> df = reader.search_concepts("芯片")
+            >>> print(df['concept_name'].tolist())
+            ['芯片', '芯片封装', '光刻芯片', ...]
+        """
+        self._ensure_concept_loaded()
+        return self._concept_manager.search_concepts(keyword=keyword)
+
+    def get_concept_cache_info(self) -> dict:
+        """
+        获取概念板块数据缓存信息
+
+        Returns:
+            包含缓存状态的字典，包括：
+            - cache_dir: 缓存目录路径
+            - cache_file: 缓存文件路径
+            - exists: 缓存文件是否存在
+            - valid_today: 是否为今日缓存
+            - loaded: 数据是否已加载到内存
+            - total_records: 总记录数
+            - total_concepts: 概念数量
+            - total_stocks: 股票数量
+        """
+        return self._concept_manager.get_cache_info()
+
+    def refresh_concept_data(self) -> bool:
+        """
+        强制刷新概念板块数据（重新下载）
+
+        Returns:
+            是否成功刷新
+
+        Note:
+            正常情况下数据会自动缓存，只有需要强制更新时才调用此方法。
+            每日首次查询时会自动检查并下载最新数据。
+        """
+        success = self._concept_manager.pull_data(force=True)
+        if success:
+            self._concept_loaded = True
+        return success
+
+    # ==================== 基础工具方法 ====================
 
     def table_exists(self, table_name: str) -> bool:
         """检查表是否存在"""

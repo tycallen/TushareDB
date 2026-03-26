@@ -4,6 +4,9 @@
 from .downloader import DataDownloader  # 数据下载
 from .reader import DataReader          # 数据查询
 
+# 概念板块数据管理器 (jquant_data_sync)
+from .concept_manager import ConceptDataManager
+
 # 工具
 from .logger import setup_logging, get_logger
 
@@ -12,6 +15,7 @@ __all__ = [
     # 核心接口
     'DataDownloader',
     'DataReader',
+    'ConceptDataManager',
     # 工具
     'setup_logging',
     'get_logger',
