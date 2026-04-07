@@ -2800,6 +2800,129 @@ class DataDownloader:
 
         return result
 
+    # ==================== 股东数据下载 ====================
+
+    def download_top10_floatholders(
+        self,
+        ts_code: Optional[str] = None,
+        period: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载十大流通股东数据
+
+        数据说明：
+        - 获取上市公司前十大流通股东数据
+        - 包含股东名称、持股数量、持股比例等信息
+        - 数据开始于2005年
+        - 单次最大获取6000条数据
+
+        Args:
+            ts_code: 股票代码（可选，支持多代码逗号分隔）
+            period: 报告期（YYYYMMDD格式，如'20231231'表示2023年年报）
+            start_date: 报告期开始日期（可选）
+            end_date: 报告期结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载十大流通股东: ts_code={ts_code}, period={period}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'top10_floatholders',
+            ts_code=ts_code,
+            period=period,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug("无十大流通股东数据")
+            return 0
+
+        self.db.write_dataframe(df, 'top10_floatholders', mode='append')
+        logger.info(f"十大流通股东数据: {len(df)} 行")
+        return len(df)
+
+    def download_stk_holdernumber(
+        self,
+        ts_code: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载股东户数数据
+
+        数据说明：
+        - 获取上市公司股东户数数据
+        - 反映筹码集中程度
+        - 数据开始于2005年
+        - 单次最大获取6000条数据
+
+        Args:
+            ts_code: 股票代码（可选，支持多代码逗号分隔）
+            start_date: 开始日期（YYYYMMDD格式）
+            end_date: 结束日期（YYYYMMDD格式）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载股东户数: ts_code={ts_code}, start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'stk_holdernumber',
+            ts_code=ts_code,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug("无股东户数数据")
+            return 0
+
+        self.db.write_dataframe(df, 'stk_holdernumber', mode='append')
+        logger.info(f"股东户数数据: {len(df)} 行")
+        return len(df)
+
+    def download_stk_rewards(
+        self,
+        ts_code: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载上市公司管理层薪酬和持股数据
+
+        数据说明：
+        - 获取上市公司管理层薪酬及持股数据
+        - 包含高管姓名、职务、薪酬、持股数量等信息
+        - 数据开始于2005年
+        - 单次最大获取6000条数据
+
+        Args:
+            ts_code: 股票代码（可选，支持多代码逗号分隔）
+            end_date: 报告期（YYYYMMDD格式，如'20231231'表示2023年年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载管理层薪酬持股: ts_code={ts_code}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'stk_rewards',
+            ts_code=ts_code,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug("无管理层薪酬持股数据")
+            return 0
+
+        self.db.write_dataframe(df, 'stk_rewards', mode='append')
+        logger.info(f"管理层薪酬持股数据: {len(df)} 行")
+        return len(df)
+
     def close(self):
         """关闭数据库连接"""
         self.db.close()

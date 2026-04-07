@@ -1952,6 +1952,195 @@ class DataReader:
             self._concept_loaded = True
         return success
 
+    # ==================== 股东数据查询 ====================
+
+    def get_top10_floatholders(
+        self,
+        ts_code: str,
+        period: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        holder_name: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询十大流通股东数据
+
+        数据说明：
+        - 获取指定股票的十大流通股东信息
+        - 包含股东名称、持股数量、持股比例等数据
+        - 数据按报告期(end_date)和持股比例排序
+
+        Args:
+            ts_code: 股票代码（必填）
+            period: 报告期 YYYYMMDD（可选），指定具体报告期
+            start_date: 开始日期（可选），查询日期范围
+            end_date: 结束日期（可选），查询日期范围，默认为今天
+            holder_name: 股东名称（可选），支持模糊查询
+
+        Returns:
+            十大流通股东数据 DataFrame，包含以下字段：
+            - ts_code: 股票代码
+            - end_date: 报告期
+            - holder_name: 股东名称
+            - hold_amount: 持有数量（股）
+            - hold_ratio: 持有比例
+
+        Examples:
+            >>> # 获取某股票所有历史十大流通股东
+            >>> df = reader.get_top10_floatholders('000001.SZ')
+            >>>
+            >>> # 获取特定报告期的数据
+            >>> df = reader.get_top10_floatholders('000001.SZ', period='20231231')
+            >>>
+            >>> # 查询特定股东
+            >>> df = reader.get_top10_floatholders('000001.SZ', holder_name='香港中央结算')
+        """
+        conditions = ["ts_code = ?"]
+        params = [ts_code]
+
+        if period:
+            conditions.append("end_date = ?")
+            params.append(period)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("end_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("end_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("end_date <= ?")
+                params.append(end_date)
+
+        if holder_name:
+            conditions.append("holder_name LIKE ?")
+            params.append(f"%{holder_name}%")
+
+        query = "SELECT * FROM top10_floatholders WHERE " + " AND ".join(conditions)
+        query += " ORDER BY end_date DESC, hold_ratio DESC"
+
+        df = self.db.execute_query(query, params)
+        if df.empty:
+            logger.warning(f"未找到十大流通股东数据: ts_code={ts_code}")
+        return df
+
+    def get_stk_holdernumber(
+        self,
+        ts_code: Optional[Union[str, List[str]]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询股东户数数据
+
+        数据说明：
+        - 获取股票的股东户数变化情况
+        - 反映筹码集中度和散户/机构参与度
+        - 数据按截止日期(end_date)排序
+
+        Args:
+            ts_code: 股票代码（可选），支持单只股票或股票列表
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选），默认为今天
+
+        Returns:
+            股东户数数据 DataFrame，包含以下字段：
+            - ts_code: 股票代码
+            - end_date: 截止日期
+            - holder_num: 股东户数
+            - holder_num_change: 股东户数变动
+            - holder_num_ratio: 股东户数变动比例
+
+        Examples:
+            >>> # 获取单只股票的股东户数
+            >>> df = reader.get_stk_holdernumber('000001.SZ')
+            >>>
+            >>> # 获取多只股票的股东户数
+            >>> df = reader.get_stk_holdernumber(['000001.SZ', '000002.SZ'])
+            >>>
+            >>> # 获取特定日期范围的股东户数
+            >>> df = reader.get_stk_holdernumber('000001.SZ', start_date='20230101', end_date='20231231')
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            if isinstance(ts_code, list):
+                placeholders = ", ".join(["?"] * len(ts_code))
+                conditions.append(f"ts_code IN ({placeholders})")
+                params.extend(ts_code)
+            else:
+                conditions.append("ts_code = ?")
+                params.append(ts_code)
+
+        if start_date and end_date:
+            conditions.append("end_date BETWEEN ? AND ?")
+            params.extend([start_date, end_date])
+        elif start_date:
+            conditions.append("end_date >= ?")
+            params.append(start_date)
+        elif end_date:
+            conditions.append("end_date <= ?")
+            params.append(end_date)
+
+        query = "SELECT * FROM stk_holdernumber"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY end_date DESC, ts_code"
+
+        df = self.db.execute_query(query, params if params else None)
+        if df.empty:
+            logger.warning(f"未找到股东户数数据: ts_code={ts_code}")
+        return df
+
+    def get_stk_rewards(
+        self,
+        ts_code: str,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询高管薪酬和持股数据
+
+        数据说明：
+        - 获取上市公司高管的薪酬和持股情况
+        - 包含高管姓名、职务、薪酬、持股数量等信息
+        - 数据按报告期(end_date)排序
+
+        Args:
+            ts_code: 股票代码（必填）
+            end_date: 报告期 YYYYMMDD（可选），不指定则返回所有报告期数据
+
+        Returns:
+            高管薪酬和持股数据 DataFrame，包含以下字段：
+            - ts_code: 股票代码
+            - end_date: 报告期
+            - name: 高管姓名
+            - title: 职务
+            - reward: 薪酬（万元）
+            - hold_vol: 持股数量（股）
+
+        Examples:
+            >>> # 获取某股票所有高管薪酬数据
+            >>> df = reader.get_stk_rewards('000001.SZ')
+            >>>
+            >>> # 获取特定报告期的高管薪酬数据
+            >>> df = reader.get_stk_rewards('000001.SZ', end_date='20231231')
+        """
+        conditions = ["ts_code = ?"]
+        params = [ts_code]
+
+        if end_date:
+            conditions.append("end_date = ?")
+            params.append(end_date)
+
+        query = "SELECT * FROM stk_rewards WHERE " + " AND ".join(conditions)
+        query += " ORDER BY end_date DESC, name"
+
+        df = self.db.execute_query(query, params)
+        if df.empty:
+            logger.warning(f"未找到高管薪酬数据: ts_code={ts_code}, end_date={end_date}")
+        return df
+
     # ==================== 基础工具方法 ====================
 
     def table_exists(self, table_name: str) -> bool:

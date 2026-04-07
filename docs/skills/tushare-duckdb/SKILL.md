@@ -240,6 +240,14 @@ python scripts/backfill_index_member_pit.py
 | `ggt_daily` | ggt_daily | trade_date | **20141117** | 港股通每日成交统计 |
 | `hk_hold` | hk_hold | code, trade_date, exchange | **20141117** | 沪深港通持股明细 |
 
+### 股东数据表（季度更新）
+
+| Table | Tushare API | Primary Keys | 官方最早日期 | 说明 |
+|-------|-------------|--------------|-------------|------|
+| `top10_floatholders` | top10_floatholders | ts_code, end_date, holder_name | **20071231** | 前十大流通股东 |
+| `stk_holdernumber` | stk_holdernumber | ts_code, end_date | **20160115** | 股东户数 |
+| `stk_rewards` | stk_rewards | ts_code, end_date, name | **20140101** | 高管薪酬和持股 |
+
 ### 同花顺板块说明
 
 `ths_index` 表包含以下类型的板块指数，本项目**仅实现部分类型**：

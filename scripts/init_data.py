@@ -301,6 +301,9 @@ def main():
     parser.add_argument('--daily-basic', action='store_true', help='初始化所有股票的每日基本面指标')
     parser.add_argument('--moneyflow-cnt-ths', action='store_true', help='初始化同花顺概念板块资金流向')
     parser.add_argument('--moneyflow-ind-dc', action='store_true', help='初始化东方财富概念及行业板块资金流向')
+    parser.add_argument('--top10-floatholders', action='store_true', help='初始化前十大流通股东数据')
+    parser.add_argument('--stk-holdernumber', action='store_true', help='初始化股东人数数据')
+    parser.add_argument('--stk-rewards', action='store_true', help='初始化高管薪酬数据')
     parser.add_argument('--start-date', type=str, default='20200101', help='通用开始日期 (YYYYMMDD)')
     parser.add_argument('--end-date', type=str, default=today, help='通用结束日期 (YYYYMMDD)')
     
@@ -330,6 +333,21 @@ def main():
         init_moneyflow_cnt_ths(start_date=args.start_date, end_date=args.end_date)
     if args.moneyflow_ind_dc:
         init_moneyflow_ind_dc(start_date="20240102", end_date=today)
+
+    # 股东数据初始化
+    if args.top10_floatholders or args.stk_holdernumber or args.stk_rewards:
+        import subprocess
+        import sys
+
+        cmd = [sys.executable, "scripts/init_shareholder_data.py"]
+        if args.top10_floatholders:
+            cmd.append("--top10-floatholders")
+        if args.stk_holdernumber:
+            cmd.append("--stk-holdernumber")
+        if args.stk_rewards:
+            cmd.append("--stk-rewards")
+
+        subprocess.run(cmd, check=True)
 
     print("所有数据初始化任务完成！")
 

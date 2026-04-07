@@ -71,6 +71,10 @@ TABLE_PRIMARY_KEYS = {
     "ggt_top10": ["trade_date", "ts_code", "market_type"],
     "ggt_daily": ["trade_date"],
     "hk_hold": ["code", "trade_date", "exchange"],
+    # 股东数据
+    "top10_floatholders": ["ts_code", "end_date", "holder_name"],
+    "stk_holdernumber": ["ts_code", "end_date"],
+    "stk_rewards": ["ts_code", "end_date", "name"],
 }
 
 class DuckDBManager:

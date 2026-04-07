@@ -2191,6 +2191,152 @@ def update_hk_hold(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_top10_floatholders(downloader: DataDownloader):
+    """
+    增量更新前十大流通股东数据
+
+    策略：
+        1. 获取数据库中最新报告期
+        2. 下载最近8个季度的数据（覆盖可能的数据修正）
+        3. 使用 UPSERT 确保数据一致性
+
+    说明：
+        - 前十大流通股东数据随季报更新（每年4次）
+        - 需要120积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新前十大流通股东数据...")
+
+    try:
+        # 获取最近8个季度
+        quarters = _generate_recent_quarters(count=8)
+        if not quarters:
+            logger.info("无需更新")
+            return
+
+        logger.info(f"将检查 {len(quarters)} 个报告期: {quarters}")
+
+        total_rows = 0
+        for end_date in quarters:
+            try:
+                rows = downloader.download_top10_floatholders(end_date=end_date)
+                if rows > 0:
+                    total_rows += rows
+                    logger.info(f"  {end_date}: {rows} 条记录")
+            except Exception as e:
+                logger.warning(f"  {end_date} 更新失败: {e}")
+                continue
+
+        logger.info(f"✓ 前十大流通股东数据更新完成: 共 {total_rows} 条记录")
+
+    except Exception as e:
+        logger.error(f"✗ 更新前十大流通股东数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_stk_holdernumber(downloader: DataDownloader):
+    """
+    增量更新股东人数数据
+
+    策略：
+        1. 获取数据库中最新日期
+        2. 逐只股票获取新增数据
+        3. 仅获取上市状态为'L'的股票
+
+    说明：
+        - 股东人数数据随季报更新
+        - 需要120积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新股东人数数据...")
+
+    try:
+        from tushare_db import DataReader
+        reader = DataReader(db_path=downloader.db.db_path)
+
+        # 获取最新日期
+        latest_date = downloader.db.get_latest_date('stk_holdernumber', 'ann_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = '20100101'
+            logger.info(f"数据库无历史数据，从 {start_date} 开始")
+        else:
+            start_date = latest_date
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 获取所有上市股票
+        stocks = reader.get_stock_basic(list_status='L')
+        logger.info(f"将处理 {len(stocks)} 只股票")
+
+        total_rows = 0
+        for _, stock in stocks.iterrows():
+            ts_code = stock['ts_code']
+            try:
+                rows = downloader.download_stk_holdernumber(
+                    ts_code=ts_code,
+                    start_date=start_date,
+                    end_date=today
+                )
+                if rows > 0:
+                    total_rows += rows
+            except Exception as e:
+                logger.debug(f"  {ts_code} 获取失败: {e}")
+                continue
+
+        reader.close()
+        logger.info(f"✓ 股东人数数据更新完成: 共 {total_rows} 条记录")
+
+    except Exception as e:
+        logger.error(f"✗ 更新股东人数数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_stk_rewards(downloader: DataDownloader):
+    """
+    增量更新高管薪酬数据
+
+    策略：
+        1. 获取当前年份和上一年份
+        2. 下载这两年的数据（覆盖可能的数据修正）
+        3. 高管薪酬为年度数据，每年更新一次即可
+
+    说明：
+        - 高管薪酬数据每年更新一次（年报披露后）
+        - 需要2000积分
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新高管薪酬数据...")
+
+    try:
+        current_year = datetime.now().year
+        # 更新当前年和上一年（覆盖数据修正）
+        years = [str(current_year), str(current_year - 1)]
+
+        logger.info(f"将更新年份: {years}")
+
+        total_rows = 0
+        for year in years:
+            try:
+                # 年报数据一般在次年4月披露，使用年末日期作为报告期
+                end_date = f"{year}1231"
+                rows = downloader.download_stk_rewards(end_date=end_date)
+                if rows > 0:
+                    total_rows += rows
+                    logger.info(f"  {year}年: {rows} 条记录")
+            except Exception as e:
+                logger.warning(f"  {year}年更新失败: {e}")
+                continue
+
+        logger.info(f"✓ 高管薪酬数据更新完成: 共 {total_rows} 条记录")
+
+    except Exception as e:
+        logger.error(f"✗ 更新高管薪酬数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _is_earnings_season() -> bool:
     """
     判断当前是否处于财报季
@@ -2384,6 +2530,10 @@ def main():
                 (update_ggt_top10, "港股通十大成交"),
                 (update_ggt_daily, "港股通每日成交"),
                 (update_hk_hold, "沪深港通持股明细"),
+                # 股东数据
+                (update_top10_floatholders, "前十大流通股东"),
+                (update_stk_holdernumber, "股东人数"),
+                (update_stk_rewards, "高管薪酬"),
             ]
 
             _run_parallel_tasks(downloader, parallel_tasks, max_workers=4)

@@ -182,6 +182,48 @@ df = reader.query("""
 """)
 ```
 
+### 股东数据（牛散追踪）
+
+```python
+# 前十大流通股东 - 追踪牛散持仓
+df = reader.get_top10_floatholders('000001.SZ')
+df = reader.get_top10_floatholders('000001.SZ', period='20241231')
+
+# 筛选自然人股东（牛散）
+bulls = df[df['holder_type'] == '自然人']
+
+# 查看持仓变动
+bulls_with_change = bulls[bulls['hold_change'].notna()]
+
+# 股东户数 - 筹码集中度分析
+df = reader.get_stk_holdernumber('000001.SZ')
+df = reader.get_stk_holdernumber(['000001.SZ', '000002.SZ'])
+
+# 高管薪酬和持股 - 管理层增减持
+df = reader.get_stk_rewards('000001.SZ')
+df = reader.get_stk_rewards('000001.SZ', end_date='20231231')
+```
+
+股东数据特点：
+- **来源**：Tushare Pro `top10_floatholders`、`stk_holdernumber`、`stk_rewards` 接口
+- **更新频率**：季度更新（随财报披露）
+- **积分要求**：前十大流通股东(2000+)、股东户数(600+)、高管薪酬(2000+)
+- **历史数据**：
+  - 前十大流通股东：2007年至今
+  - 股东户数：2016年至今
+  - 高管薪酬：2014年至今
+
+**初始化脚本**：
+```bash
+# 导入股东历史数据
+python scripts/init_shareholder_data.py --all
+
+# 或单独导入
+python scripts/init_shareholder_data.py --top10-floatholders
+python scripts/init_shareholder_data.py --stk-holdernumber
+python scripts/init_shareholder_data.py --stk-rewards
+```
+
 ### 基金数据
 
 ```python
@@ -201,6 +243,7 @@ df = reader.get_fund_nav(ts_code='110022.OF')
 .
 ├── scripts/                    # 数据初始化与更新脚本
 │   ├── init_data.py           # 全量数据初始化
+│   ├── init_shareholder_data.py  # 股东数据初始化（十大流通股东、股东户数、高管薪酬）
 │   ├── update_daily.py        # 每日增量更新
 │   └── backfill_index_member_pit.py  # PIT 数据回填
 ├── src/tushare_db/
