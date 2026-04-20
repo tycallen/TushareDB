@@ -66,6 +66,22 @@ downloader.download_daily_data_by_date('20241218')
 downloader.close()
 ```
 
+### Query Margin Balance
+
+```python
+from tushare_db import DataReader
+
+reader = DataReader(db_path="tushare.db")
+
+# 获取所有交易所的两融余额汇总
+df = reader.get_margin(start_date='20240101', end_date='20241231')
+
+# 获取上海交易所的两融余额
+df = reader.get_margin(exchange_id='SSE', start_date='20240101')
+
+reader.close()
+```
+
 ## Concept Sector Data (jquant_data_sync)
 
 External concept sector data integrated via `DataReader`:
@@ -197,6 +213,7 @@ python scripts/backfill_index_member_pit.py
 | `stk_factor_pro` | stk_factor_pro | ts_code, trade_date | **20050104** | 技术因子（MACD/KDJ等） |
 | `limit_list_d` | limit_list_d | ts_code, trade_date, limit | **20200102** | 涨跌停统计 (U/D/Z) |
 | `margin_detail` | margin_detail | ts_code, trade_date | **20100331** | 融资融券明细 |
+| `margin` | margin | trade_date, exchange_id | **20100331** | 两融余额汇总（市场级别，SSE/SZSE） |
 | `sw_daily` | sw_daily | ts_code, trade_date | **20210104** | 申万指数日线 (SW2021版) |
 | `ths_daily` | ths_daily | ts_code, trade_date | **20180102** | 同花顺板块日行情 |
 | `moneyflow_dc` | moneyflow_dc | ts_code, trade_date | **20230911** | 个股资金流(东财) |
@@ -229,6 +246,10 @@ python scripts/backfill_index_member_pit.py
 | `fund_share` | fund_share | ts_code, trade_date | **20050104** | 基金份额变动 |
 | `fund_manager` | fund_manager | ts_code, begin_date, name | **19991231** | 基金经理 |
 | `fund_adj` | fund_adj | ts_code, trade_date | **20050104** | 基金复权因子 |
+| `fund_company` | fund_company | name | - | 基金公司信息 |
+| `etf_basic` | etf_basic | ts_code | - | ETF基本信息 |
+| `etf_share` | etf_share_size | ts_code, trade_date | **20100101** | ETF份额规模 |
+| `etf_index` | etf_index | ts_code | - | ETF基准指数 |
 
 ### 沪深港通数据表
 
