@@ -699,6 +699,64 @@ class DataReader:
 
         return self.db.execute_query(query, params)
 
+    def get_margin(
+        self,
+        exchange_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询融资融券余额汇总数据
+
+        Args:
+            exchange_id: 交易所代码 SSE/SZSE（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            DataFrame，包含字段：
+            - trade_date: 交易日期
+            - exchange_id: 交易所代码
+            - rzye: 融资余额（元）
+            - rqye: 融券余额（元）
+            - rzrqye: 融资融券余额（元）
+            - rzmre: 融资买入额（元）
+            - rzche: 融资偿还额（元）
+            - rqmcl: 融券卖出量（股）
+            - rqyl: 融券余量（股）
+            - rqchl: 融券偿还量（股）
+
+        Examples:
+            >>> # 获取所有交易所的两融余额
+            >>> df = reader.get_margin(start_date='20240101', end_date='20241231')
+            >>>
+            >>> # 获取上海交易所的两融余额
+            >>> df = reader.get_margin(exchange_id='SSE', start_date='20240101')
+        """
+        conditions = []
+        params = []
+
+        if exchange_id:
+            conditions.append("exchange_id = ?")
+            params.append(exchange_id)
+
+        if start_date and end_date:
+            conditions.append("trade_date BETWEEN ? AND ?")
+            params.extend([start_date, end_date])
+        elif start_date:
+            conditions.append("trade_date >= ?")
+            params.append(start_date)
+        elif end_date:
+            conditions.append("trade_date <= ?")
+            params.append(end_date)
+
+        query = "SELECT * FROM margin"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, exchange_id"
+
+        return self.db.execute_query(query, params if params else None)
+
     def get_index_classify(
         self,
         index_code: Optional[str] = None,
