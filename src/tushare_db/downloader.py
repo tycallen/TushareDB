@@ -90,6 +90,7 @@ class DataDownloader:
         logger.info(f"交易日历下载完成: {len(df)} 行")
         return len(df)
 
+
     def download_stock_basic(self, list_status: str = 'L'):
         """
         下载股票基础信息
@@ -116,6 +117,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'stock_basic', mode='append')
         logger.info(f"股票列表下载完成: {len(df)} 行")
         return len(df)
+
 
     # ==================== 单股票数据下载 ====================
 
@@ -156,6 +158,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'daily', mode='append')
         return len(df)
 
+
     def download_adj_factor(
         self,
         ts_code: str,
@@ -191,6 +194,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'adj_factor', mode='append')
         return len(df)
 
+
     def download_daily_basic(
         self,
         ts_code: str,
@@ -224,6 +228,7 @@ class DataDownloader:
 
         self.db.write_dataframe(df, 'daily_basic', mode='append')
         return len(df)
+
 
     # ==================== 批量下载 ====================
 
@@ -485,6 +490,7 @@ class DataDownloader:
         logger.info(f"筹码分布数据: {len(df)} 行 ({trade_date})")
         return len(df)
 
+
     def download_cyq_chips(self, ts_code: str, trade_date: str) -> int:
         """
         下载筹码分布详情数据（单只股票单日）
@@ -515,6 +521,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'cyq_chips', mode='append')
         logger.debug(f"筹码分布详情: {len(df)} 行 ({ts_code} {trade_date})")
         return len(df)
+
 
     def download_cyq_chips_by_stock(
         self,
@@ -553,6 +560,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'cyq_chips', mode='append')
         logger.debug(f"筹码分布详情: {len(df)} 行 ({ts_code})")
         return len(df)
+
 
     def download_cyq_chips_incremental(
         self,
@@ -680,6 +688,7 @@ class DataDownloader:
         logger.debug(f"技术因子: {len(df)} 行 ({ts_code} {trade_date})")
         return len(df)
 
+
     def download_stk_factor_pro_by_date(self, trade_date: str) -> int:
         """
         按日期批量下载所有股票的技术因子数据
@@ -709,6 +718,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'stk_factor_pro', mode='append')
         logger.info(f"技术因子: {len(df)} 行 ({trade_date})")
         return len(df)
+
 
     def _download_stk_factor_pro_by_date_legacy(self, trade_date: str) -> int:
         """
@@ -773,6 +783,7 @@ class DataDownloader:
         logger.info(f"龙虎榜机构席位数据: {len(df)} 行 ({trade_date})")
         return len(df)
 
+
     def download_dc_index(self, trade_date: str) -> int:
         """
         下载龙虎榜每日上榜个股明细数据
@@ -800,6 +811,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'dc_index', mode='append')
         logger.info(f"龙虎榜个股明细数据: {len(df)} 行 ({trade_date})")
         return len(df)
+
 
     def download_limit_list_d(
         self,
@@ -854,6 +866,7 @@ class DataDownloader:
         logger.info(f"涨跌停数据: {len(df)} 行 ({trade_date})")
         return len(df)
 
+
     def download_moneyflow_ind_dc(self, trade_date: str) -> int:
         """
         下载行业资金流向（沪深通）数据
@@ -877,6 +890,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'moneyflow_ind_dc', mode='append')
         logger.info(f"行业资金流向数据: {len(df)} 行 ({trade_date})")
         return len(df)
+
 
     def download_moneyflow_dc(
         self,
@@ -921,6 +935,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'moneyflow_dc', mode='append')
         logger.info(f"个股资金流向数据: {len(df)} 行")
         return len(df)
+
 
     def download_moneyflow(
         self,
@@ -973,6 +988,7 @@ class DataDownloader:
         logger.info(f"个股资金流向数据(标准): {len(df)} 行")
         return len(df)
 
+
     def download_index_classify(
         self,
         index_code: Optional[str] = None,
@@ -1022,6 +1038,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'index_classify', mode='append')
         logger.info(f"行业分类数据: {len(df)} 行")
         return len(df)
+
 
     def download_index_weight(
         self,
@@ -1078,6 +1095,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'index_weight', mode='append')
         logger.info(f"指数成分数据: {len(df)} 行")
         return len(df)
+
 
     def download_index_member_all(
         self,
@@ -1136,6 +1154,7 @@ class DataDownloader:
         return len(df)
 
 
+
     # ==================== 财务指标数据 ====================
 
     def download_fina_indicator_vip(self, period: str) -> int:
@@ -1164,6 +1183,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'fina_indicator_vip', mode='append')
         logger.info(f"财务指标数据(VIP): {len(df)} 行 (period={period})")
         return len(df)
+
 
     # ==================== 财务报表数据 ====================
 
@@ -1194,6 +1214,7 @@ class DataDownloader:
         logger.info(f"利润表数据(VIP): {len(df)} 行 (period={period})")
         return len(df)
 
+
     def download_balancesheet_vip(self, period: str) -> int:
         """
         下载资产负债表数据（VIP接口，按报告期批量获取全部股票）
@@ -1221,6 +1242,7 @@ class DataDownloader:
         logger.info(f"资产负债表数据(VIP): {len(df)} 行 (period={period})")
         return len(df)
 
+
     def download_cashflow_vip(self, period: str) -> int:
         """
         下载现金流量表数据（VIP接口，按报告期批量获取全部股票）
@@ -1247,6 +1269,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'cashflow', mode='append')
         logger.info(f"现金流量表数据(VIP): {len(df)} 行 (period={period})")
         return len(df)
+
 
     def download_income(
         self,
@@ -1298,6 +1321,7 @@ class DataDownloader:
         logger.info(f"利润表数据: {len(df)} 行")
         return len(df)
 
+
     def download_balancesheet(
         self,
         ts_code: Optional[str] = None,
@@ -1347,6 +1371,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'balancesheet', mode='append')
         logger.info(f"资产负债表数据: {len(df)} 行")
         return len(df)
+
 
     def download_cashflow(
         self,
@@ -1398,6 +1423,7 @@ class DataDownloader:
         logger.info(f"现金流量表数据: {len(df)} 行")
         return len(df)
 
+
     def download_dividend(
         self,
         ts_code: Optional[str] = None,
@@ -1444,6 +1470,7 @@ class DataDownloader:
         logger.info(f"分红送股数据: {len(df)} 行")
         return len(df)
 
+
     def download_margin_detail(
         self,
         trade_date: Optional[str] = None,
@@ -1485,6 +1512,49 @@ class DataDownloader:
 
         self.db.write_dataframe(df, 'margin_detail', mode='append')
         logger.info(f"融资融券明细数据: {len(df)} 行")
+        return len(df)
+
+    def download_margin(
+        self,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        exchange_id: Optional[str] = None
+    ) -> int:
+        """
+        下载融资融券交易汇总数据（市场级别）
+
+        数据说明：
+        - 获取沪深两市每日融资融券余额汇总
+        - 单次最大获取6000条数据
+        - 需要至少2000积分
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            exchange_id: 交易所代码 SSE/SZSE（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载两融余额汇总: trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}, exchange_id={exchange_id}")
+
+        df = self.fetcher.fetch(
+            'margin',
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            exchange_id=exchange_id
+        )
+
+        if df.empty:
+            logger.debug(f"无两融余额汇总数据")
+            return 0
+
+        self.db.write_dataframe(df, 'margin', mode='append')
+        logger.info(f"两融余额汇总数据: {len(df)} 行")
         return len(df)
 
     # ==================== 申万行业指数 ====================
@@ -1544,6 +1614,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'sw_daily', mode='append')
         logger.info(f"申万行业日线数据: {len(df)} 行")
         return len(df)
+
 
     def download_sw_daily_by_date_range(
         self,
@@ -1653,6 +1724,7 @@ class DataDownloader:
         logger.info(f"指数日线数据: {len(df)} 行")
         return len(df)
 
+
     def download_index_daily_by_date_range(
         self,
         ts_code: str,
@@ -1688,6 +1760,7 @@ class DataDownloader:
         logger.info(f"指数日线数据: {len(df)} 行 ({ts_code})")
         return len(df)
 
+
     # ==================== 开盘啦题材库 ====================
 
     def download_kpl_concept(self, trade_date: str) -> int:
@@ -1718,6 +1791,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'kpl_concept', mode='append')
         logger.info(f"开盘啦题材列表: {len(df)} 行 ({trade_date})")
         return len(df)
+
 
     def download_kpl_concept_batch(self, target_date: Optional[str] = None) -> int:
         """
@@ -1802,6 +1876,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'kpl_concept_cons', mode='append')
         logger.info(f"开盘啦题材成分: {len(df)} 行 ({trade_date})")
         return len(df)
+
 
     def download_kpl_concept_cons_batch(self, target_date: Optional[str] = None) -> int:
         """
@@ -1904,6 +1979,7 @@ class DataDownloader:
         logger.info(f"同花顺板块指数: {len(df)} 行")
         return len(df)
 
+
     def download_ths_member(
         self,
         ts_code: Optional[str] = None,
@@ -1939,6 +2015,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'ths_member', mode='append')
         logger.info(f"同花顺板块成分: {len(df)} 行")
         return len(df)
+
 
     def download_ths_daily(
         self,
@@ -1992,6 +2069,7 @@ class DataDownloader:
         logger.info(f"同花顺板块日行情: {len(df)} 行")
         return len(df)
 
+
     # ==================== 基金数据 ====================
 
     def download_fund_basic(
@@ -2028,6 +2106,40 @@ class DataDownloader:
         self.db.write_dataframe(df, 'fund_basic', mode='append')
         logger.info(f"基金列表下载完成: {len(df)} 行")
         return len(df)
+
+
+    def download_etf_basic(
+        self,
+        market: Optional[str] = None
+    ) -> int:
+        """
+        下载ETF基金基础信息
+
+        数据说明：
+        - 获取ETF基金基础信息
+        - 需要至少2000积分
+        - 单次最大15000条
+
+        Args:
+            market: 交易市场 SH=上交所 SZ=深交所（默认SH）
+
+        Returns:
+            下载的行数
+        """
+        logger.info(f"开始下载ETF基础信息: market={market}")
+        df = self.fetcher.fetch(
+            'etf_basic',
+            market=market
+        )
+
+        if df.empty:
+            logger.warning(f"ETF基础信息为空: market={market}")
+            return 0
+
+        self.db.write_dataframe(df, 'etf_basic', mode='append')
+        logger.info(f"ETF基础信息下载完成: {len(df)} 行")
+        return len(df)
+
 
     def download_fund_daily(
         self,
@@ -2070,6 +2182,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'fund_daily', mode='append')
         logger.info(f"场内基金日线: {len(df)} 行")
         return len(df)
+
 
     def download_fund_nav(
         self,
@@ -2124,6 +2237,7 @@ class DataDownloader:
         logger.info(f"基金净值数据: {len(df)} 行")
         return len(df)
 
+
     def download_fund_div(
         self,
         ts_code: Optional[str] = None,
@@ -2164,6 +2278,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'fund_div', mode='append')
         logger.info(f"基金分红数据: {len(df)} 行")
         return len(df)
+
 
     def download_fund_portfolio(
         self,
@@ -2209,6 +2324,7 @@ class DataDownloader:
         logger.info(f"基金持仓数据: {len(df)} 行")
         return len(df)
 
+
     def download_fund_share(
         self,
         ts_code: Optional[str] = None,
@@ -2253,6 +2369,53 @@ class DataDownloader:
         logger.info(f"基金份额数据: {len(df)} 行")
         return len(df)
 
+
+    def download_etf_share(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        exchange: Optional[str] = None
+    ) -> int:
+        """
+        下载ETF份额规模数据
+
+        数据说明：
+        - 获取沪深ETF每日份额和规模数据
+        - 能体现规模份额的变化，掌握ETF资金动向
+        - 需要至少8000积分
+        - 单次最大5000条
+
+        Args:
+            ts_code: ETF代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+            exchange: 交易所 SSE=上交所 SZSE=深交所（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载ETF份额规模: ts_code={ts_code}, trade_date={trade_date}")
+        df = self.fetcher.fetch(
+            'etf_share_size',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date,
+            exchange=exchange
+        )
+
+        if df.empty:
+            logger.debug(f"无ETF份额规模数据")
+            return 0
+
+        self.db.write_dataframe(df, 'etf_share', mode='append')
+        logger.info(f"ETF份额规模数据: {len(df)} 行")
+        return len(df)
+
+
     def download_fund_manager(
         self,
         ts_code: Optional[str] = None,
@@ -2290,6 +2453,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'fund_manager', mode='append')
         logger.info(f"基金经理数据: {len(df)} 行")
         return len(df)
+
 
     def download_fund_adj(
         self,
@@ -2332,6 +2496,78 @@ class DataDownloader:
         logger.info(f"基金复权因子: {len(df)} 行")
         return len(df)
 
+
+
+    def download_fund_company(
+        self,
+        name: Optional[str] = None
+    ) -> int:
+        """
+        下载基金公司信息
+
+        数据说明：
+        - 获取公募基金管理公司信息
+        - 需要至少2000积分
+        - 单次最大10000条
+
+        Args:
+            name: 公司名称（可选，支持模糊查询）
+
+        Returns:
+            下载的行数
+        """
+        logger.info(f"开始下载基金公司信息: name={name}")
+        df = self.fetcher.fetch(
+            'fund_company',
+            name=name
+        )
+
+        if df.empty:
+            logger.warning(f"基金公司信息为空: name={name}")
+            return 0
+
+        self.db.write_dataframe(df, 'fund_company', mode='append')
+        logger.info(f"基金公司信息下载完成: {len(df)} 行")
+        return len(df)
+
+
+    def download_etf_index(
+        self,
+        ts_code: Optional[str] = None,
+        pub_date: Optional[str] = None,
+        base_date: Optional[str] = None
+    ) -> int:
+        """
+        下载ETF基准指数信息
+
+        数据说明：
+        - 获取ETF跟踪的基准指数列表
+        - 需要至少8000积分
+        - 单次最大5000条
+
+        Args:
+            ts_code: 指数代码（可选）
+            pub_date: 发布日期 YYYYMMDD（可选）
+            base_date: 指数基日 YYYYMMDD（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.info(f"开始下载ETF基准指数: ts_code={ts_code}")
+        df = self.fetcher.fetch(
+            'etf_index',
+            ts_code=ts_code,
+            pub_date=pub_date,
+            base_date=base_date
+        )
+
+        if df.empty:
+            logger.warning(f"ETF基准指数为空: ts_code={ts_code}")
+            return 0
+
+        self.db.write_dataframe(df, 'etf_index', mode='append')
+        logger.info(f"ETF基准指数下载完成: {len(df)} 行")
+        return len(df)
     def download_all_fund_daily(
         self,
         start_date: str,
@@ -2512,6 +2748,7 @@ class DataDownloader:
         logger.info(f"沪深港通资金流向: {len(df)} 行")
         return len(df)
 
+
     def download_hsgt_top10(
         self,
         ts_code: Optional[str] = None,
@@ -2556,6 +2793,7 @@ class DataDownloader:
         logger.info(f"沪深股通十大成交: {len(df)} 行")
         return len(df)
 
+
     def download_ggt_top10(
         self,
         ts_code: Optional[str] = None,
@@ -2599,6 +2837,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'ggt_top10', mode='append')
         logger.info(f"港股通十大成交: {len(df)} 行")
         return len(df)
+
 
     def download_ggt_daily(
         self,
@@ -2645,6 +2884,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'ggt_daily', mode='append')
         logger.info(f"港股通每日成交: {len(df)} 行")
         return len(df)
+
 
     def download_hk_hold(
         self,
@@ -2693,6 +2933,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'hk_hold', mode='append')
         logger.info(f"沪深港通持股明细: {len(df)} 行")
         return len(df)
+
 
     # ==================== 数据完整性验证 ====================
 
@@ -2846,6 +3087,7 @@ class DataDownloader:
         logger.info(f"十大流通股东数据: {len(df)} 行")
         return len(df)
 
+
     def download_stk_holdernumber(
         self,
         ts_code: Optional[str] = None,
@@ -2886,6 +3128,7 @@ class DataDownloader:
         logger.info(f"股东户数数据: {len(df)} 行")
         return len(df)
 
+
     def download_stk_rewards(
         self,
         ts_code: Optional[str] = None,
@@ -2922,6 +3165,7 @@ class DataDownloader:
         self.db.write_dataframe(df, 'stk_rewards', mode='append')
         logger.info(f"管理层薪酬持股数据: {len(df)} 行")
         return len(df)
+
 
     def close(self):
         """关闭数据库连接"""
