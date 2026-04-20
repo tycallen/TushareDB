@@ -372,6 +372,7 @@ def update_index_daily(downloader: DataDownloader):
         ('932000.CSI', '中证2000'),
         ('000688.SH', '科创50'),
         ('000016.SH', '上证50'),
+        ('000985.SH', '中证全指'),
     ]
 
     try:
@@ -1411,6 +1412,72 @@ def update_margin_detail(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_margin(downloader: DataDownloader):
+    """
+    增量更新融资融券余额汇总数据 (margin)
+
+    策略：
+        1. 获取数据库中 margin 的最新日期
+        2. 从下一天开始更新到今天
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新两融余额汇总数据 (margin)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('margin', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            # 融资融券数据开始于 2010年
+            start_date = '20100101'
+            logger.info("数据库中没有两融余额汇总历史数据，将进行完整初始化")
+            logger.info(f"  (数据起始日期: {start_date})")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_margin(trade_date=trade_date)
+                if rows > 0:
+                    success_count += 1
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 两融余额汇总更新完成: 成功 {success_count}/{len(trading_dates)}")
+
+    except Exception as e:
+        logger.error(f"✗ 更新两融余额汇总数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def update_sw_daily(downloader: DataDownloader):
     """
     增量更新申万行业指数日线数据 (sw_daily)
@@ -1954,6 +2021,149 @@ def update_fund_share(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+
+
+def update_etf_share(downloader: DataDownloader):
+    """
+    增量更新ETF份额规模 (etf_share)
+
+    数据更新时间：每日19点后
+    策略：
+        1. 获取数据库中 etf_share 的最新日期
+        2. 从最新日期的下一天开始逐日下载
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新ETF份额规模 (etf_share)...")
+
+    try:
+        latest_date = downloader.db.get_latest_date('etf_share', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            logger.warning("数据库中没有ETF份额数据，请先运行 init_fund_etf_data.py --etf-share")
+            return
+
+        latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+        start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+        logger.info(f"数据库最新日期: {latest_date}")
+
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        total_rows = 0
+        exchanges = ['SSE', 'SZSE']
+        for trade_date in trading_dates:
+            for exchange in exchanges:
+                try:
+                    rows = downloader.download_etf_share(
+                        trade_date=trade_date,
+                        exchange=exchange
+                    )
+                    total_rows += rows
+                except Exception as e:
+                    logger.error(f"  ✗ {trade_date} {exchange} 更新失败: {e}")
+
+        logger.info(f"✓ ETF份额规模更新完成: 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新ETF份额规模失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_etf_basic_monthly(downloader: DataDownloader):
+    """
+    月度更新ETF基础信息 (etf_basic)
+
+    策略：
+        1. 每月1号执行
+        2. 下载上交所和深交所的ETF基础信息
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新ETF基础信息 (etf_basic)...")
+
+    today = datetime.now()
+    if today.day != 1:
+        logger.info("非每月1号，跳过ETF基础信息更新（每月1号执行）")
+        return
+
+    try:
+        total_rows = 0
+        markets = ['SH', 'SZ']
+        for market in markets:
+            try:
+                rows = downloader.download_etf_basic(market=market)
+                total_rows += rows
+            except Exception as e:
+                logger.error(f"  ✗ {market} 市场ETF基础信息更新失败: {e}")
+
+        logger.info(f"✓ ETF基础信息更新完成: 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新ETF基础信息失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_fund_company_monthly(downloader: DataDownloader):
+    """
+    月度更新基金公司信息 (fund_company)
+
+    策略：
+        1. 每月1号执行
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新基金公司信息 (fund_company)...")
+
+    today = datetime.now()
+    if today.day != 1:
+        logger.info("非每月1号，跳过基金公司信息更新（每月1号执行）")
+        return
+
+    try:
+        rows = downloader.download_fund_company()
+        logger.info(f"✓ 基金公司信息更新完成: 共 {rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新基金公司信息失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
+def update_etf_index_monthly(downloader: DataDownloader):
+    """
+    月度更新ETF基准指数 (etf_index)
+
+    策略：
+        1. 每月1号执行
+    """
+    logger.info("=" * 60)
+    logger.info("开始更新ETF基准指数 (etf_index)...")
+
+    today = datetime.now()
+    if today.day != 1:
+        logger.info("非每月1号，跳过ETF基准指数更新（每月1号执行）")
+        return
+
+    try:
+        rows = downloader.download_etf_index()
+        logger.info(f"✓ ETF基准指数更新完成: 共 {rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新ETF基准指数失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
 def update_moneyflow_hsgt(downloader: DataDownloader):
     """
     增量更新沪深港通资金流向 (moneyflow_hsgt)
@@ -2503,6 +2713,7 @@ def main():
                 (update_dividend, "分红送股"),
                 # 交易数据
                 (update_margin_detail, "融资融券明细"),
+                (update_margin, "两融余额汇总"),
                 (update_cyq_perf, "筹码分布"),
                 (update_cyq_chips, "筹码分布详情"),
                 (update_stk_factor_pro, "技术因子"),
@@ -2524,6 +2735,7 @@ def main():
                 (update_fund_daily, "场内基金日线"),
                 (update_fund_nav, "基金净值"),
                 (update_fund_share, "基金份额"),
+                (update_etf_share, "ETF份额规模"),
                 # 沪深港通
                 (update_moneyflow_hsgt, "沪深港通资金流向"),
                 (update_hsgt_top10, "沪深股通十大成交"),
@@ -2537,6 +2749,15 @@ def main():
             ]
 
             _run_parallel_tasks(downloader, parallel_tasks, max_workers=4)
+
+            # 3.5 月度更新任务（仅在每月1号执行）
+            logger.info("")
+            logger.info("=" * 60)
+            logger.info("阶段 2.5/2：月度更新任务...")
+            logger.info("=" * 60)
+            update_etf_basic_monthly(downloader)
+            update_fund_company_monthly(downloader)
+            update_etf_index_monthly(downloader)
 
             # 4. 完成
             end_time = datetime.now()
