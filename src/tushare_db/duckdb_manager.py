@@ -43,6 +43,7 @@ TABLE_PRIMARY_KEYS = {
     "dividend": ["ts_code", "end_date"],
     # 融资融券
     "margin_detail": ["ts_code", "trade_date"],
+    "margin": ["trade_date", "exchange_id"],  # 市场级两融余额汇总
     # 申万行业指数
     "sw_daily": ["ts_code", "trade_date"],
     # 指数日线行情
@@ -65,6 +66,11 @@ TABLE_PRIMARY_KEYS = {
     "fund_share": ["ts_code", "trade_date"],
     "fund_manager": ["ts_code", "begin_date", "name"],
     "fund_adj": ["ts_code", "trade_date"],
+    "fund_company": ["name"],
+    # ETF
+    "etf_basic": ["ts_code"],
+    "etf_index": ["ts_code"],
+    "etf_share": ["ts_code", "trade_date"],
     # 沪深港通
     "moneyflow_hsgt": ["trade_date"],
     "hsgt_top10": ["trade_date", "ts_code", "market_type"],
