@@ -192,10 +192,21 @@ def plot_chart(df: pd.DataFrame, n: int, output_path: str = None, show: bool = T
         plt.show()
 
 
+def _get_nth_trading_day_before(reader: DataReader, date_str: str, n: int) -> str:
+    """使用交易日历返回 date_str 往前第 n 个交易日的日期"""
+    df = reader.query(
+        "SELECT cal_date FROM trade_cal WHERE is_open = 1 AND cal_date <= ? ORDER BY cal_date DESC LIMIT ?",
+        [date_str, n + 1]
+    )
+    if len(df) < n + 1:
+        return None
+    return str(df.iloc[-1]['cal_date'])
+
+
 def main():
     args = parse_args()
 
-    # N日参数始终有效
+    # N日参数始终有效（指交易日）
     n = args.days
 
     # 结束日期
@@ -208,23 +219,25 @@ def main():
     if args.start_date:
         plot_start = args.start_date
     else:
-        plot_start_dt = datetime.strptime(end_date, '%Y%m%d') - timedelta(days=n * 2)
+        # 默认：从 end_date 往前约 2*n 个自然日，之后过滤到恰好 n 个交易日
+        plot_start_dt = datetime.strptime(end_date, '%Y%m%d') - timedelta(days=n * 2 + 10)
         plot_start = plot_start_dt.strftime('%Y%m%d')
-
-    # 数据查询需要额外拉取前N天，才能计算变化量
-    query_start_dt = datetime.strptime(plot_start, '%Y%m%d') - timedelta(days=n + 5)
-    query_start = query_start_dt.strftime('%Y%m%d')
 
     # 数据库路径
     db_path = args.db_path or os.getenv('DB_PATH', 'tushare.db')
 
-    print(f"N日参数: {n}")
-    print(f"绘图范围: {plot_start} ~ {end_date}")
-    print(f"数据查询范围: {query_start} ~ {end_date} (含前导数据用于计算变化量)")
-
-    # 读取数据
+    # 读取数据（先建立 reader 连接以查询交易日历）
     reader = DataReader(db_path=db_path)
     try:
+        # 用交易日历精确计算：query_start = plot_start 往前第 n 个交易日
+        query_start = _get_nth_trading_day_before(reader, plot_start, n)
+        if query_start is None:
+            raise RuntimeError(f"无法找到 {plot_start} 往前第 {n} 个交易日，数据不足")
+
+        print(f"N日参数: {n} (交易日)")
+        print(f"绘图范围: {plot_start} ~ {end_date}")
+        print(f"数据查询起始: {query_start} (plot_start 往前第 {n} 个交易日)")
+
         margin_df = query_margin_data(reader, query_start, end_date)
         alla_df = query_alla_index_data(reader, query_start, end_date)
 
