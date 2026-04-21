@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import matplotlib.dates as mdates
+import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -30,6 +31,21 @@ from tushare_db import DataReader
 
 # 中证全指代码
 ALL_A_INDEX_CODE = '000985.SH'
+
+
+# 配置中文字体
+_FONT_LIST = [
+    'PingFang SC', 'PingFang HK', 'PingFang TC',
+    'Heiti SC', 'Heiti TC', 'STHeiti', 'Songti SC', 'Kaiti SC',
+    'Arial Unicode MS', 'Microsoft YaHei', 'SimHei',
+    'WenQuanYi Micro Hei', 'Noto Sans CJK SC', 'sans-serif'
+]
+_available_fonts = set(f.name for f in fm.fontManager.ttflist)
+for _font in _FONT_LIST:
+    if _font in _available_fonts or _font == 'sans-serif':
+        plt.rcParams['font.sans-serif'] = [_font]
+        break
+plt.rcParams['axes.unicode_minus'] = False
 
 
 def parse_args():
@@ -148,9 +164,15 @@ def plot_chart(df: pd.DataFrame, n: int, output_path: str = None, show: bool = T
     end_str = df['trade_date'].max().strftime('%Y-%m-%d')
     plt.title(f'两融余额{n}日累计变化 vs 中证全指\n({start_str} ~ {end_str})', fontsize=14)
 
-    # 日期格式
+    # 日期格式（根据数据跨度自动调整）
+    days_span = (df['trade_date'].max() - df['trade_date'].min()).days
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-    ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
+    if days_span > 730:
+        ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=6))  # >2年：每半年
+    elif days_span > 365:
+        ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=3))  # 1-2年：每季度
+    else:
+        ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=1))  # <1年：每月
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
     # 合并图例（放在左上角）
@@ -173,33 +195,38 @@ def plot_chart(df: pd.DataFrame, n: int, output_path: str = None, show: bool = T
 def main():
     args = parse_args()
 
-    # 确定日期范围
+    # N日参数始终有效
+    n = args.days
+
+    # 结束日期
     if args.end_date is None:
         end_date = datetime.now().strftime('%Y%m%d')
     else:
         end_date = args.end_date
 
+    # 绘图显示起始日期
     if args.start_date:
-        start_date = args.start_date
-        n = None  # 使用自定义日期范围时不计算N日
+        plot_start = args.start_date
     else:
-        n = args.days
-        start_dt = datetime.strptime(end_date, '%Y%m%d') - timedelta(days=n * 2)
-        # 留有余量用于计算N日变化
-        start_date = start_dt.strftime('%Y%m%d')
+        plot_start_dt = datetime.strptime(end_date, '%Y%m%d') - timedelta(days=n * 2)
+        plot_start = plot_start_dt.strftime('%Y%m%d')
+
+    # 数据查询需要额外拉取前N天，才能计算变化量
+    query_start_dt = datetime.strptime(plot_start, '%Y%m%d') - timedelta(days=n + 5)
+    query_start = query_start_dt.strftime('%Y%m%d')
 
     # 数据库路径
     db_path = args.db_path or os.getenv('DB_PATH', 'tushare.db')
 
-    print(f"查询范围: {start_date} ~ {end_date}")
-    if n:
-        print(f"N日参数: {n}")
+    print(f"N日参数: {n}")
+    print(f"绘图范围: {plot_start} ~ {end_date}")
+    print(f"数据查询范围: {query_start} ~ {end_date} (含前导数据用于计算变化量)")
 
     # 读取数据
     reader = DataReader(db_path=db_path)
     try:
-        margin_df = query_margin_data(reader, start_date, end_date)
-        alla_df = query_alla_index_data(reader, start_date, end_date)
+        margin_df = query_margin_data(reader, query_start, end_date)
+        alla_df = query_alla_index_data(reader, query_start, end_date)
 
         # 合并
         merged = pd.merge(margin_df, alla_df, on='trade_date', how='inner')
@@ -207,18 +234,16 @@ def main():
             raise RuntimeError("合并后数据为空，请检查日期范围是否有交集")
 
         # 计算N日变化
-        if n:
-            merged = calculate_n_day_change(merged, n)
-            # 去掉前N日（无法计算完整变化）
-            merged = merged.iloc[n:].reset_index(drop=True)
-        else:
-            merged['margin_change'] = merged['total_margin'] / 1e8
+        merged = calculate_n_day_change(merged, n)
+
+        # 只保留绘图范围内的日期（去掉前导数据）
+        merged = merged[merged['trade_date'] >= plot_start].reset_index(drop=True)
 
         if merged.empty:
             raise RuntimeError(f"数据不足，无法计算{n}日累计变化")
 
         print(f"有效数据: {len(merged)} 个交易日")
-        print(f"两融变化范围: {merged['margin_change'].min():.0f} ~ {merged['margin_change'].max():.0f} 亿元")
+        print(f"两融{n}日变化范围: {merged['margin_change'].min():.0f} ~ {merged['margin_change'].max():.0f} 亿元")
         print(f"中证全指范围: {merged['close'].min():.0f} ~ {merged['close'].max():.0f}")
 
         # 输出路径
@@ -229,7 +254,7 @@ def main():
             output_path = f"reports/charts/margin_vs_alla_{today_str}.png"
 
         # 绘图
-        plot_chart(merged, n or len(merged), output_path=output_path, show=not args.no_show)
+        plot_chart(merged, n, output_path=output_path, show=not args.no_show)
 
     finally:
         reader.close()
