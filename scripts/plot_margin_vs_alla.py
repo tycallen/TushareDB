@@ -176,7 +176,7 @@ def plot_chart(df: pd.DataFrame, n: int, output_path: str = None, show: bool = T
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
     # 每月虚线格（按月分界显示垂直虚线）
-    ax1.xaxis.grid(True, which='major', linestyle='--', alpha=0.3)
+    ax1.xaxis.grid(True, which='major', linestyle='--', alpha=0.6, color='black')
     ax1.set_axisbelow(True)  # 网格线置于数据下方
 
     # 合并图例（放在左上角）
