@@ -175,6 +175,10 @@ def plot_chart(df: pd.DataFrame, n: int, output_path: str = None, show: bool = T
         ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=1))  # <1年：每月
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
 
+    # 每月虚线格（按月分界显示垂直虚线）
+    ax1.xaxis.grid(True, which='major', linestyle='--', alpha=0.3)
+    ax1.set_axisbelow(True)  # 网格线置于数据下方
+
     # 合并图例（放在左上角）
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
