@@ -56,3 +56,12 @@ test_chinese*.png
 
 # Git worktrees
 .worktrees/
+
+# Generated research outputs (keep local, not in git)
+output/
+reports/charts/
+reports/research/*.png
+reports/research/*.md
+reports/research/*.txt
+reports/research/*.json
+reports/quality_check/*.md
