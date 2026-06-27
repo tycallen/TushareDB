@@ -1675,8 +1675,14 @@ class DataReader:
                     if 'ts_code' in df.columns:
                         ts_codes = df['ts_code'].unique().tolist()
                     else:
-                        # 降级：使用查询结果中的最后一天因子（旧行为，可能不准确）
-                        logger.warning("前复权计算缺少 ts_codes 参数，使用查询结果中的最后一天因子")
+                        # 无法确定股票代码：只能退化为使用查询窗口最后一行的因子，
+                        # 但查询历史区间时这会得到错误的前复权价（锚定到窗口末尾而非
+                        # 真正的最新交易日）。严格模式下直接报错，避免静默产生错误数据。
+                        msg = ("前复权计算缺少 ts_codes 参数且 df 无 ts_code 列，"
+                               "无法获取真实最新复权因子")
+                        if self.strict_mode:
+                            raise DataReaderError(msg)
+                        logger.warning(f"{msg}，降级使用查询窗口最后一行的因子（可能不准确）")
                         latest_factor = df['adj_factor'].iloc[-1]
                         for col in price_cols:
                             if col in df.columns:
@@ -1712,17 +1718,20 @@ class DataReader:
                 # 前复权公式：qfq_price = raw_price × (adj_factor / latest_factor)
                 # 等价于：qfq_price = hfq_price / latest_factor
                 if 'ts_code' in df.columns:
-                    # 多股票情况
+                    # 多股票情况（向量化，避免逐行 apply）
+                    # 缺失的 ts_code 退化为最新因子 1.0，保持原有语义
+                    latest_series = df['ts_code'].map(latest_factors).fillna(1.0)
+                    valid = df['adj_factor'].notna() & (latest_series != 0)
+                    # 用 1.0 兜底分母，避免除零告警；最终由 valid 掩码决定是否生效
+                    ratio = df['adj_factor'] / latest_series.where(latest_series != 0, 1.0)
                     for col in price_cols:
                         if col in df.columns:
-                            df[col] = df.apply(
-                                lambda row: row[col] * (row['adj_factor'] / latest_factors.get(row['ts_code'], 1.0))
-                                if pd.notna(row['adj_factor']) and latest_factors.get(row['ts_code'], 1.0) != 0 else row[col],
-                                axis=1
-                            )
+                            df[col] = (df[col] * ratio).where(valid, df[col])
                 else:
-                    # 单股票情况
-                    latest_factor = latest_factors.get(ts_codes[0], df['adj_factor'].iloc[-1])
+                    # 单股票情况：查不到目标代码时，退回到查询返回的「真实最新因子」
+                    # （latest_adj_df 第一行），而不是查询窗口最后一行的因子
+                    fallback_latest = latest_adj_df['adj_factor'].iloc[0]
+                    latest_factor = latest_factors.get(ts_codes[0], fallback_latest)
                     for col in price_cols:
                         if col in df.columns:
                             df[col] = df[col] * (df['adj_factor'] / latest_factor)
