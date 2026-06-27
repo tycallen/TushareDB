@@ -9,11 +9,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse # Import ORJSONResponse
 from typing import Optional, List
-import pandas as pd
 import orjson # Import orjson
 import json
 
 from .reader import DataReader
+from .logger import get_logger
+
+logger = get_logger("web_server")
 
 # Create a FastAPI app instance
 app = FastAPI(
@@ -107,8 +109,11 @@ async def get_stock_basic(
     try:
         df = reader.get_stock_basic(ts_code=ts_code, list_status=list_status)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/cyq_chips")
@@ -147,8 +152,11 @@ async def get_cyq_chips(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/stk_factor_pro")
@@ -205,8 +213,11 @@ async def get_stk_factor_pro(
                     df = df[available_fields]
 
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/trade_cal")
@@ -238,8 +249,11 @@ async def get_trade_cal(
         if exchange and not df.empty and 'exchange' in df.columns:
             df = df[df['exchange'] == exchange]
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/hs_const")
@@ -267,8 +281,11 @@ async def get_hs_const(
 
         df = reader.query(sql, params)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/stock_company")
@@ -309,8 +326,11 @@ async def get_stock_company(
                     df = df[available_fields]
 
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/index_basic")
@@ -352,8 +372,11 @@ async def get_index_basic(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/index_weight")
@@ -370,9 +393,6 @@ async def get_index_weight(
     if not reader:
         raise HTTPException(status_code=503, detail="Database reader is not available.")
     try:
-        # Construct trade_date from year and month (first day of the month)
-        trade_date = f"{year}{month:02d}01"
-
         field_list = _safe_select_fields("index_weight", fields)
         sql = f"""
             SELECT {field_list} FROM index_weight
@@ -382,8 +402,11 @@ async def get_index_weight(
 
         df = reader.query(sql, [index_code, f"{year}{month:02d}%"])
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/daily_basic")
@@ -440,8 +463,11 @@ async def get_daily_basic(
                     df = df[available_fields]
 
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/dc_member")
@@ -475,8 +501,11 @@ async def get_dc_member(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/dc_index")
@@ -514,8 +543,11 @@ async def get_dc_index(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/get_top_n_sector_members")
@@ -549,8 +581,11 @@ async def get_top_n_sector_members(
                 status_code=501,
                 detail="get_top_n_sector_members not implemented in DataReader yet"
             )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/cyq_perf")
@@ -588,8 +623,11 @@ async def get_cyq_perf(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/fina_indicator_vip")
@@ -631,8 +669,11 @@ async def get_fina_indicator_vip(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/adj_factor")
@@ -689,8 +730,11 @@ async def get_adj_factor(
                     df = df[available_fields]
 
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/daily")
@@ -734,8 +778,11 @@ async def get_daily(
                 df[f'ma{window}'] = df['close'].rolling(window=window).mean()
 
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/api/listing_first_day_info")
@@ -783,6 +830,9 @@ async def get_listing_first_day_info(
             )
         
         return df_to_json_response(df)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("API request failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 

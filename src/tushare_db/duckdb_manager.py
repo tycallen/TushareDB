@@ -3,7 +3,7 @@ import pandas as pd
 import re
 import time
 import threading
-from typing import TYPE_CHECKING, Optional, Union, List, Any
+from typing import Optional, Union, List, Any
 
 from .logger import get_logger
 
@@ -132,11 +132,20 @@ class DuckDBManager:
         """
         try:
             with self._lock:
-                result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
-            return not result.empty
+                # information_schema returns an empty result for a missing table
+                # (no exception), which lets us distinguish "table absent" from a
+                # genuine query error — PRAGMA table_info raises CatalogException on
+                # a missing table, so catching it there silently hid real failures.
+                result = self.con.execute(
+                    "SELECT 1 FROM information_schema.tables WHERE table_name = ?",
+                    [table_name],
+                ).fetchone()
+            return result is not None
         except Exception as e:
             logger.error(f"Error checking existence of table {table_name}: {e}")
-            return False
+            raise DuckDBManagerError(
+                f"Failed to check existence of table {table_name}: {e}"
+            ) from e
 
     def _truncate_query_for_logging(self, query: str, max_len: int = 200) -> str:
         """Shortens long IN clauses in SQL queries for cleaner logging."""

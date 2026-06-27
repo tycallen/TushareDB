@@ -3,7 +3,7 @@
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 import pandas as pd
 
 
@@ -115,7 +115,6 @@ def test_index_member_all_upsert_with_pit_data(mock_downloader):
     验证下载后的数据写入逻辑：
     - 同一 PK (ts_code, l3_code, in_date) 的 is_new='N' 记录会更新 is_new='Y' 的 out_date
     """
-    from tushare_db.downloader import DataDownloader
 
     # 模拟万辰集团的场景：
     # - is_new='Y' 返回：in_date=20240730, out_date=NULL (脏数据)
@@ -174,7 +173,7 @@ def test_actual_update_script_downloads_historical_data():
         script_code,
         re.DOTALL
     )
-    assert func_match, f"未找到 update_index_member_all 函数"
+    assert func_match, "未找到 update_index_member_all 函数"
     func_body = func_match.group(1)
 
     # 关键断言：必须同时下载 is_new='Y' 和 is_new='N'

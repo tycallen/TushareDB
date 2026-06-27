@@ -34,7 +34,13 @@ def setup_logging(log_level=logging.INFO):
 def get_logger(name):
     """
     Get a logger instance for a given module.
+
+    Accepts either a bare module name ("reader") or a dotted module path
+    ("tushare_db.reader", i.e. __name__). Already-namespaced names are returned
+    as-is to avoid a doubled 'tushare_db.tushare_db.' prefix.
     """
+    if name == 'tushare_db' or name.startswith('tushare_db.'):
+        return logging.getLogger(name)
     return logging.getLogger(f'tushare_db.{name}')
 
 # Initialize logging with a default level when the module is first imported.
