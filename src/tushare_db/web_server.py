@@ -74,6 +74,25 @@ def df_to_json_response(df):
     return orjson.loads(orjson.dumps(df.to_dict(orient='records')))
 
 
+def _safe_select_fields(table_name: str, fields: Optional[str]) -> str:
+    """
+    Build a safe SELECT column list for `table_name` from a user-supplied
+    `fields` string.
+
+    The `fields` value comes straight from an HTTP query parameter, so it must
+    never be interpolated into SQL verbatim (that is an injection vector). We
+    whitelist each requested column against the table's real columns and quote
+    them; anything unknown is dropped. Returns "*" when no valid column is
+    requested.
+    """
+    if not fields:
+        return "*"
+    valid_columns = set(reader.db.get_table_columns(table_name)) if reader else set()
+    requested = [f.strip() for f in fields.split(',') if f.strip()]
+    safe = [f'"{f}"' for f in requested if f in valid_columns]
+    return ", ".join(safe) if safe else "*"
+
+
 @app.get("/api/stock_basic")
 async def get_stock_basic(
     ts_code: Optional[str] = None,
@@ -123,7 +142,7 @@ async def get_cyq_chips(
             params.append(end_date)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("cyq_chips", fields)
         sql = f"SELECT {field_list} FROM cyq_chips WHERE {where_clause}"
 
         df = reader.query(sql, params if params else None)
@@ -166,7 +185,7 @@ async def get_stk_factor_pro(
                 params.append(query_end)
 
             where_clause = " AND ".join(conditions) if conditions else "1=1"
-            field_list = fields if fields else "*"
+            field_list = _safe_select_fields("stk_factor_pro", fields)
             sql = f"SELECT {field_list} FROM stk_factor_pro WHERE {where_clause}"
             df = reader.query(sql, params if params else None)
         else:
@@ -243,7 +262,7 @@ async def get_hs_const(
             params.append(is_new)
 
         where_clause = " AND ".join(conditions)
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("hs_const", fields)
         sql = f"SELECT {field_list} FROM hs_const WHERE {where_clause}"
 
         df = reader.query(sql, params)
@@ -273,7 +292,7 @@ async def get_stock_company(
                 params.append(exchange)
 
             where_clause = " AND ".join(conditions) if conditions else "1=1"
-            field_list = fields if fields else "*"
+            field_list = _safe_select_fields("stock_company", fields)
             sql = f"SELECT {field_list} FROM stock_company WHERE {where_clause}"
             df = reader.query(sql, params if params else None)
         else:
@@ -328,7 +347,7 @@ async def get_index_basic(
             params.append(category)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("index_basic", fields)
         sql = f"SELECT {field_list} FROM index_basic WHERE {where_clause}"
 
         df = reader.query(sql, params if params else None)
@@ -354,7 +373,7 @@ async def get_index_weight(
         # Construct trade_date from year and month (first day of the month)
         trade_date = f"{year}{month:02d}01"
 
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("index_weight", fields)
         sql = f"""
             SELECT {field_list} FROM index_weight
             WHERE index_code = ?
@@ -401,7 +420,7 @@ async def get_daily_basic(
                 params.append(query_end)
 
             where_clause = " AND ".join(conditions) if conditions else "1=1"
-            field_list = fields if fields else "*"
+            field_list = _safe_select_fields("daily_basic", fields)
             sql = f"SELECT {field_list} FROM daily_basic WHERE {where_clause}"
             df = reader.query(sql, params if params else None)
         else:
@@ -451,7 +470,7 @@ async def get_dc_member(
             params.append(trade_date)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("dc_member", fields)
         sql = f"SELECT {field_list} FROM dc_member WHERE {where_clause}"
 
         df = reader.query(sql, params if params else None)
@@ -490,7 +509,7 @@ async def get_dc_index(
             params.append(end_date)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("dc_index", fields)
         sql = f"SELECT {field_list} FROM dc_index WHERE {where_clause}"
 
         df = reader.query(sql, params if params else None)
@@ -564,7 +583,7 @@ async def get_cyq_perf(
             params.append(end_date)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("cyq_perf", fields)
         sql = f"SELECT {field_list} FROM cyq_perf WHERE {where_clause}"
 
         df = reader.query(sql, params if params else None)
@@ -607,7 +626,7 @@ async def get_fina_indicator_vip(
             params.append(period)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
-        field_list = fields if fields else "*"
+        field_list = _safe_select_fields("fina_indicator_vip", fields)
         sql = f"SELECT {field_list} FROM fina_indicator_vip WHERE {where_clause}"
 
         df = reader.query(sql, params if params else None)
@@ -650,7 +669,7 @@ async def get_adj_factor(
                 params.append(query_end)
 
             where_clause = " AND ".join(conditions) if conditions else "1=1"
-            field_list = fields if fields else "*"
+            field_list = _safe_select_fields("adj_factor", fields)
             sql = f"SELECT {field_list} FROM adj_factor WHERE {where_clause}"
             df = reader.query(sql, params if params else None)
         else:

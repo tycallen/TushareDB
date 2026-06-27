@@ -23,6 +23,7 @@
 17. 更新同花顺板块日行情 (ths_daily)
 18. 更新开盘啦题材库 (kpl_concept, kpl_concept_cons)
 19. 更新指数成分权重数据 (index_weight) - 月度更新，覆盖沪深300/中证500/中证800/中证1000/上证50/科创50
+20. 更新股票开盘集合竞价数据 (stk_auction_o)
 
 使用方法：
     python scripts/update_daily.py
@@ -2547,6 +2548,80 @@ def update_stk_rewards(downloader: DataDownloader):
         logger.warning("  继续执行其他更新任务...")
 
 
+def update_stk_auction_o(downloader: DataDownloader):
+    """
+    增量更新股票开盘集合竞价数据 (stk_auction_o)
+
+    策略：
+        1. 获取数据库中 stk_auction_o 的最新日期
+        2. 从下一天开始更新到今天
+        3. 按交易日逐日下载
+
+    数据说明：
+        - 股票开盘集合竞价数据（9:15-9:25）
+        - 包含开盘价、收盘价、最高价、最低价、成交量、成交额、均价
+        - 每天盘后更新
+        - 需要开通股票分钟权限
+    """
+    logger.info("=" * 60)
+    logger.info("开始增量更新开盘集合竞价数据 (stk_auction_o)...")
+
+    try:
+        # 1. 获取最新日期
+        latest_date = downloader.db.get_latest_date('stk_auction_o', 'trade_date')
+        today = datetime.now().strftime('%Y%m%d')
+
+        if latest_date is None:
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+            logger.info("数据库中没有集合竞价历史数据，将从30天前开始初始化")
+            logger.info(f"  (初始化: 从30天前 {start_date} 开始)")
+        else:
+            latest_dt = datetime.strptime(latest_date, '%Y%m%d')
+            start_date = (latest_dt + timedelta(days=1)).strftime('%Y%m%d')
+            logger.info(f"数据库最新日期: {latest_date}")
+
+        logger.info(f"更新范围: {start_date} → {today}")
+
+        # 2. 获取交易日
+        if start_date > today:
+            logger.info("无需更新")
+            return
+
+        trading_dates_df = downloader.db.execute_query('''
+            SELECT cal_date
+            FROM trade_cal
+            WHERE cal_date >= ? AND cal_date <= ? AND is_open = 1
+            ORDER BY cal_date
+        ''', [start_date, today])
+
+        if trading_dates_df.empty:
+            logger.info("期间无交易日")
+            return
+
+        trading_dates = trading_dates_df['cal_date'].tolist()
+        logger.info(f"需要更新 {len(trading_dates)} 个交易日")
+
+        # 3. 逐日更新
+        success_count = 0
+        total_rows = 0
+        for trade_date in trading_dates:
+            try:
+                rows = downloader.download_stk_auction_o_by_date(trade_date)
+                if rows > 0:
+                    success_count += 1
+                    total_rows += rows
+                    logger.info(f"  ✓ {trade_date}: {rows} 行")
+            except Exception as e:
+                logger.error(f"  ✗ {trade_date} 更新失败: {e}")
+                # 不中断，继续下一个
+
+        logger.info(f"✓ 开盘集合竞价更新完成: 成功 {success_count}/{len(trading_dates)}, 共 {total_rows} 行")
+
+    except Exception as e:
+        logger.error(f"✗ 更新开盘集合竞价数据失败: {e}")
+        logger.warning("  继续执行其他更新任务...")
+
+
 def _is_earnings_season() -> bool:
     """
     判断当前是否处于财报季
@@ -2705,6 +2780,7 @@ def main():
                 (update_ths_member, "同花顺板块成分股"),
                 # 每日行情数据
                 (update_daily_data, "每日数据(日线/复权/基本面)"),
+                (update_stk_auction_o, "开盘集合竞价"),
                 (update_index_daily, "指数日线"),
                 (update_index_weight_data, "指数成分权重"),
                 # 财务数据

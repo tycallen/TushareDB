@@ -1557,6 +1557,87 @@ class DataDownloader:
         logger.info(f"两融余额汇总数据: {len(df)} 行")
         return len(df)
 
+    def download_stk_auction_o(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        下载开盘集合竞价数据
+
+        数据说明：
+        - 获取股票开盘集合竞价数据（9:15-9:25）
+        - 包含开盘价、收盘价、最高价、最低价、成交量、成交额、均价
+        - 需要至少5000积分
+
+        字段说明：
+        - ts_code: 股票代码
+        - trade_date: 交易日期
+        - close: 开盘集合竞价收盘价
+        - open: 开盘集合竞价开盘价
+        - high: 开盘集合竞价最高价
+        - low: 开盘集合竞价最低价
+        - vol: 开盘集合竞价成交量
+        - amount: 开盘集合竞价成交额
+        - vwap: 开盘集合竞价均价
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载开盘集合竞价: ts_code={ts_code}, trade_date={trade_date}, "
+                    f"start_date={start_date}, end_date={end_date}")
+
+        df = self.fetcher.fetch(
+            'stk_auction_o',
+            ts_code=ts_code,
+            trade_date=trade_date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if df.empty:
+            logger.debug(f"无开盘集合竞价数据")
+            return 0
+
+        self.db.write_dataframe(df, 'stk_auction_o', mode='append')
+        logger.info(f"开盘集合竞价数据: {len(df)} 行")
+        return len(df)
+
+
+    def download_stk_auction_o_by_date(self, trade_date: str) -> int:
+        """
+        按日期下载所有股票的开盘集合竞价数据（适合每日更新）
+
+        Args:
+            trade_date: 交易日期 YYYYMMDD
+
+        Returns:
+            下载的行数
+        """
+        logger.info(f"批量下载开盘集合竞价: {trade_date}")
+
+        df = self.fetcher.fetch(
+            'stk_auction_o',
+            trade_date=trade_date
+        )
+
+        if df.empty:
+            logger.info(f"无开盘集合竞价数据: {trade_date}")
+            return 0
+
+        self.db.write_dataframe(df, 'stk_auction_o', mode='append')
+        logger.info(f"开盘集合竞价数据: {len(df)} 行 ({trade_date})")
+        return len(df)
+
+
     # ==================== 申万行业指数 ====================
 
     def download_sw_daily(

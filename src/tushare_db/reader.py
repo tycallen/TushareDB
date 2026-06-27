@@ -605,6 +605,77 @@ class DataReader:
 
         return self.db.execute_query(query, params)
 
+    def get_stk_auction_o(
+        self,
+        ts_code: Optional[str] = None,
+        trade_date: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> pd.DataFrame:
+        """
+        查询股票开盘集合竞价数据
+
+        数据说明：
+        - 获取沪深A股开盘集合竞价数据
+        - 包含开盘价、成交量、成交额等集合竞价信息
+
+        Args:
+            ts_code: 股票代码（可选）
+            trade_date: 交易日期 YYYYMMDD（可选）
+            start_date: 开始日期（可选）
+            end_date: 结束日期（可选）
+
+        Returns:
+            开盘集合竞价数据 DataFrame，包含以下字段：
+            - ts_code: 股票代码
+            - trade_date: 交易日期
+            - close: 收盘价（集合竞价）
+            - open: 开盘价
+            - high: 最高价
+            - low: 最低价
+            - vol: 成交量（手）
+            - amount: 成交额（元）
+            - vwap: 成交量加权平均价
+
+        Examples:
+            >>> # 获取单日全部股票集合竞价数据
+            >>> df = reader.get_stk_auction_o(trade_date='20240115')
+            >>>
+            >>> # 获取单个股票集合竞价数据
+            >>> df = reader.get_stk_auction_o(
+            ...     ts_code='000001.SZ',
+            ...     start_date='20240101',
+            ...     end_date='20240131'
+            ... )
+        """
+        conditions = []
+        params = []
+
+        if ts_code:
+            conditions.append("ts_code = ?")
+            params.append(ts_code)
+
+        if trade_date:
+            conditions.append("trade_date = ?")
+            params.append(trade_date)
+        elif start_date or end_date:
+            if start_date and end_date:
+                conditions.append("trade_date BETWEEN ? AND ?")
+                params.extend([start_date, end_date])
+            elif start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            elif end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
+
+        query = "SELECT * FROM stk_auction_o"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY trade_date DESC, ts_code"
+
+        return self.db.execute_query(query, params if params else None)
+
     def get_moneyflow(
         self,
         ts_code: Optional[str] = None,

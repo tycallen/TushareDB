@@ -1,13 +1,17 @@
 import duckdb
 import pandas as pd
-import logging
 import re
 import time
 import threading
 from typing import TYPE_CHECKING, Optional, Union, List, Any
 
-# Configure logging
-logging.basicConfig(level=logging.CRITICAL, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
+from .logger import get_logger
+
+# Route this module's logs through the library's named logger ('tushare_db.*')
+# instead of reconfiguring the root logger. The previous module-level
+# logging.basicConfig(level=CRITICAL) silently suppressed every info/warning/error
+# emitted here (including write/query failures).
+logger = get_logger("duckdb_manager")
 
 class DuckDBManagerError(Exception):
     """Custom exception for DuckDBManager errors."""
@@ -19,6 +23,7 @@ TABLE_PRIMARY_KEYS = {
     "daily_basic": ["ts_code", "trade_date"],
     "adj_factor": ["ts_code", "trade_date"],
     "cyq_perf": ["ts_code", "trade_date"],
+    "stk_auction_o": ["ts_code", "trade_date"],
     # "cyq_chips": ["ts_code", "trade_date", "price"],
     "dc_member": ["ts_code", "trade_date", "con_code"],
     "dc_index": ["ts_code", "trade_date"],
@@ -110,9 +115,9 @@ class DuckDBManager:
             if not read_only:
                 self._create_metadata_table()
 
-            logging.info(f"Connected to DuckDB database: {db_path} (read_only={read_only})")
+            logger.info(f"Connected to DuckDB database: {db_path} (read_only={read_only})")
         except Exception as e:
-            logging.error(f"Failed to connect to DuckDB at {db_path}: {e}")
+            logger.error(f"Failed to connect to DuckDB at {db_path}: {e}")
             raise DuckDBManagerError(f"Failed to connect to DuckDB: {e}") from e
 
     def table_exists(self, table_name: str) -> bool:
@@ -130,7 +135,7 @@ class DuckDBManager:
                 result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
             return not result.empty
         except Exception as e:
-            logging.error(f"Error checking existence of table {table_name}: {e}")
+            logger.error(f"Error checking existence of table {table_name}: {e}")
             return False
 
     def _truncate_query_for_logging(self, query: str, max_len: int = 200) -> str:
@@ -164,7 +169,7 @@ class DuckDBManager:
         """
         try:
             log_query = self._truncate_query_for_logging(query)
-            logging.info(f"Executing query: {log_query}")
+            logger.info(f"Executing query: {log_query}")
 
             with self._lock:
                 if params:
@@ -174,7 +179,7 @@ class DuckDBManager:
 
             return df
         except Exception as e:
-            logging.error(f"Error executing query '{query}' with params {params}: {e}")
+            logger.error(f"Error executing query '{query}' with params {params}: {e}")
             raise DuckDBManagerError(f"Failed to execute query: {e}") from e
 
     def get_table_columns(self, table_name: str) -> List[str]:
@@ -194,7 +199,7 @@ class DuckDBManager:
                 result = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
             return result['name'].tolist()
         except Exception as e:
-            logging.error(f"Error getting columns for table {table_name}: {e}")
+            logger.error(f"Error getting columns for table {table_name}: {e}")
             raise DuckDBManagerError(f"Failed to get columns for table {table_name}: {e}") from e
 
     def _get_sql_schema_from_df(self, df: pd.DataFrame) -> str:
@@ -218,7 +223,7 @@ class DuckDBManager:
         if mode not in ['append', 'replace']:
             raise ValueError(f"Invalid write mode: {mode}. Must be 'append' or 'replace'.")
         if df.empty:
-            logging.warning(f"DataFrame is empty. No data written to table {table_name}.")
+            logger.warning(f"DataFrame is empty. No data written to table {table_name}.")
             return
 
         # Use thread ID for unique temp view name to avoid collisions in concurrent writes
@@ -228,11 +233,11 @@ class DuckDBManager:
                 self.con.register(temp_view_name, df)
 
                 if mode == 'replace':
-                    logging.info(f"Replacing table {table_name} with new data.")
+                    logger.info(f"Replacing table {table_name} with new data.")
                     self.con.execute(f"DROP TABLE IF EXISTS {table_name}")
 
                 if not self.table_exists(table_name):
-                    logging.info(f"Table {table_name} does not exist. Creating it...")
+                    logger.info(f"Table {table_name} does not exist. Creating it...")
                     schema_str = self._get_sql_schema_from_df(df)
                     pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
                     create_sql = f"CREATE TABLE {table_name} ({schema_str}"
@@ -243,12 +248,12 @@ class DuckDBManager:
                         pk_str = ", ".join([f'"{col}"' for col in pk_columns])
                         create_sql += f", PRIMARY KEY ({pk_str})"
                     create_sql += ")"
-                    logging.info(f"Executing create SQL: {create_sql}")
+                    logger.info(f"Executing create SQL: {create_sql}")
                     self.con.execute(create_sql)
                     self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
-                    logging.info(f"Table '{table_name}' created with {len(df)} rows.")
+                    logger.info(f"Table '{table_name}' created with {len(df)} rows.")
                 elif mode == 'append':
-                    logging.info(f"Appending/updating data in table {table_name}.")
+                    logger.info(f"Appending/updating data in table {table_name}.")
                     pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
                     all_columns_str = ", ".join([f'"{c}"' for c in df.columns])
                     if pk_columns:
@@ -260,10 +265,10 @@ class DuckDBManager:
                     else:
                         self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
 
-                logging.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
+                logger.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
                 self.con.unregister(temp_view_name)
         except Exception as e:
-            logging.error(f"Error writing DataFrame to table {table_name} in {mode} mode: ", e, exc_info=True)
+            logger.error(f"Error writing DataFrame to table {table_name} in {mode} mode: {e}", exc_info=True)
             with self._lock:
                 try:
                     self.con.unregister(temp_view_name)
@@ -276,7 +281,7 @@ class DuckDBManager:
         Retrieves the maximum (latest) date from a specified date column in a table.
         """
         if not self.table_exists(table_name):
-            logging.info(f"Table {table_name} does not exist. Returning None for latest date.")
+            logger.info(f"Table {table_name} does not exist. Returning None for latest date.")
             return None
         try:
             query = f"SELECT MAX({date_col}) FROM {table_name}"
@@ -284,13 +289,13 @@ class DuckDBManager:
                 result = self.con.execute(query).fetchone()
             if result and result[0] is not None:
                 latest_date = str(result[0])
-                logging.info(f"Latest date in {table_name}.{date_col}: {latest_date}")
+                logger.info(f"Latest date in {table_name}.{date_col}: {latest_date}")
                 return latest_date
             else:
-                logging.info(f"Table {table_name} is empty or {date_col} contains no data. Returning None.")
+                logger.info(f"Table {table_name} is empty or {date_col} contains no data. Returning None.")
                 return None
         except Exception as e:
-            logging.error(f"Error getting latest date from {table_name}.{date_col}: {e}")
+            logger.error(f"Error getting latest date from {table_name}.{date_col}: {e}")
             raise DuckDBManagerError(f"Failed to get latest date: {e}") from e
 
     def _truncate_codes_for_logging(self, codes: List[str], max_len: int = 10) -> str:
@@ -306,11 +311,11 @@ class DuckDBManager:
         For one or more partition keys, finds the most common latest date among them.
         """
         if not self.table_exists(table_name):
-            logging.info(f"Table {table_name} does not exist. Returning None for latest date.")
+            logger.info(f"Table {table_name} does not exist. Returning None for latest date.")
             return None
         keys = [partition_key_value] if isinstance(partition_key_value, str) else partition_key_value
         if not keys:
-            logging.warning(f"{partition_key_col} list is empty. Returning None.")
+            logger.warning(f"{partition_key_col} list is empty. Returning None.")
             return None
         keys_for_log = self._truncate_codes_for_logging(keys)
         try:
@@ -326,13 +331,13 @@ class DuckDBManager:
                 result = self.con.execute(query, [keys]).fetchone()
             if result and result[0] is not None:
                 latest_date = str(result[0])
-                logging.info(f"Most common latest date for partition '{partition_key_col}' with keys {keys_for_log} in {table_name}.{date_col}: {latest_date}")
+                logger.info(f"Most common latest date for partition '{partition_key_col}' with keys {keys_for_log} in {table_name}.{date_col}: {latest_date}")
                 return latest_date
             else:
-                logging.info(f"No data found for any of keys {keys_for_log} in {table_name}. Returning None.")
+                logger.info(f"No data found for any of keys {keys_for_log} in {table_name}. Returning None.")
                 return None
         except Exception as e:
-            logging.error(f"Error getting latest date for partition '{partition_key_col}' with keys {keys_for_log} from {table_name}.{date_col}: {e}")
+            logger.error(f"Error getting latest date for partition '{partition_key_col}' with keys {keys_for_log} from {table_name}.{date_col}: {e}")
             raise DuckDBManagerError(f"Failed to get latest date for partition(s): {e}") from e
 
     def ensure_primary_key(self, table_name: str) -> bool:
@@ -346,12 +351,12 @@ class DuckDBManager:
             True if the table was rebuilt, False if no action was needed.
         """
         if not self.table_exists(table_name):
-            logging.info(f"Table {table_name} does not exist. Skipping primary key check.")
+            logger.info(f"Table {table_name} does not exist. Skipping primary key check.")
             return False
 
         pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
         if not pk_columns:
-            logging.info(f"No primary key defined for table {table_name}. Skipping.")
+            logger.info(f"No primary key defined for table {table_name}. Skipping.")
             return False
 
         # Check if table already has a primary key
@@ -363,10 +368,10 @@ class DuckDBManager:
                 ).fetchall()
 
                 if len(constraints) > 0:
-                    logging.debug(f"Table {table_name} already has a primary key.")
+                    logger.debug(f"Table {table_name} already has a primary key.")
                     return False
 
-                logging.info(f"Table {table_name} is missing primary key. Rebuilding...")
+                logger.info(f"Table {table_name} is missing primary key. Rebuilding...")
 
                 # Get current schema
                 schema_df = self.con.execute(f"PRAGMA table_info('{table_name}')").fetchdf()
@@ -406,12 +411,12 @@ class DuckDBManager:
                 self.con.execute(f"DROP TABLE {table_name}")
                 self.con.execute(f"ALTER TABLE {temp_table} RENAME TO {table_name}")
 
-            logging.info(f"Rebuilt {table_name} with primary key ({pk_str}). "
+            logger.info(f"Rebuilt {table_name} with primary key ({pk_str}). "
                         f"Rows: {old_count} -> {new_count} (removed {old_count - new_count} duplicates)")
             return True
 
         except Exception as e:
-            logging.error(f"Error ensuring primary key for {table_name}: {e}")
+            logger.error(f"Error ensuring primary key for {table_name}: {e}")
             raise DuckDBManagerError(f"Failed to ensure primary key: {e}") from e
 
     def close(self) -> None:
@@ -419,9 +424,9 @@ class DuckDBManager:
         try:
             with self._lock:
                 self.con.close()
-            logging.info(f"Closed connection to DuckDB database: {self.db_path}")
+            logger.info(f"Closed connection to DuckDB database: {self.db_path}")
         except Exception as e:
-            logging.error(f"Error closing DuckDB connection: {e}")
+            logger.error(f"Error closing DuckDB connection: {e}")
             raise DuckDBManagerError(f"Failed to close DuckDB connection: {e}") from e
 
     def _create_metadata_table(self) -> None:
@@ -434,9 +439,9 @@ class DuckDBManager:
                         last_updated_timestamp DOUBLE
                     )
                 """)
-            logging.info("Ensured _tushare_cache_metadata table exists.")
+            logger.info("Ensured _tushare_cache_metadata table exists.")
         except Exception as e:
-            logging.error(f"Error creating metadata table: {e}")
+            logger.error(f"Error creating metadata table: {e}")
             raise DuckDBManagerError(f"Failed to create metadata table: {e}") from e
 
     def get_cache_metadata(self, table_name: str) -> Optional[float]:
@@ -449,7 +454,7 @@ class DuckDBManager:
                 ).fetchone()
             return float(result[0]) if result and result[0] is not None else None
         except Exception as e:
-            logging.error(f"Error getting cache metadata for {table_name}: {e}")
+            logger.error(f"Error getting cache metadata for {table_name}: {e}")
             raise DuckDBManagerError(f"Failed to get cache metadata: {e}") from e
 
     def update_cache_metadata(self, table_name: str, timestamp: float) -> None:
@@ -460,9 +465,9 @@ class DuckDBManager:
                     INSERT INTO _tushare_cache_metadata (table_name, last_updated_timestamp) VALUES (?, ?)
                     ON CONFLICT (table_name) DO UPDATE SET last_updated_timestamp = EXCLUDED.last_updated_timestamp
                 """, [table_name, timestamp])
-            logging.info(f"Updated cache metadata for {table_name} with timestamp {timestamp}.")
+            logger.info(f"Updated cache metadata for {table_name} with timestamp {timestamp}.")
         except Exception as e:
-            logging.error(f"Error updating cache metadata for {table_name}: {e}")
+            logger.error(f"Error updating cache metadata for {table_name}: {e}")
             raise DuckDBManagerError(f"Failed to update cache metadata: {e}") from e
 
     def delete_data(self, table_name: str, where_clause: str) -> int:
@@ -480,7 +485,7 @@ class DuckDBManager:
             DuckDBManagerError: If the deletion fails.
         """
         if not self.table_exists(table_name):
-            logging.warning(f"Table {table_name} does not exist. No data deleted.")
+            logger.warning(f"Table {table_name} does not exist. No data deleted.")
             return 0
         if not where_clause:
             raise ValueError("A WHERE clause is required to prevent accidental full-table deletion.")
@@ -492,13 +497,13 @@ class DuckDBManager:
 
                 if rows_to_delete > 0:
                     delete_query = f"DELETE FROM {table_name} WHERE {where_clause}"
-                    logging.info(f"Executing delete: {delete_query}")
+                    logger.info(f"Executing delete: {delete_query}")
                     self.con.execute(delete_query)
-                    logging.info(f"Successfully deleted {rows_to_delete} rows from {table_name} where {where_clause}.")
+                    logger.info(f"Successfully deleted {rows_to_delete} rows from {table_name} where {where_clause}.")
                 else:
-                    logging.info(f"No rows matched the criteria for deletion in {table_name} where {where_clause}.")
+                    logger.info(f"No rows matched the criteria for deletion in {table_name} where {where_clause}.")
 
             return rows_to_delete
         except Exception as e:
-            logging.error(f"Error deleting data from {table_name} with condition '{where_clause}': {e}")
+            logger.error(f"Error deleting data from {table_name} with condition '{where_clause}': {e}")
             raise DuckDBManagerError(f"Failed to delete data: {e}") from e

@@ -37,3 +37,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+# Only collect the real test suite. `scripts/` contains runnable utility
+# scripts (some named test_*.py) that execute side effects on import and
+# break bare `pytest` collection.
+testpaths = ["tests"]

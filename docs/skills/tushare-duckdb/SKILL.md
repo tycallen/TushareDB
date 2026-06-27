@@ -207,6 +207,7 @@ python scripts/backfill_index_member_pit.py
 | `daily` | daily | ts_code, trade_date | 19910404 | 日线行情 |
 | `adj_factor` | adj_factor | ts_code, trade_date | 19910403 | 复权因子 |
 | `daily_basic` | daily_basic | ts_code, trade_date | 19910404 | 每日指标（PE/PB/市值） |
+| `stk_auction_o` | stk_auction_o | ts_code, trade_date | - | 股票开盘集合竞价数据 |
 | `index_daily` | index_daily | ts_code, trade_date | 19901219 | 指数日线 |
 | `moneyflow` | moneyflow | ts_code, trade_date | **20100104** | 个股资金流向 |
 | `cyq_perf` | cyq_perf | ts_code, trade_date | **20180102** | 筹码分布绩效 |

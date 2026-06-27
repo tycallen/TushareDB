@@ -161,9 +161,10 @@ def test_actual_update_script_downloads_historical_data():
     这是集成测试，检查实际代码行为。
     """
     import re
+    from pathlib import Path
 
-    # 读取实际脚本代码
-    script_path = '/data10/tyc/quant/TushareDB/scripts/update_daily.py'
+    # 读取实际脚本代码（相对于仓库根目录，不依赖具体机器的绝对路径）
+    script_path = Path(__file__).resolve().parent.parent / 'scripts' / 'update_daily.py'
     with open(script_path, 'r') as f:
         script_code = f.read()
 

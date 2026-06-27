@@ -57,6 +57,9 @@ test_chinese*.png
 # Git worktrees
 .worktrees/
 
+# OMC (oh-my-claudecode) local state
+.omc/
+
 # Generated research outputs (keep local, not in git)
 output/
 reports/charts/
