@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse # Import ORJSONResponse
 from typing import Optional, List
 import orjson # Import orjson
-import json
 
 from .reader import DataReader
 from .logger import get_logger
@@ -543,44 +542,6 @@ async def get_dc_index(
 
         df = reader.query(sql, params if params else None)
         return df_to_json_response(df)
-    except HTTPException:
-        raise
-    except Exception:
-        logger.error("API request failed", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-
-@app.get("/api/get_top_n_sector_members")
-async def get_top_n_sector_members(
-    start_date: str,
-    end_date: str,
-    top_n: int = 5,
-    sort_by: str = 'pct_change',
-    ascending: bool = False
-):
-    """
-    API endpoint for the get_top_n_sector_members interface.
-    Note: This endpoint requires custom implementation in DataReader.
-    """
-    if not reader:
-        raise HTTPException(status_code=503, detail="Database reader is not available.")
-    try:
-        # Check if reader has this method
-        if hasattr(reader, 'get_top_n_sector_members'):
-            result = reader.get_top_n_sector_members(
-                start_date=start_date,
-                end_date=end_date,
-                top_n=top_n,
-                sort_by=sort_by,
-                ascending=ascending
-            )
-            return json.dumps(result)
-        else:
-            # Fallback: simple custom SQL query
-            raise HTTPException(
-                status_code=501,
-                detail="get_top_n_sector_members not implemented in DataReader yet"
-            )
     except HTTPException:
         raise
     except Exception:

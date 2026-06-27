@@ -1,7 +1,7 @@
 import duckdb
 import pandas as pd
 import re
-import time
+import uuid
 import threading
 from typing import Optional, Union, List, Any
 
@@ -235,55 +235,66 @@ class DuckDBManager:
             logger.warning(f"DataFrame is empty. No data written to table {table_name}.")
             return
 
-        # Use thread ID for unique temp view name to avoid collisions in concurrent writes
-        temp_view_name = f"temp_view_{table_name}_{threading.get_ident()}_{int(time.time() * 1000)}"
+        # 唯一临时视图名：用 uuid 保证并发或同一毫秒内的多次写入不会撞名
+        temp_view_name = f"temp_view_{table_name}_{uuid.uuid4().hex}"
+        # 显式列名，避免依赖列顺序的 SELECT *：当已存在表的物理列序与 df 不一致
+        # （例如后续新增字段）时，SELECT * 会把数据错位写入其它列，静默污染。
+        all_columns_str = ", ".join([f'"{c}"' for c in df.columns])
         try:
             with self._lock:
                 self.con.register(temp_view_name, df)
+                # 事务包裹整个写入：replace 模式先 DROP 再重建，若建表/插入中途失败
+                # 可回滚，避免原表被删后因异常而永久丢失数据。
+                self.con.execute("BEGIN TRANSACTION")
+                try:
+                    if mode == 'replace':
+                        logger.info(f"Replacing table {table_name} with new data.")
+                        self.con.execute(f"DROP TABLE IF EXISTS {table_name}")
 
-                if mode == 'replace':
-                    logger.info(f"Replacing table {table_name} with new data.")
-                    self.con.execute(f"DROP TABLE IF EXISTS {table_name}")
+                    if not self.table_exists(table_name):
+                        logger.info(f"Table {table_name} does not exist. Creating it...")
+                        schema_str = self._get_sql_schema_from_df(df)
+                        pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
+                        create_sql = f"CREATE TABLE {table_name} ({schema_str}"
+                        if pk_columns:
+                            missing_keys = [pk for pk in pk_columns if pk not in df.columns]
+                            if missing_keys:
+                                raise DuckDBManagerError(f"Primary key columns {missing_keys} not found in DataFrame for table {table_name}.")
+                            pk_str = ", ".join([f'"{col}"' for col in pk_columns])
+                            create_sql += f", PRIMARY KEY ({pk_str})"
+                        create_sql += ")"
+                        logger.info(f"Executing create SQL: {create_sql}")
+                        self.con.execute(create_sql)
+                        self.con.execute(f"INSERT INTO {table_name} ({all_columns_str}) SELECT {all_columns_str} FROM {temp_view_name}")
+                        logger.info(f"Table '{table_name}' created with {len(df)} rows.")
+                    elif mode == 'append':
+                        logger.info(f"Appending/updating data in table {table_name}.")
+                        pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
+                        if pk_columns:
+                            update_columns = [c for c in df.columns if c not in pk_columns]
+                            update_clause = "DO NOTHING" if not update_columns else "DO UPDATE SET " + ", ".join([f'"{c}"=excluded."{c}"' for c in update_columns])
+                            pk_str = ", ".join([f'"{col}"' for col in pk_columns])
+                            upsert_sql = f"INSERT INTO {table_name} ({all_columns_str}) SELECT {all_columns_str} FROM {temp_view_name} ON CONFLICT ({pk_str}) {update_clause}"
+                            self.con.execute(upsert_sql)
+                        else:
+                            self.con.execute(f"INSERT INTO {table_name} ({all_columns_str}) SELECT {all_columns_str} FROM {temp_view_name}")
 
-                if not self.table_exists(table_name):
-                    logger.info(f"Table {table_name} does not exist. Creating it...")
-                    schema_str = self._get_sql_schema_from_df(df)
-                    pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
-                    create_sql = f"CREATE TABLE {table_name} ({schema_str}"
-                    if pk_columns:
-                        missing_keys = [pk for pk in pk_columns if pk not in df.columns]
-                        if missing_keys:
-                            raise DuckDBManagerError(f"Primary key columns {missing_keys} not found in DataFrame for table {table_name}.")
-                        pk_str = ", ".join([f'"{col}"' for col in pk_columns])
-                        create_sql += f", PRIMARY KEY ({pk_str})"
-                    create_sql += ")"
-                    logger.info(f"Executing create SQL: {create_sql}")
-                    self.con.execute(create_sql)
-                    self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
-                    logger.info(f"Table '{table_name}' created with {len(df)} rows.")
-                elif mode == 'append':
-                    logger.info(f"Appending/updating data in table {table_name}.")
-                    pk_columns = TABLE_PRIMARY_KEYS.get(table_name)
-                    all_columns_str = ", ".join([f'"{c}"' for c in df.columns])
-                    if pk_columns:
-                        update_columns = [c for c in df.columns if c not in pk_columns]
-                        update_clause = "DO NOTHING" if not update_columns else "DO UPDATE SET " + ", ".join([f'"{c}"=excluded."{c}"' for c in update_columns])
-                        pk_str = ", ".join([f'"{col}"' for col in pk_columns])
-                        upsert_sql = f"INSERT INTO {table_name} ({all_columns_str}) SELECT * FROM {temp_view_name} ON CONFLICT ({pk_str}) {update_clause}"
-                        self.con.execute(upsert_sql)
-                    else:
-                        self.con.execute(f"INSERT INTO {table_name} SELECT * FROM {temp_view_name}")
+                    self.con.execute("COMMIT")
+                except Exception:
+                    self.con.execute("ROLLBACK")
+                    raise
 
                 logger.info(f"Successfully wrote {len(df)} rows to table {table_name} in {mode} mode.")
-                self.con.unregister(temp_view_name)
         except Exception as e:
             logger.error(f"Error writing DataFrame to table {table_name} in {mode} mode: {e}", exc_info=True)
+            raise DuckDBManagerError(f"Failed to write DataFrame to DuckDB: {e}") from e
+        finally:
+            # 保证临时视图一定被注销（无论成功或失败）
             with self._lock:
                 try:
                     self.con.unregister(temp_view_name)
                 except Exception:
                     pass
-            raise DuckDBManagerError(f"Failed to write DataFrame to DuckDB: {e}") from e
 
     def get_latest_date(self, table_name: str, date_col: str) -> Optional[str]:
         """

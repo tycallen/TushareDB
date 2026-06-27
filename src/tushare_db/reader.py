@@ -332,16 +332,17 @@ class DataReader:
             )
             return pd.DataFrame()
         
+        # 一次性获取列信息，避免在 WHERE 构建与 SELECT 子句中重复查询
+        # （原先每个请求会调用 get_table_columns('stock_basic') 3 次）
+        has_list_status = 'list_status' in self.db.get_table_columns('stock_basic')
+
         # 构建 WHERE 条件
         conditions = ["s.list_date IS NOT NULL"]
         params = []
 
-        if list_status:
-            # 检查是否有 list_status 字段
-            has_list_status = 'list_status' in self.db.get_table_columns('stock_basic')
-            if has_list_status:
-                conditions.append("s.list_status = ?")
-                params.append(list_status)
+        if list_status and has_list_status:
+            conditions.append("s.list_status = ?")
+            params.append(list_status)
 
         if market:
             conditions.append("s.market = ?")
@@ -356,7 +357,7 @@ class DataReader:
                 s.name,
                 s.list_date,
                 s.market,
-                {'s.list_status,' if 'list_status' in self.db.get_table_columns('stock_basic') else ''}
+                {'s.list_status,' if has_list_status else ''}
                 p.open,
                 p.high,
                 p.low,
@@ -406,7 +407,7 @@ class DataReader:
         # 检查必要的表是否存在
         if not self.db.table_exists('stock_basic'):
             logger.warning(
-                f"stock_basic 表不存在。请先使用 DataDownloader 下载股票列表数据。"
+                "stock_basic 表不存在。请先使用 DataDownloader 下载股票列表数据。"
             )
             return pd.DataFrame()
         

@@ -5,12 +5,12 @@ import pandas as pd
 import time
 import threading
 import collections
-import logging
-from concurrent.futures import ThreadPoolExecutor # 导入 ThreadPoolExecutor
-from typing import Any, Deque, Dict, Optional
+from typing import Any, Deque, Dict
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s -[%(filename)s:%(lineno)d]- %(message)s')
+from .logger import get_logger
+
+# 使用库统一的命名 logger，避免在库内调用 basicConfig 劫持调用方的 root logger
+logger = get_logger("tushare_fetcher")
 
 class TushareClientError(Exception):
     """Custom exception for TushareClient errors."""
@@ -44,7 +44,7 @@ class TushareFetcher:
         df = self.pro.user(token=self.token)
         
         masked_token = self.token[:4] + "****" + self.token[-4:] if len(self.token) > 8 else "****"
-        logging.info(f"User with token {masked_token}, credit info: {df}")
+        logger.debug(f"User with token {masked_token}, credit info: {df}")
 
         self._lock: threading.Lock = threading.Lock()
         self._api_call_timestamps: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)
@@ -66,7 +66,7 @@ class TushareFetcher:
         if "default" not in self.rate_limit_config:
             raise ValueError("rate_limit_config must contain a 'default' key.")
 
-        logging.info(f"TushareFetcher initialized with rate limit config: {self.rate_limit_config}")
+        logger.info(f"TushareFetcher initialized with rate limit config: {self.rate_limit_config}")
 
     def _truncate_params_for_logging(self, params: dict, max_len: int = 10) -> str:
         """Truncates the 'ts_code' in params for cleaner logging."""
@@ -100,7 +100,7 @@ class TushareFetcher:
 
         try:
             params_for_log = self._truncate_params_for_logging(params)
-            logging.info(f"Fetching data for API: {api_name} with params: {params_for_log}")
+            logger.info(f"Fetching data for API: {api_name} with params: {params_for_log}")
             
             api_func = getattr(self.pro, api_name, None)
             if api_func is None:
@@ -119,14 +119,14 @@ class TushareFetcher:
             
             with self._lock:
                 self._api_call_timestamps[api_name].append(time.time())
-            # logging.error(df)
-            logging.info(f"Successfully fetched {len(df)} rows for API: {api_name}.")
+            # logger.error(df)
+            logger.info(f"Successfully fetched {len(df)} rows for API: {api_name}.")
             return df
 
         except Exception as e:
             if isinstance(e, TushareClientError):
                 raise
-            logging.error(f"Error fetching data for {api_name}: {e}")
+            logger.error(f"Error fetching data for {api_name}: {e}")
             raise TushareClientError(f"Failed to fetch data from Tushare API for {api_name}: {e}") from e
 
     def _wait_for_rate_limit(self, api_name: str) -> None:
@@ -159,7 +159,7 @@ class TushareFetcher:
 
             # Sleep OUTSIDE the lock so other API calls are not blocked
             if time_to_wait > 0:
-                logging.info(f"Rate limit for '{api_name}' reached. Waiting for {time_to_wait:.2f} seconds...")
+                logger.info(f"Rate limit for '{api_name}' reached. Waiting for {time_to_wait:.2f} seconds...")
                 time.sleep(time_to_wait)
             # Loop back to re-check after sleep
 
