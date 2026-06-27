@@ -274,7 +274,8 @@ plt.rcParams['font.sans-serif'] = ['PingFang HK']  # macOS
 # plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei']  # Linux
 ```
 
-详细解决方案请查看 `中文显示问题解决指南.md`
+若仍有方块/乱码，确认系统已安装对应中文字体，并清除 matplotlib 字体缓存
+（`rm -rf ~/.cache/matplotlib` 后重跑）。
 
 ### Q: 为什么有些行业不显示？
 

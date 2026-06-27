@@ -119,13 +119,14 @@ reader.close()
 
 ## Database Schema
 
-Primary keys are defined in `TABLE_PRIMARY_KEYS` dict in `duckdb_manager.py`. Key tables:
+Primary keys are defined in `TABLE_PRIMARY_KEYS` dict in `duckdb_manager.py` (54 tables total — that dict is the source of truth; the table below lists the most-used ones):
 
 | Table | Primary Keys | Description |
 |-------|-------------|-------------|
 | `daily` | ts_code, trade_date | Daily OHLCV (stocks and indices) |
 | `adj_factor` | ts_code, trade_date | Price adjustment factors |
 | `daily_basic` | ts_code, trade_date | Daily PE/PB/市值等 |
+| `stk_auction_o` | ts_code, trade_date | 股票开盘集合竞价 |
 | `stock_basic` | ts_code | Stock metadata |
 | `trade_cal` | exchange, cal_date | Trading calendar |
 | `index_classify` | industry_code | 申万行业分类 |

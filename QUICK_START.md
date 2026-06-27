@@ -176,9 +176,7 @@ curl http://localhost:8000/api/stock_basic?list_status=L
 ## 📚 相关文档
 
 - [API 参考文档](API_REFERENCE_FOR_LLM.md) - DataReader/DataDownloader 详细用法
-- [AI 快速参考](README_FOR_AI.md) - 给 AI 助手阅读的简明文档
 - [迁移指南](MIGRATION_GUIDE.md) - 从旧架构迁移到新架构
-- [工作总结](WORK_SUMMARY.md) - 项目重构工作记录
 
 ---
 

@@ -22,6 +22,11 @@ from tushare_db.duckdb_manager import TABLE_PRIMARY_KEYS
 
 SKILL_PATH = PROJECT_ROOT / "docs/skills/tushare-duckdb/SKILL.md"
 
+# Tables documented in the skill but intentionally absent from TABLE_PRIMARY_KEYS
+# because they are managed outside DuckDBManager (e.g. concept data is served from
+# a CSV cache via ConceptDataManager, not a primary-keyed DuckDB table).
+KNOWN_NON_PK_TABLES = {"concept_data"}
+
 
 def extract_tables_from_skill(content: str) -> set:
     """Extract table names from markdown table in skill file.
@@ -47,7 +52,7 @@ def validate() -> int:
     code_tables = set(TABLE_PRIMARY_KEYS.keys())
 
     missing_in_skill = code_tables - skill_tables
-    extra_in_skill = skill_tables - code_tables
+    extra_in_skill = skill_tables - code_tables - KNOWN_NON_PK_TABLES
 
     if missing_in_skill or extra_in_skill:
         print("Skill file out of sync with TABLE_PRIMARY_KEYS!")
