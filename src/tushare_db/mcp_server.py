@@ -22,6 +22,7 @@ Claude Desktop 配置（claude_desktop_config.json）：
     }
 """
 import re
+import threading
 
 from mcp.server.fastmcp import FastMCP
 
@@ -30,31 +31,41 @@ from .reader import DataReader
 mcp = FastMCP("tushare-duckdb")
 
 _reader = None
+_reader_lock = threading.Lock()
 # 财务相关表白名单（供 get_financial 使用，防止表名注入）
 _FINANCIAL_TABLES = {
     "income", "balancesheet", "cashflow",
     "fina_indicator_vip", "forecast", "express",
 }
 _IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# 匹配 SQL 字符串字面量（单/双引号，含 '' 转义），用于多语句检测前剔除字面量
+_STRING_LITERAL_RE = re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"")
 
 
 def _get_reader() -> DataReader:
-    """惰性创建只读 DataReader（DB_PATH 环境变量或默认 tushare.db）。"""
+    """惰性创建只读 DataReader（DB_PATH 环境变量或默认 tushare.db），线程安全。"""
     global _reader
     if _reader is None:
-        _reader = DataReader()
+        with _reader_lock:
+            if _reader is None:  # double-checked locking
+                _reader = DataReader()
     return _reader
 
 
 def _df_to_text(df, max_rows: int = 200) -> str:
-    """把查询结果格式化为紧凑 CSV 文本（无额外依赖，Claude 易解析）。"""
+    """把查询结果格式化为紧凑 CSV 文本（无额外依赖，Claude 易解析）。
+
+    截断提示放在 CSV 之前作为独立说明行，避免污染 CSV 主体——若追加到末尾，提示行
+    会被按 CSV 解析的下游当成一条畸形数据记录。
+    """
     if df is None or df.empty:
         return "（无数据）"
-    truncated = len(df) > max_rows
-    body = df.head(max_rows).to_csv(index=False)
-    if truncated:
-        body += f"\n# 共 {len(df)} 行，仅显示前 {max_rows} 行（如需更多请在 SQL 中聚合或缩小范围）"
-    return body
+    csv_body = df.head(max_rows).to_csv(index=False)
+    if len(df) > max_rows:
+        note = (f"（共 {len(df)} 行，仅显示前 {max_rows} 行；"
+                f"如需更多请在 SQL 中聚合或缩小范围）\n\n")
+        return note + csv_body
+    return csv_body
 
 
 @mcp.tool()
@@ -94,7 +105,8 @@ def run_sql(sql: str, max_rows: int = 500) -> str:
     low = s.lower()
     if not (low.startswith("select") or low.startswith("with") or low.startswith("pragma")):
         return "错误：仅允许只读查询（SELECT / WITH / PRAGMA）。"
-    if ";" in s:
+    # 多语句检测：先剔除字符串字面量，避免把字面量里的分号误判为语句分隔符
+    if ";" in _STRING_LITERAL_RE.sub("", s):
         return "错误：不支持多语句查询。"
     try:
         df = _get_reader().query(s)
@@ -133,6 +145,11 @@ def get_financial(ts_code: str, statement: str = "fina_indicator_vip",
     """
     if statement not in _FINANCIAL_TABLES:
         return f"错误：statement 必须是 {sorted(_FINANCIAL_TABLES)} 之一。"
+    if not ts_code or not ts_code.strip():
+        return "错误：ts_code 不能为空。"
+    for _d in (start_date, end_date):
+        if _d and not (len(_d) == 8 and _d.isdigit()):
+            return f"错误：日期需为 YYYYMMDD 格式：{_d}"
     conditions = ["ts_code = ?"]
     params = [ts_code]
     if start_date:

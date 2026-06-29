@@ -77,3 +77,26 @@ def test_token_error_is_not_treated_as_unavailable(fetcher):
 def test_available_api_still_works(fetcher):
     df = fetcher.fetch("good")
     assert not df.empty and list(df["ts_code"]) == ["x"]
+
+
+def test_transient_error_not_cached_as_unavailable(monkeypatch):
+    """临时/网络错误（如超时）不能被缓存为『接口不可用』——否则一次抖动让接口永久跳过。"""
+    def q(self, api_name, fields="", **kw):
+        if api_name == "flaky":
+            raise Exception("HTTPSConnectionPool(host='x'): Read timed out")
+        return pd.DataFrame()
+    monkeypatch.setattr(ts.pro.client.DataApi, "query", q)
+    f = TushareFetcher("dummytoken1234567890", CFG)
+    with pytest.raises(TushareClientError):
+        f.fetch("flaky")                 # 仍抛出（可重试），不静默返回空
+    assert "flaky" not in f.unavailable_apis  # 未被误缓存
+
+
+def test_is_unavailable_error_classification():
+    cls = TushareFetcher._is_unavailable_error
+    assert cls("抱歉，您没有权限访问该接口") is True
+    assert cls("接口不存在") is True
+    assert cls("您的token不对，请确认。") is False          # token 错误
+    assert cls("Read timed out") is False                   # 临时错误
+    assert cls("502 Bad Gateway") is False                  # 网关错误
+    assert cls("访问被限制，权限不足，请稍后重试") is False    # 含临时标志(稍后/重试)→不缓存

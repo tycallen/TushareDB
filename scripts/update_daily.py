@@ -330,8 +330,8 @@ def update_index_weight_data(downloader: DataDownloader):
                 except Exception as e:
                     logger.warning(f"    {name} ({ts_code}) 更新失败: {e}")
 
-        # 6. 更新元数据
-        downloader.db.update_cache_metadata('index_weight', _time.time())
+        # 6. 更新元数据（接口不可用且 0 行时不推进，避免静默跳过整月）
+        _advance_cache_if_progress(downloader, 'index_weight', total_rows, 'index_weight')
 
         logger.info(f"✓ 指数成分权重更新完成: 共 {total_rows} 行")
 
@@ -464,7 +464,7 @@ def update_financial_indicators(downloader: DataDownloader):
                 logger.error(f"  ✗ {period} 更新失败: {e}")
                 continue
 
-        downloader.db.update_cache_metadata('fina_indicator_vip_update', _time.time())
+        _advance_cache_if_progress(downloader, 'fina_indicator_vip_update', total_rows, 'fina_indicator_vip')
         logger.info(f"✓ 财务指标数据更新完成: 共 {total_rows} 行")
 
     except Exception as e:
@@ -612,8 +612,8 @@ def update_cyq_chips(downloader: DataDownloader):
             except Exception as e:
                 logger.error(f"  ✗ {trade_date} 更新失败: {e}")
 
-        # 4. 更新元数据
-        downloader.db.update_cache_metadata('cyq_chips', _time.time())
+        # 4. 更新元数据（接口不可用且 0 行时不推进）
+        _advance_cache_if_progress(downloader, 'cyq_chips', total_rows, 'cyq_chips', 'cyq_perf')
 
         logger.info(f"✓ 筹码分布详情更新完成: 共 {total_rows} 行")
 
@@ -1228,8 +1228,8 @@ def update_index_member_all(downloader: DataDownloader):
 
         logger.info(f"✓ 申万行业成分构成更新完成: 成功 {success_count}/{len(industries_df)}, 总计 {total_rows} 条")
 
-        # 更新元数据，记录本次更新时间
-        downloader.db.update_cache_metadata('index_member_all', time.time())
+        # 更新元数据，记录本次更新时间（接口不可用且 0 行时不推进，避免静默缺失 PIT 成分）
+        _advance_cache_if_progress(downloader, 'index_member_all', total_rows, 'index_member_all')
 
     except Exception as e:
         logger.error(f"✗ 更新申万行业成分构成数据失败: {e}")
@@ -1297,7 +1297,11 @@ def update_financial_statements(downloader: DataDownloader):
                 logger.error(f"    ✗ {period} 更新失败: {e}")
                 continue
 
-        downloader.db.update_cache_metadata('financial_statements_update', _time.time())
+        _advance_cache_if_progress(
+            downloader, 'financial_statements_update',
+            income_total + balance_total + cashflow_total + forecast_total + express_total,
+            'income_vip', 'balancesheet_vip', 'cashflow_vip', 'forecast_vip', 'express_vip',
+        )
         logger.info(f"✓ 财务报表更新完成:")
         logger.info(f"  - 利润表: {income_total} 行")
         logger.info(f"  - 资产负债表: {balance_total} 行")
@@ -2632,6 +2636,34 @@ def update_stk_auction_o(downloader: DataDownloader):
     except Exception as e:
         logger.error(f"✗ 更新开盘集合竞价数据失败: {e}")
         logger.warning("  继续执行其他更新任务...")
+
+
+def _advance_cache_if_progress(downloader, cache_key: str, total_rows: int, *api_names: str):
+    """推进 cache 时间戳，但当【本次 0 行且相关接口在当前数据源不可用】时不推进。
+
+    背景：fetcher 对无权限/不存在的接口做优雅降级（返回空、不抛异常）。若仍无条件
+    推进 cache，配合"非财报季每周更新/月度更新"等跳过守卫，会让不可用接口被静默
+    跳过整个守卫周期（数天~数周），且无错误可见。这里在 0 行且接口确实不可用时不
+    推进 cache，使下次运行重试（权限恢复后即可自动补齐）；正常的 0 行（接口可用、
+    本期无新数据）仍照常推进，不影响节流。
+
+    Args:
+        downloader: DataDownloader 实例
+        cache_key: 要推进的 cache 元数据键
+        total_rows: 本次实际下载/写入的行数
+        *api_names: 本次涉及的 Tushare 接口名（用于判断是否不可用）
+    """
+    if total_rows == 0 and api_names:
+        unavail = getattr(getattr(downloader, "fetcher", None), "unavailable_apis", set()) or set()
+        blocked = [a for a in api_names if a in unavail]
+        if blocked:
+            logger.warning(
+                f"⚠ 接口在当前数据源不可用 {blocked} 且本次 0 行，"
+                f"不推进 cache '{cache_key}'（下次将重试，权限恢复后自动补齐）"
+            )
+            return
+    import time as _t
+    downloader.db.update_cache_metadata(cache_key, _t.time())
 
 
 def _is_earnings_season() -> bool:

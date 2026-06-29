@@ -67,3 +67,27 @@ def test_empty_response_writes_nothing():
     assert dl.download_forecast_vip("20250331") == 0
     assert dl.download_express_vip("20250331") == 0
     assert dl.db.calls == []
+
+
+def test_drops_rows_with_null_pk_to_avoid_whole_batch_failure():
+    # 主键列含 NULL/空串的坏行应被丢弃（仅丢坏行），避免整批 INSERT 因 NOT NULL 约束失败
+    fake = pd.DataFrame({
+        "ts_code": ["A.SZ", "B.SZ", "C.SZ"],
+        "ann_date": ["20250401", None, "20250402"],   # B 行 ann_date 为 NULL
+        "end_date": ["20250331", "20250331", "20250331"],
+        "type": ["预增", "预增", ""],                   # C 行 type 为空串
+    })
+    dl = _make_downloader({"forecast_vip": fake})
+    n = dl.download_forecast_vip("20250331")
+    assert n == 1                                      # 仅 A 行有效
+    assert dl.db.calls == [("forecast", 1, "append")]
+
+
+def test_all_rows_null_pk_writes_nothing():
+    fake = pd.DataFrame({
+        "ts_code": ["A.SZ"], "ann_date": [None],
+        "end_date": ["20250331"], "type": ["预增"],
+    })
+    dl = _make_downloader({"forecast_vip": fake})
+    assert dl.download_forecast_vip("20250331") == 0
+    assert dl.db.calls == []

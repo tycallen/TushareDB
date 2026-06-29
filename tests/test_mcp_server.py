@@ -51,6 +51,29 @@ def test_run_sql_select_uses_reader(monkeypatch):
     assert "000001.SZ" in out and "9.2" in out
 
 
+def test_run_sql_allows_semicolon_inside_string_literal(monkeypatch):
+    class _FakeReader:
+        def query(self, sql, params=None):
+            return pd.DataFrame({"sep": [";"]})
+    monkeypatch.setattr(m, "_get_reader", lambda: _FakeReader())
+    out = m.run_sql("SELECT ';' AS sep")
+    assert "不支持多语句" not in out and ";" in out
+
+
+def test_df_to_text_truncation_note_separated_from_csv():
+    out = m._df_to_text(pd.DataFrame({"a": range(300)}), max_rows=10)
+    assert out.startswith("（共 300 行")   # 提示在前
+    assert "\n\na\n" in out                # CSV 表头 'a' 在空行分隔后，主体未被污染
+
+
+def test_get_financial_rejects_empty_ts_code():
+    assert "ts_code 不能为空" in m.get_financial("", statement="income")
+
+
+def test_get_financial_rejects_bad_date_format():
+    assert "YYYYMMDD" in m.get_financial("000001.SZ", statement="income", start_date="2024")
+
+
 def test_get_financial_valid_statement_uses_reader(monkeypatch):
     captured = {}
 

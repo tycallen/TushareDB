@@ -11,7 +11,7 @@ from typing import Optional, List, Dict, Any
 from tqdm import tqdm
 
 from .logger import get_logger
-from .duckdb_manager import DuckDBManager
+from .duckdb_manager import DuckDBManager, TABLE_PRIMARY_KEYS
 from .tushare_fetcher import TushareFetcher
 from .rate_limit_config import PRESET_PROFILES, STANDARD_PROFILE
 
@@ -1158,172 +1158,77 @@ class DataDownloader:
 
     # ==================== 财务指标数据 ====================
 
-    def download_fina_indicator_vip(self, period: str) -> int:
+    def _download_vip_by_period(self, api_name: str, table_name: str,
+                                label: str, period: str) -> int:
         """
-        下载财务指标数据（VIP接口，按报告期批量获取全部股票）
+        VIP「按报告期批量取全市场」类接口的统一下载实现。
 
-        数据说明：
-        - 获取某一季度全部上市公司财务指标数据
-        - 包含ROE、ROA、毛利率、净利率等关键指标
-        - 需要至少5000积分
+        额外做主键防护：DuckDB 对主键列强制 NOT NULL，若接口返回的某行主键列为
+        空（NULL/空串），整批 INSERT 会失败、导致整期数据被丢弃。这里在写入前丢弃
+        主键列缺失的行（仅丢坏行而非整批），并告警。
 
         Args:
-            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+            api_name: Tushare VIP 接口名，如 'income_vip'
+            table_name: 落库表名，如 'income'
+            label: 中文标签（日志用）
+            period: 报告期 YYYYMMDD
 
         Returns:
-            下载的行数
+            实际写入的行数
         """
-        logger.debug(f"下载财务指标(VIP): period={period}")
+        logger.debug(f"下载{label}(VIP): period={period}")
 
-        df = self.fetcher.fetch('fina_indicator_vip', period=period)
-
+        df = self.fetcher.fetch(api_name, period=period)
         if df.empty:
-            logger.debug(f"无财务指标数据: period={period}")
+            logger.debug(f"无{label}数据: period={period}")
             return 0
 
-        self.db.write_dataframe(df, 'fina_indicator_vip', mode='append')
-        logger.info(f"财务指标数据(VIP): {len(df)} 行 (period={period})")
+        # 主键列防护：丢弃主键为空的坏行，避免整批 INSERT 失败拖垮整期
+        pk_cols = [c for c in (TABLE_PRIMARY_KEYS.get(table_name) or []) if c in df.columns]
+        if pk_cols:
+            before = len(df)
+            df = df.dropna(subset=pk_cols)
+            for c in pk_cols:
+                df = df[df[c].astype(str).str.strip() != ""]
+            dropped = before - len(df)
+            if dropped:
+                logger.warning(
+                    f"{label}: 丢弃 {dropped} 行（主键列 {pk_cols} 为空），"
+                    f"避免整批写入失败 (period={period})"
+                )
+
+        if df.empty:
+            return 0
+
+        self.db.write_dataframe(df, table_name, mode='append')
+        logger.info(f"{label}数据(VIP): {len(df)} 行 (period={period})")
         return len(df)
 
+    def download_fina_indicator_vip(self, period: str) -> int:
+        """下载财务指标数据（VIP，按报告期批量取全市场，需≥5000积分）。"""
+        return self._download_vip_by_period('fina_indicator_vip', 'fina_indicator_vip', '财务指标', period)
 
     # ==================== 财务报表数据 ====================
 
     def download_income_vip(self, period: str) -> int:
-        """
-        下载利润表数据（VIP接口，按报告期批量获取全部股票）
-
-        数据说明：
-        - 获取某一季度全部上市公司利润表数据
-        - 单次最大获取5000条数据
-        - 需要至少5000积分
-
-        Args:
-            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
-
-        Returns:
-            下载的行数
-        """
-        logger.debug(f"下载利润表(VIP): period={period}")
-
-        df = self.fetcher.fetch('income_vip', period=period)
-
-        if df.empty:
-            logger.debug(f"无利润表数据: period={period}")
-            return 0
-
-        self.db.write_dataframe(df, 'income', mode='append')
-        logger.info(f"利润表数据(VIP): {len(df)} 行 (period={period})")
-        return len(df)
-
+        """下载利润表数据（VIP，按报告期批量取全市场，需≥5000积分）。"""
+        return self._download_vip_by_period('income_vip', 'income', '利润表', period)
 
     def download_balancesheet_vip(self, period: str) -> int:
-        """
-        下载资产负债表数据（VIP接口，按报告期批量获取全部股票）
-
-        数据说明：
-        - 获取某一季度全部上市公司资产负债表数据
-        - 单次最大获取5000条数据
-        - 需要至少5000积分
-
-        Args:
-            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
-
-        Returns:
-            下载的行数
-        """
-        logger.debug(f"下载资产负债表(VIP): period={period}")
-
-        df = self.fetcher.fetch('balancesheet_vip', period=period)
-
-        if df.empty:
-            logger.debug(f"无资产负债表数据: period={period}")
-            return 0
-
-        self.db.write_dataframe(df, 'balancesheet', mode='append')
-        logger.info(f"资产负债表数据(VIP): {len(df)} 行 (period={period})")
-        return len(df)
-
+        """下载资产负债表数据（VIP，按报告期批量取全市场，需≥5000积分）。"""
+        return self._download_vip_by_period('balancesheet_vip', 'balancesheet', '资产负债表', period)
 
     def download_cashflow_vip(self, period: str) -> int:
-        """
-        下载现金流量表数据（VIP接口，按报告期批量获取全部股票）
-
-        数据说明：
-        - 获取某一季度全部上市公司现金流量表数据
-        - 单次最大获取5000条数据
-        - 需要至少5000积分
-
-        Args:
-            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
-
-        Returns:
-            下载的行数
-        """
-        logger.debug(f"下载现金流量表(VIP): period={period}")
-
-        df = self.fetcher.fetch('cashflow_vip', period=period)
-
-        if df.empty:
-            logger.debug(f"无现金流量表数据: period={period}")
-            return 0
-
-        self.db.write_dataframe(df, 'cashflow', mode='append')
-        logger.info(f"现金流量表数据(VIP): {len(df)} 行 (period={period})")
-        return len(df)
-
+        """下载现金流量表数据（VIP，按报告期批量取全市场，需≥5000积分）。"""
+        return self._download_vip_by_period('cashflow_vip', 'cashflow', '现金流量表', period)
 
     def download_forecast_vip(self, period: str) -> int:
-        """
-        下载业绩预告数据（VIP接口，按报告期批量获取全部股票）
-
-        数据说明：
-        - 获取某一报告期全部上市公司业绩预告（预增/预减/扭亏等）
-        - 单次最大获取5000条数据，需要至少5000积分
-
-        Args:
-            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
-
-        Returns:
-            下载的行数
-        """
-        logger.debug(f"下载业绩预告(VIP): period={period}")
-
-        df = self.fetcher.fetch('forecast_vip', period=period)
-
-        if df.empty:
-            logger.debug(f"无业绩预告数据: period={period}")
-            return 0
-
-        self.db.write_dataframe(df, 'forecast', mode='append')
-        logger.info(f"业绩预告数据(VIP): {len(df)} 行 (period={period})")
-        return len(df)
-
+        """下载业绩预告数据（VIP，按报告期批量取全市场，需≥5000积分）。"""
+        return self._download_vip_by_period('forecast_vip', 'forecast', '业绩预告', period)
 
     def download_express_vip(self, period: str) -> int:
-        """
-        下载业绩快报数据（VIP接口，按报告期批量获取全部股票）
-
-        数据说明：
-        - 获取某一报告期全部上市公司业绩快报
-        - 单次最大获取5000条数据，需要至少5000积分
-
-        Args:
-            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
-
-        Returns:
-            下载的行数
-        """
-        logger.debug(f"下载业绩快报(VIP): period={period}")
-
-        df = self.fetcher.fetch('express_vip', period=period)
-
-        if df.empty:
-            logger.debug(f"无业绩快报数据: period={period}")
-            return 0
-
-        self.db.write_dataframe(df, 'express', mode='append')
-        logger.info(f"业绩快报数据(VIP): {len(df)} 行 (period={period})")
-        return len(df)
+        """下载业绩快报数据（VIP，按报告期批量取全市场，需≥5000积分）。"""
+        return self._download_vip_by_period('express_vip', 'express', '业绩快报', period)
 
 
     def download_income(

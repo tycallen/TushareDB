@@ -34,6 +34,14 @@ _UNAVAILABLE_MARKERS = (
     "no permission", "not have permission",
 )
 
+# 看起来是临时/网络/网关错误（重试可能成功）的标志。命中这些就【不】缓存为
+# 「接口不可用」——否则第三方代理一次 503/超时/WAF 页面就会让接口被永久跳过。
+_TRANSIENT_MARKERS = (
+    "timeout", "timed out", "connection", "max retries", "reset by peer",
+    "502", "503", "504", "bad gateway", "gateway", "<html", "<!doctype",
+    "temporarily", "try again", "稍后", "重试", "繁忙", "网络", "超时",
+)
+
 
 class TushareFetcher:
     """
@@ -67,7 +75,14 @@ class TushareFetcher:
         # POST {__http_url}/{api_name}；此类代理在 /{api_name} 路径上接受请求。
         api_url = os.getenv("TUSHARE_API_URL")
         if api_url:
-            api_url = api_url.rstrip("/")
+            api_url = api_url.strip().rstrip("/")
+            # 校验 scheme：漏写 http(s):// 会导致后续每次请求在 requests 层报
+            # 难以定位的 'No scheme supplied'。这里补全为 https:// 并告警。
+            if not api_url.startswith(("http://", "https://")):
+                logger.warning(
+                    f"TUSHARE_API_URL 缺少 http(s):// 前缀（{api_url}），已自动按 https:// 处理"
+                )
+                api_url = "https://" + api_url
             self.pro._DataApi__http_url = api_url
             logger.info(f"Tushare 请求地址已指向自定义代理: {api_url}")
 
@@ -108,13 +123,20 @@ class TushareFetcher:
     @property
     def unavailable_apis(self) -> set:
         """本次运行中被判定为「当前数据源不可用」的接口名集合（只读快照）。"""
-        return set(self._unavailable_apis)
+        with self._lock:
+            return set(self._unavailable_apis)
 
     @staticmethod
     def _is_unavailable_error(msg: str) -> bool:
-        """错误信息是否表示「接口不可用」（无权限/不存在）——这类重试无意义。"""
+        """错误信息是否表示「接口不可用」（无权限/不存在）——这类重试无意义。
+
+        必须保守：token 错误（全局凭证问题）和临时/网络/网关错误都不算「接口不可用」，
+        以免把可恢复的问题误缓存成永久跳过。
+        """
         low = msg.lower()
-        if "token" in low or "40101" in msg:  # token 错误是全局凭证问题，非接口不可用
+        if "token" in low or "40101" in msg:  # 全局凭证问题，非接口不可用
+            return False
+        if any(t in low for t in _TRANSIENT_MARKERS):  # 临时/网络错误，重试可能成功
             return False
         return any(m in msg for m in _UNAVAILABLE_MARKERS)
 
@@ -154,7 +176,9 @@ class TushareFetcher:
             TushareClientError: 其它（通常可重试的）请求或数据错误。
         """
         # 已知不可用的接口：直接跳过，不再请求、不再刷日志
-        if api_name in self._unavailable_apis:
+        with self._lock:
+            already_unavailable = api_name in self._unavailable_apis
+        if already_unavailable:
             if raise_on_unavailable:
                 raise TushareUnavailableError(f"接口 {api_name} 在当前数据源不可用（已缓存，跳过）")
             logger.debug(f"接口 {api_name} 已知不可用，跳过请求并返回空结果")
@@ -193,8 +217,10 @@ class TushareFetcher:
             msg = str(e)
             # 接口不可用（无权限/不存在）：记录并自适应跳过，重试无意义
             if self._is_unavailable_error(msg):
-                if api_name not in self._unavailable_apis:
+                with self._lock:
+                    is_new = api_name not in self._unavailable_apis
                     self._unavailable_apis.add(api_name)
+                if is_new:
                     logger.warning(
                         f"接口 {api_name} 在当前数据源不可用（{msg}），"
                         f"已记录，本次运行将自动跳过该接口"

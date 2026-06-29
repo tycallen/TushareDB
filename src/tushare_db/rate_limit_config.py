@@ -86,7 +86,10 @@ PROXY_PROFILE: Dict[str, Dict[str, Any]] = {
     "default": {"limit": PROXY_MINUTE_LIMIT, "period": "minute"},
     # 历史分钟数据（stk_mins）量巨大且官方另有限速与单日容量限制，取更保守值，
     # 并建议在调用处对官方限速错误加重试。
-    "stk_mins": {"limit": max(30, PROXY_MINUTE_LIMIT // 2), "period": "minute"},
+    # 用 min(default, ...) 兜底：即便用户把 PROXY_MINUTE_LIMIT 调到 <30，
+    # stk_mins 也不会比 default 更宽松。
+    "stk_mins": {"limit": min(PROXY_MINUTE_LIMIT, max(30, PROXY_MINUTE_LIMIT // 2)),
+                 "period": "minute"},
 }
 
 # A mapping of profile names to profile configurations for easy selection.
