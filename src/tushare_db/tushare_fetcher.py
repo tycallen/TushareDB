@@ -1,5 +1,6 @@
 
 
+import os
 import tushare as ts
 import pandas as pd
 import time
@@ -41,10 +42,25 @@ class TushareFetcher:
         self.token: str = token
         self.pro: ts.pro_api = ts.pro_api(self.token)
         ts.set_token(self.token)
-        df = self.pro.user(token=self.token)
-        
+
+        # 可选：将请求地址指向 Tushare 协议兼容的自定义代理（如第三方 xiaodefa 代理）。
+        # 未设 TUSHARE_API_URL 时保持官方默认地址，向后兼容。
+        # tushare 的 DataApi 用 name-mangled 类属性 _DataApi__http_url，请求时拼成
+        # POST {__http_url}/{api_name}；此类代理在 /{api_name} 路径上接受请求。
+        api_url = os.getenv("TUSHARE_API_URL")
+        if api_url:
+            api_url = api_url.rstrip("/")
+            self.pro._DataApi__http_url = api_url
+            logger.info(f"Tushare 请求地址已指向自定义代理: {api_url}")
+
         masked_token = self.token[:4] + "****" + self.token[-4:] if len(self.token) > 8 else "****"
-        logger.debug(f"User with token {masked_token}, credit info: {df}")
+        # 账户信息查询为可选：自定义代理可能不提供 user 接口，或 token 仅对代理有效，
+        # 失败不应阻断初始化（数据请求走的是 fetch()，与 user 无关）。
+        try:
+            df = self.pro.user(token=self.token)
+            logger.debug(f"User with token {masked_token}, credit info: {df}")
+        except Exception as e:
+            logger.debug(f"获取账户信息失败（忽略，不影响数据请求）: {e}")
 
         self._lock: threading.Lock = threading.Lock()
         self._api_call_timestamps: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)

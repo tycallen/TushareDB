@@ -20,6 +20,11 @@ cp .env.example .env
 # Edit .env with your Tushare Pro API token
 ```
 
+To route requests through a Tushare-protocol-compatible proxy (instead of the
+official `api.tushare.pro`), set `TUSHARE_API_URL` in `.env` (e.g.
+`https://fast.xiaodefa.cn`). When set, `TushareFetcher` points the tushare SDK's
+request URL at the proxy; `TUSHARE_TOKEN` then holds the proxy-issued key.
+
 ### Data Operations
 ```bash
 # Initialize historical data (full sync)
