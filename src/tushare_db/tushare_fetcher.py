@@ -17,6 +17,24 @@ class TushareClientError(Exception):
     """Custom exception for TushareClient errors."""
     pass
 
+
+class TushareUnavailableError(TushareClientError):
+    """接口在当前数据源（官方或第三方代理）不可用：无权限或接口不存在。
+
+    这类错误重试无意义，应跳过该接口而非反复请求。不同中转站不可用的接口各不
+    相同，因此由 fetch() 在运行时自动发现并缓存，不维护硬编码黑名单。
+    """
+    pass
+
+
+# 判定「接口不可用」（重试无用）的错误关键词。必须排除 token 错误——
+# token 错误是全局凭证问题，不是某个接口不可用。
+_UNAVAILABLE_MARKERS = (
+    "没有权限", "没有访问", "接口不存在", "积分不足", "未开通", "权限不足",
+    "no permission", "not have permission",
+)
+
+
 class TushareFetcher:
     """
     A client for interacting with the Tushare Pro API, enforcing rate limits.
@@ -64,7 +82,10 @@ class TushareFetcher:
 
         self._lock: threading.Lock = threading.Lock()
         self._api_call_timestamps: Dict[str, Deque[float]] = collections.defaultdict(collections.deque)
-        
+        # 运行时自动发现的「当前数据源不可用接口」集合（无权限/接口不存在）。
+        # 自适应不同中转站：一旦某接口被判定不可用，后续直接跳过，不再请求。
+        self._unavailable_apis: set = set()
+
         # Parse and store rate limit configuration
         self.rate_limit_config = {}
         period_map = {"minute": 60, "day": 86400}
@@ -84,6 +105,19 @@ class TushareFetcher:
 
         logger.info(f"TushareFetcher initialized with rate limit config: {self.rate_limit_config}")
 
+    @property
+    def unavailable_apis(self) -> set:
+        """本次运行中被判定为「当前数据源不可用」的接口名集合（只读快照）。"""
+        return set(self._unavailable_apis)
+
+    @staticmethod
+    def _is_unavailable_error(msg: str) -> bool:
+        """错误信息是否表示「接口不可用」（无权限/不存在）——这类重试无意义。"""
+        low = msg.lower()
+        if "token" in low or "40101" in msg:  # token 错误是全局凭证问题，非接口不可用
+            return False
+        return any(m in msg for m in _UNAVAILABLE_MARKERS)
+
     def _truncate_params_for_logging(self, params: dict, max_len: int = 10) -> str:
         """Truncates the 'ts_code' in params for cleaner logging."""
         params_copy = params.copy()
@@ -96,50 +130,78 @@ class TushareFetcher:
                 params_copy['ts_code'] = f"[{','.join(ts_code[:max_len])}, ... ({len(ts_code)} total)]"
         return str(params_copy)
 
-    def fetch(self, api_name: str, **params: Any) -> pd.DataFrame:
+    def fetch(self, api_name: str, raise_on_unavailable: bool = False, **params: Any) -> pd.DataFrame:
         """
         Fetches data from the Tushare Pro API, respecting per-API rate limits.
-        Includes special handling for 'pro_bar' to iterate over multiple ts_codes.
+
+        对「当前数据源不可用」的接口（无权限/接口不存在）做自适应优雅降级：首次
+        遇到时告警并记入 unavailable_apis，之后对该接口直接跳过（不再请求、不再刷
+        错误日志）。默认返回空 DataFrame，使下游下载逻辑（df.empty -> 跳过）无需
+        改动即可自动跳过不可用接口；探测等需要区分的场景可传 raise_on_unavailable=True
+        改为抛 TushareUnavailableError。
 
         Args:
-            api_name: The name of the Tushare API interface (e.g., 'daily', 'pro_bar').
+            api_name: The name of the Tushare API interface (e.g., 'daily').
+            raise_on_unavailable: 接口不可用时是否抛 TushareUnavailableError
+                （默认 False，即返回空 DataFrame 优雅跳过）。
             **params: Keyword arguments to pass to the Tushare API query method.
 
         Returns:
-            A Pandas DataFrame containing the fetched data.
+            A Pandas DataFrame containing the fetched data（不可用接口返回空 DataFrame）。
 
         Raises:
-            TushareClientError: If there is an error during the API call or data retrieval.
+            TushareUnavailableError: 接口不可用且 raise_on_unavailable=True。
+            TushareClientError: 其它（通常可重试的）请求或数据错误。
         """
-        # Default behavior for all other APIs
+        # 已知不可用的接口：直接跳过，不再请求、不再刷日志
+        if api_name in self._unavailable_apis:
+            if raise_on_unavailable:
+                raise TushareUnavailableError(f"接口 {api_name} 在当前数据源不可用（已缓存，跳过）")
+            logger.debug(f"接口 {api_name} 已知不可用，跳过请求并返回空结果")
+            return pd.DataFrame()
+
         self._wait_for_rate_limit(api_name)
 
         try:
             params_for_log = self._truncate_params_for_logging(params)
             logger.info(f"Fetching data for API: {api_name} with params: {params_for_log}")
-            
+
             api_func = getattr(self.pro, api_name, None)
             if api_func is None:
-                api_func = lambda **p: self.pro.query(api_name, **p)
+                def api_func(**p):
+                    return self.pro.query(api_name, **p)
 
             df = api_func(**params)
 
             if df is None:
                 raise TushareClientError(f"Tushare API returned None for {api_name}. Check parameters or token.")
-            
+
             if not df.empty and 'code' in df.columns and 'msg' in df.columns:
                 error_code = df['code'].iloc[0]
                 if error_code != 0 and str(error_code) != '0':
                     error_msg = df['msg'].iloc[0]
                     raise TushareClientError(f"Tushare API error for {api_name}: Code {error_code}, Message: {error_msg}")
-            
+
             with self._lock:
                 self._api_call_timestamps[api_name].append(time.time())
-            # logger.error(df)
             logger.info(f"Successfully fetched {len(df)} rows for API: {api_name}.")
             return df
 
         except Exception as e:
+            if isinstance(e, TushareUnavailableError):
+                raise
+            msg = str(e)
+            # 接口不可用（无权限/不存在）：记录并自适应跳过，重试无意义
+            if self._is_unavailable_error(msg):
+                if api_name not in self._unavailable_apis:
+                    self._unavailable_apis.add(api_name)
+                    logger.warning(
+                        f"接口 {api_name} 在当前数据源不可用（{msg}），"
+                        f"已记录，本次运行将自动跳过该接口"
+                    )
+                if raise_on_unavailable:
+                    raise TushareUnavailableError(f"接口 {api_name} 不可用: {msg}") from e
+                return pd.DataFrame()
             if isinstance(e, TushareClientError):
                 raise
             logger.error(f"Error fetching data for {api_name}: {e}")
