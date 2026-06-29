@@ -29,6 +29,10 @@ dependencies = [
     "orjson>=3.10.3", # Add orjson dependency
 ]
 
+[project.optional-dependencies]
+# MCP server（python -m tushare_db.mcp_server）所需。安装：pip install -e ".[mcp]"
+mcp = ["mcp>=1.0"]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
