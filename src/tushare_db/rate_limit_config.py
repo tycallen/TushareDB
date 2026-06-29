@@ -73,9 +73,26 @@ PRO_PROFILE: Dict[str, Dict[str, Any]] = {
     "cyq_chips": {"limit": 200, "period": "minute"},
 }
 
+# --- Third-party Proxy Profile ---
+# 适配 Tushare 协议兼容的第三方代理（如 xiaodefa，配合环境变量 TUSHARE_API_URL 使用）。
+# 代理对超速敏感：超过购买速度过多会触发 3-10 分钟冷却（程序上表现为超时报错）。
+# 据其文档建议请求间隔 ≥0.5s（≈120 次/分钟），这里默认取 100 次/分钟（≈0.6s/请求）
+# 留出余量。请按你实际购买的频次调整 PROXY_MINUTE_LIMIT。
+# 注意：每个 token 每日总请求约 1-2 万次；限速器按 api 名分别计数，没有跨 api 的全局
+# 日上限，批量回填时请自行控制总量与并发。冷却/剩余次数可查 https://tt.xiaodefa.cn/status
+PROXY_MINUTE_LIMIT = 100
+
+PROXY_PROFILE: Dict[str, Dict[str, Any]] = {
+    "default": {"limit": PROXY_MINUTE_LIMIT, "period": "minute"},
+    # 历史分钟数据（stk_mins）量巨大且官方另有限速与单日容量限制，取更保守值，
+    # 并建议在调用处对官方限速错误加重试。
+    "stk_mins": {"limit": max(30, PROXY_MINUTE_LIMIT // 2), "period": "minute"},
+}
+
 # A mapping of profile names to profile configurations for easy selection.
 PRESET_PROFILES: Dict[str, Dict[str, Dict[str, Any]]] = {
     "trial": TRIAL_PROFILE,
     "standard": STANDARD_PROFILE,
     "pro": PRO_PROFILE,
+    "proxy": PROXY_PROFILE,
 }

@@ -50,7 +50,8 @@ class DataDownloader:
         Args:
             tushare_token: Tushare API token（优先使用此参数，其次从环境变量读取）
             db_path: DuckDB 数据库文件路径（优先使用此参数，其次从 DB_PATH 环境变量读取，默认 tushare.db）
-            rate_limit_profile: 限速配置档位（'trial', 'standard', 'pro'）
+            rate_limit_profile: 限速配置档位（'trial', 'standard', 'pro', 'proxy'）
+                'proxy' 适配第三方 Tushare 代理（配合环境变量 TUSHARE_API_URL）
         """
         self.tushare_token = tushare_token or os.getenv("TUSHARE_TOKEN")
         if not self.tushare_token:
