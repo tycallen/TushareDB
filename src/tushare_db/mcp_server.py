@@ -21,12 +21,25 @@ Claude Desktop 配置（claude_desktop_config.json）：
       }
     }
 """
+import logging
 import re
+import sys
 import threading
 
 from mcp.server.fastmcp import FastMCP
 
 from .reader import DataReader
+
+# MCP 走 stdio 传输：stdout 是 JSON-RPC 通道，任何写入 stdout 的日志都会破坏协议。
+# 库的 'tushare_db' 命名 logger 默认写 stdout（见 logger.py），这里把它重定向到
+# stderr（MCP 约定 stderr 用于诊断日志），否则首个触发日志的工具调用会污染响应流。
+_lib_logger = logging.getLogger("tushare_db")
+for _h in list(_lib_logger.handlers):
+    _lib_logger.removeHandler(_h)
+_stderr_handler = logging.StreamHandler(sys.stderr)
+_stderr_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+_lib_logger.addHandler(_stderr_handler)
+_lib_logger.propagate = False
 
 mcp = FastMCP("tushare-duckdb")
 

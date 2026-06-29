@@ -13,6 +13,18 @@ pytest.importorskip("mcp", reason="需要安装 mcp SDK: pip install -e '.[mcp]'
 from tushare_db import mcp_server as m  # noqa: E402
 
 
+def test_library_logger_redirected_to_stderr_not_stdout():
+    """MCP stdio：库日志绝不能写 stdout（会破坏 JSON-RPC 协议），必须在 stderr。"""
+    import logging
+    import sys
+    lg = logging.getLogger("tushare_db")
+    streams = [h.stream for h in lg.handlers if isinstance(h, logging.StreamHandler)]
+    assert streams, "tushare_db logger 应有 StreamHandler"
+    assert all(s is sys.stderr for s in streams)
+    assert all(s is not sys.stdout for s in streams)
+    assert lg.propagate is False  # 不向 root 传播，避免 root 的 stdout handler 污染
+
+
 def test_run_sql_rejects_write_statements():
     for sql in ["DROP TABLE daily", "UPDATE daily SET close=0",
                 "INSERT INTO daily VALUES (1)", "DELETE FROM daily"]:
