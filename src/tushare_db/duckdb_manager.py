@@ -44,6 +44,8 @@ TABLE_PRIMARY_KEYS = {
     "income": ["ts_code", "end_date", "report_type"],
     "balancesheet": ["ts_code", "end_date", "report_type"],
     "cashflow": ["ts_code", "end_date", "report_type"],
+    "forecast": ["ts_code", "ann_date", "end_date", "type"],
+    "express": ["ts_code", "ann_date", "end_date"],
     # 分红送股
     "dividend": ["ts_code", "end_date"],
     # 融资融券

@@ -141,6 +141,8 @@ Primary keys are defined in `TABLE_PRIMARY_KEYS` dict in `duckdb_manager.py` (54
 | `cyq_perf` | ts_code, trade_date | 筹码分布 |
 | `dc_member` | ts_code, trade_date, con_code | 龙虎榜机构明细 |
 | `fina_indicator_vip` | ts_code, end_date | 财务指标（VIP） |
+| `forecast` | ts_code, ann_date, end_date, type | 业绩预告 |
+| `express` | ts_code, ann_date, end_date | 业绩快报 |
 | `ths_daily` | ts_code, trade_date | 同花顺板块日行情 |
 | `kpl_concept` | ts_code, trade_date | 开盘啦题材库 |
 | `fund_daily` | ts_code, trade_date | 场内基金日线 |

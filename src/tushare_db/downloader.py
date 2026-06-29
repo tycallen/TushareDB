@@ -1272,6 +1272,60 @@ class DataDownloader:
         return len(df)
 
 
+    def download_forecast_vip(self, period: str) -> int:
+        """
+        下载业绩预告数据（VIP接口，按报告期批量获取全部股票）
+
+        数据说明：
+        - 获取某一报告期全部上市公司业绩预告（预增/预减/扭亏等）
+        - 单次最大获取5000条数据，需要至少5000积分
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载业绩预告(VIP): period={period}")
+
+        df = self.fetcher.fetch('forecast_vip', period=period)
+
+        if df.empty:
+            logger.debug(f"无业绩预告数据: period={period}")
+            return 0
+
+        self.db.write_dataframe(df, 'forecast', mode='append')
+        logger.info(f"业绩预告数据(VIP): {len(df)} 行 (period={period})")
+        return len(df)
+
+
+    def download_express_vip(self, period: str) -> int:
+        """
+        下载业绩快报数据（VIP接口，按报告期批量获取全部股票）
+
+        数据说明：
+        - 获取某一报告期全部上市公司业绩快报
+        - 单次最大获取5000条数据，需要至少5000积分
+
+        Args:
+            period: 报告期 YYYYMMDD，如 20231231（年报）、20230630（半年报）
+
+        Returns:
+            下载的行数
+        """
+        logger.debug(f"下载业绩快报(VIP): period={period}")
+
+        df = self.fetcher.fetch('express_vip', period=period)
+
+        if df.empty:
+            logger.debug(f"无业绩快报数据: period={period}")
+            return 0
+
+        self.db.write_dataframe(df, 'express', mode='append')
+        logger.info(f"业绩快报数据(VIP): {len(df)} 行 (period={period})")
+        return len(df)
+
+
     def download_income(
         self,
         ts_code: Optional[str] = None,

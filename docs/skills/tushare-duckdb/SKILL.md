@@ -233,6 +233,8 @@ python scripts/backfill_index_member_pit.py
 | `income` | income_vip | ts_code, end_date, report_type | **19941231** | 利润表 |
 | `balancesheet` | balancesheet_vip | ts_code, end_date, report_type | **19891231** | 资产负债表 |
 | `cashflow` | cashflow_vip | ts_code, end_date, report_type | **19980331** | 现金流量表 |
+| `forecast` | forecast_vip | ts_code, ann_date, end_date, type | - | 业绩预告 |
+| `express` | express_vip | ts_code, ann_date, end_date | - | 业绩快报 |
 | `dividend` | dividend | ts_code, end_date | **19901231** | 分红送股 |
 
 ### 基金数据表
@@ -298,6 +300,8 @@ For column details and parameter meanings, invoke `/tushare-finance <api_name>`.
 | `income` | **Quarterly** | Income statement data; use `end_date` as the reporting period |
 | `balancesheet` | **Quarterly** | Balance sheet data; use `end_date` as the reporting period |
 | `cashflow` | **Quarterly** | Cash flow statement data; use `end_date` as the reporting period |
+| `forecast` | **Quarterly** | Earnings forecast (预增/预减/扭亏); use `end_date` as the reporting period |
+| `express` | **Quarterly** | Earnings express (业绩快报); use `end_date` as the reporting period |
 | `dividend` | **Quarterly/Annual** | Dividend data; use `end_date` as the reporting period |
 | `fund_portfolio` | **Quarterly** | Fund holdings data; use `end_date` as the reporting period |
 | `trade_cal` | **Static** | Trading calendar; query using `cal_date` field |

@@ -1269,6 +1269,8 @@ def update_financial_statements(downloader: DataDownloader):
         income_total = 0
         balance_total = 0
         cashflow_total = 0
+        forecast_total = 0
+        express_total = 0
 
         for period in quarters:
             logger.info(f"  正在获取 {period} 的财务报表...")
@@ -1283,15 +1285,25 @@ def update_financial_statements(downloader: DataDownloader):
                 rows = downloader.download_cashflow_vip(period=period)
                 cashflow_total += rows
 
+                # 业绩预告/快报（VIP 批量）。若当前数据源无此权限，fetcher 会优雅返空，
+                # 这里自动得到 0 行、不报错。
+                rows = downloader.download_forecast_vip(period=period)
+                forecast_total += rows
+
+                rows = downloader.download_express_vip(period=period)
+                express_total += rows
+
             except Exception as e:
                 logger.error(f"    ✗ {period} 更新失败: {e}")
                 continue
 
         downloader.db.update_cache_metadata('financial_statements_update', _time.time())
-        logger.info(f"✓ 三大财务报表更新完成:")
+        logger.info(f"✓ 财务报表更新完成:")
         logger.info(f"  - 利润表: {income_total} 行")
         logger.info(f"  - 资产负债表: {balance_total} 行")
         logger.info(f"  - 现金流量表: {cashflow_total} 行")
+        logger.info(f"  - 业绩预告: {forecast_total} 行")
+        logger.info(f"  - 业绩快报: {express_total} 行")
 
     except Exception as e:
         logger.error(f"✗ 更新财务报表数据失败: {e}")
