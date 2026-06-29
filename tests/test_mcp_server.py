@@ -136,6 +136,52 @@ def test_live_stock_daily_rejects_bad_adj():
     assert "adj 只能是" in m.live_stock_daily("A", "20240102", "20240103", "xfq")
 
 
+def test_live_limit_list_rejects_bad_date():
+    assert "YYYYMMDD" in m.live_limit_list("2024")
+
+
+def test_live_top_list_rejects_bad_date():
+    assert "YYYYMMDD" in m.live_top_list("not-a-date")
+
+
+def test_live_moneyflow_validation_and_delegation(monkeypatch):
+    assert "ts_code 不能为空" in m.live_moneyflow("")
+    assert "YYYYMMDD" in m.live_moneyflow("000001.SZ", "2024")
+
+    cap = {}
+
+    class _F:
+        def fetch(self, api, **kw):
+            cap["api"], cap["kw"] = api, kw
+            return pd.DataFrame({"net_mf_amount": [123.0]})
+
+    monkeypatch.setattr(m, "_get_fetcher", lambda: _F())
+    out = m.live_moneyflow("000001.SZ", "20240102")
+    assert cap["api"] == "moneyflow"
+    assert cap["kw"] == {"ts_code": "000001.SZ", "trade_date": "20240102"}
+    assert "123.0" in out
+
+
+def test_get_concept_stocks_validation_and_delegation(monkeypatch):
+    assert "YYYYMMDD" in m.get_concept_stocks("2024", "AI")
+
+    cap = {}
+
+    class _R:
+        def get_concept_stocks(self, trade_date, concept_name=None):
+            cap["d"], cap["c"] = trade_date, concept_name
+            return pd.DataFrame({"ts_code": ["000001.SZ"]})
+
+    monkeypatch.setattr(m, "_get_reader", lambda: _R())
+    out = m.get_concept_stocks("20240115", "人工智能")
+    assert cap["d"] == "20240115" and cap["c"] == "人工智能"
+    assert "000001.SZ" in out
+
+
+def test_get_stock_concepts_rejects_empty_ts_code():
+    assert "ts_code 不能为空" in m.get_stock_concepts("20240115", "")
+
+
 def test_load_env_from_db_dir(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text("TUSHARE_TOKEN='abc123'\nTUSHARE_API_URL='https://x'\n")
     (tmp_path / "tushare.db").write_text("")  # 仅用其目录

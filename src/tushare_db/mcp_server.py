@@ -300,6 +300,92 @@ def live_stock_daily(ts_code: str, start_date: str, end_date: str, adj: str = ""
     return _df_to_text(raw)
 
 
+def _bad_date(d: str) -> bool:
+    return not (len(d) == 8 and d.isdigit())
+
+
+@mcp.tool()
+def live_limit_list(trade_date: str) -> str:
+    """实时查询某交易日的涨跌停/炸板统计（Tushare limit_list_d）。trade_date: YYYYMMDD。"""
+    if _bad_date(trade_date):
+        return "错误：trade_date 需为 YYYYMMDD 格式。"
+    try:
+        df = _get_fetcher().fetch("limit_list_d", trade_date=trade_date)
+    except Exception as e:
+        return f"实时查询出错：{e}"
+    return _df_to_text(df)
+
+
+@mcp.tool()
+def live_moneyflow(ts_code: str, trade_date: str = "") -> str:
+    """实时查询个股资金流向（Tushare moneyflow，主力/超大单等）。
+
+    Args:
+        ts_code: 股票代码，如 000001.SZ
+        trade_date: 可选 YYYYMMDD；不填则取该股最近可得数据。
+    """
+    if not ts_code or not ts_code.strip():
+        return "错误：ts_code 不能为空。"
+    if trade_date and _bad_date(trade_date):
+        return "错误：trade_date 需为 YYYYMMDD 格式。"
+    params = {"ts_code": ts_code.strip()}
+    if trade_date:
+        params["trade_date"] = trade_date
+    try:
+        df = _get_fetcher().fetch("moneyflow", **params)
+    except Exception as e:
+        return f"实时查询出错：{e}"
+    return _df_to_text(df)
+
+
+@mcp.tool()
+def live_top_list(trade_date: str) -> str:
+    """实时查询某交易日龙虎榜（Tushare top_list）。trade_date: YYYYMMDD。"""
+    if _bad_date(trade_date):
+        return "错误：trade_date 需为 YYYYMMDD 格式。"
+    try:
+        df = _get_fetcher().fetch("top_list", trade_date=trade_date)
+    except Exception as e:
+        return f"实时查询出错：{e}"
+    return _df_to_text(df)
+
+
+@mcp.tool()
+def get_concept_stocks(trade_date: str, concept_name: str = "") -> str:
+    """查询某日概念板块成分股（本地库 PIT，避免前视偏差）。
+
+    Args:
+        trade_date: YYYYMMDD（按此日的成员关系）
+        concept_name: 可选，如 '人工智能'；不填返回该日全部概念-股票关系。
+    """
+    if _bad_date(trade_date):
+        return "错误：trade_date 需为 YYYYMMDD 格式。"
+    try:
+        df = _get_reader().get_concept_stocks(trade_date, concept_name=(concept_name or None))
+    except Exception as e:
+        return f"查询出错：{e}"
+    return _df_to_text(df)
+
+
+@mcp.tool()
+def get_stock_concepts(trade_date: str, ts_code: str) -> str:
+    """查询某日个股所属的概念板块（本地库 PIT）。
+
+    Args:
+        trade_date: YYYYMMDD
+        ts_code: 股票代码，如 000001.SZ
+    """
+    if _bad_date(trade_date):
+        return "错误：trade_date 需为 YYYYMMDD 格式。"
+    if not ts_code or not ts_code.strip():
+        return "错误：ts_code 不能为空。"
+    try:
+        df = _get_reader().get_stock_concepts(trade_date, ts_code.strip())
+    except Exception as e:
+        return f"查询出错：{e}"
+    return _df_to_text(df)
+
+
 def main():
     """以 stdio 方式运行 MCP server（Claude Desktop / Code 默认接入方式）。"""
     mcp.run()

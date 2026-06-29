@@ -62,6 +62,11 @@ DB_PATH=/绝对路径/tushare.db python -m tushare_db.mcp_server
 | `get_financial(ts_code, statement, start_date, end_date)` | 财务数据（income/balancesheet/cashflow/fina_indicator_vip/forecast/express） |
 | `live_fetch(api_name, params)` | **实时**查询任意 Tushare 接口（经 token 直连代理，返回原始数据）。token 由 MCP 在宿主机从 `.env` 读取，不进对话。例：`live_fetch("daily", {"ts_code":"000001.SZ","trade_date":"20260627"})` |
 | `live_stock_daily(ts_code, start_date, end_date, adj)` | **实时**个股日线，**可复权**（adj=''/qfq/hfq）。取原始 daily+adj_factor 自行复权，口径与本地 `get_stock_daily` 一致。用于把"最新行情"接到本地历史(qfq/hfq)而不串口径 |
+| `live_limit_list(trade_date)` | **实时**当日涨跌停/炸板统计 |
+| `live_moneyflow(ts_code, trade_date)` | **实时**个股资金流向（主力/超大单等） |
+| `live_top_list(trade_date)` | **实时**当日龙虎榜 |
+| `get_concept_stocks(trade_date, concept_name)` | 本地库**概念板块成分股**（PIT，避免前视偏差） |
+| `get_stock_concepts(trade_date, ts_code)` | 本地库**个股所属概念板块**（PIT） |
 
 > `live_fetch`/`live_stock_daily` 让 Claude Desktop（沙箱内）也能取实时数据——无需自身联网或持有 token，
 > token 全程留在宿主机侧。前置：项目 `.env`（DB_PATH 同目录）配好 `TUSHARE_TOKEN`/`TUSHARE_API_URL`。
