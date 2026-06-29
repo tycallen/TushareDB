@@ -100,6 +100,42 @@ def test_live_fetch_rejects_empty_api_name():
     assert "api_name 不能为空" in m.live_fetch("", {})
 
 
+def test_live_stock_daily_qfq_hfq_math(monkeypatch):
+    import io
+    daily = pd.DataFrame({
+        "ts_code": ["A", "A"], "trade_date": ["20240102", "20240103"],
+        "open": [10.0, 11.0], "high": [10.0, 11.0], "low": [10.0, 11.0],
+        "close": [10.0, 11.0], "pre_close": [10.0, 10.0], "vol": [1, 1],
+    })
+    factors = pd.DataFrame({
+        "ts_code": ["A", "A", "A"],
+        "trade_date": ["20240102", "20240103", "20240201"],  # 最新=20240201 factor=2.0
+        "adj_factor": [1.0, 1.1, 2.0],
+    })
+
+    class _F:
+        def fetch(self, api, **kw):
+            return daily.copy() if api == "daily" else factors.copy()
+
+    monkeypatch.setattr(m, "_get_fetcher", lambda: _F())
+
+    # qfq: close × (factor/最新2.0)；20240102:10×0.5=5.0；20240103:11×1.1/2=6.05
+    df = pd.read_csv(io.StringIO(m.live_stock_daily("A", "20240102", "20240103", "qfq")),
+                     dtype={"trade_date": str})
+    assert "adj_factor" not in df.columns  # 中间列已清掉
+    assert abs(df.loc[df.trade_date == "20240102", "close"].iloc[0] - 5.0) < 1e-6
+    assert abs(df.loc[df.trade_date == "20240103", "close"].iloc[0] - 6.05) < 1e-6
+
+    # hfq: close × factor；20240103:11×1.1=12.1
+    df2 = pd.read_csv(io.StringIO(m.live_stock_daily("A", "20240102", "20240103", "hfq")),
+                      dtype={"trade_date": str})
+    assert abs(df2.loc[df2.trade_date == "20240103", "close"].iloc[0] - 12.1) < 1e-6
+
+
+def test_live_stock_daily_rejects_bad_adj():
+    assert "adj 只能是" in m.live_stock_daily("A", "20240102", "20240103", "xfq")
+
+
 def test_load_env_from_db_dir(tmp_path, monkeypatch):
     (tmp_path / ".env").write_text("TUSHARE_TOKEN='abc123'\nTUSHARE_API_URL='https://x'\n")
     (tmp_path / "tushare.db").write_text("")  # 仅用其目录

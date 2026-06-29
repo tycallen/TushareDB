@@ -59,6 +59,8 @@ _FINANCIAL_TABLES = {
 _IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 # 匹配 SQL 字符串字面量（单/双引号，含 '' 转义），用于多语句检测前剔除字面量
 _STRING_LITERAL_RE = re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"")
+# 复权作用的价格列（与 reader._adjust_prices 保持一致）
+_PRICE_COLS = ["open", "high", "low", "close", "pre_close"]
 
 
 def _get_reader() -> DataReader:
@@ -248,6 +250,54 @@ def live_fetch(api_name: str, params: dict | None = None) -> str:
     except Exception as e:
         return f"实时查询出错：{e}"
     return _df_to_text(df)
+
+
+@mcp.tool()
+def live_stock_daily(ts_code: str, start_date: str, end_date: str, adj: str = "") -> str:
+    """实时查询个股日线，可复权——口径与本地 get_stock_daily 完全一致。
+
+    经 token 直连 Tushare：取原始 daily + adj_factor 后自行复权（不用 pro_bar，因为
+    pro_bar 不走自定义代理）。适合把"最新行情"与本地历史(qfq/hfq)拼接而不串口径。
+
+    Args:
+        ts_code: 股票代码，如 000001.SZ
+        start_date / end_date: YYYYMMDD
+        adj: 复权方式，''=不复权，'qfq'=前复权，'hfq'=后复权
+
+    复权公式（与 reader._adjust_prices 一致，最新因子取该股全历史 adj_factor 的最新值）：
+        hfq: 价 × adj_factor；  qfq: 价 × (adj_factor / 最新因子)
+    """
+    if not ts_code or not ts_code.strip():
+        return "错误：ts_code 不能为空。"
+    if adj not in ("", "qfq", "hfq"):
+        return "错误：adj 只能是 '' / 'qfq' / 'hfq'。"
+    for _d in (start_date, end_date):
+        if _d and not (len(_d) == 8 and _d.isdigit()):
+            return f"错误：日期需为 YYYYMMDD 格式：{_d}"
+    try:
+        f = _get_fetcher()
+        raw = f.fetch("daily", ts_code=ts_code, start_date=start_date, end_date=end_date)
+        if raw is None or raw.empty:
+            return "（无数据）"
+        if not adj:
+            return _df_to_text(raw)
+        factors = f.fetch("adj_factor", ts_code=ts_code)  # 全历史一次取，含真实最新因子
+        if factors is None or factors.empty:
+            return ("（注：未取到复权因子，以下为不复权原始价）\n\n" + _df_to_text(raw))
+        orig_cols = list(raw.columns)  # 复权后只返回原始列，不带出中间的 adj_factor
+        raw = raw.merge(factors[["trade_date", "adj_factor"]], on="trade_date", how="left")
+        # 最新因子取该股全历史 adj_factor 的最新值（实时，可能比本地库更新）
+        latest_factor = factors.sort_values("trade_date")["adj_factor"].iloc[-1]
+        for col in _PRICE_COLS:
+            if col in raw.columns:
+                if adj == "hfq":
+                    raw[col] = raw[col] * raw["adj_factor"]
+                else:  # qfq
+                    raw[col] = raw[col] * (raw["adj_factor"] / latest_factor)
+        raw = raw[orig_cols]
+    except Exception as e:
+        return f"实时查询出错：{e}"
+    return _df_to_text(raw)
 
 
 def main():
