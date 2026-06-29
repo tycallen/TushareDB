@@ -1803,17 +1803,18 @@ class DataReader:
             conditions.append("ts_code = ?")
             params.append(ts_code)
 
+        # trade_date 与 start/end 互斥：传 trade_date 即查单日，否则用区间
+        # （统一其它方法的语义，避免三者 AND 叠加导致意外空集）
         if trade_date:
             conditions.append("trade_date = ?")
             params.append(trade_date)
-
-        if start_date:
-            conditions.append("trade_date >= ?")
-            params.append(start_date)
-
-        if end_date:
-            conditions.append("trade_date <= ?")
-            params.append(end_date)
+        else:
+            if start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            if end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         query = f"""
@@ -1845,6 +1846,13 @@ class DataReader:
         Returns:
             透视 DataFrame，index=trade_date, columns=行业名称
         """
+        # field 会拼进 SQL，必须白名单校验防注入
+        allowed_fields = {'pct_change', 'close', 'open', 'high', 'low', 'change',
+                          'pe', 'pb', 'vol', 'amount', 'float_mv', 'total_mv'}
+        if field not in allowed_fields:
+            raise DataReaderError(
+                f"非法 field: {field!r}，允许: {sorted(allowed_fields)}"
+            )
         query = f"""
             SELECT trade_date, name, {field}
             FROM sw_daily
@@ -1857,8 +1865,10 @@ class DataReader:
         if df.empty:
             return df
 
-        # 转为透视表
-        pivot_df = df.pivot(index='trade_date', columns='name', values=field)
+        # 用 pivot_table(aggfunc='last') 容忍同 (trade_date, name) 的重复行，
+        # 避免 df.pivot 在有重复键时抛 ValueError
+        pivot_df = df.pivot_table(index='trade_date', columns='name',
+                                  values=field, aggfunc='last')
         pivot_df = pivot_df.sort_index()
 
         return pivot_df
@@ -1907,17 +1917,17 @@ class DataReader:
             conditions.append("ts_code = ?")
             params.append(ts_code)
 
+        # trade_date 与 start/end 互斥（统一语义，避免三者 AND 叠加导致意外空集）
         if trade_date:
             conditions.append("trade_date = ?")
             params.append(trade_date)
-
-        if start_date:
-            conditions.append("trade_date >= ?")
-            params.append(start_date)
-
-        if end_date:
-            conditions.append("trade_date <= ?")
-            params.append(end_date)
+        else:
+            if start_date:
+                conditions.append("trade_date >= ?")
+                params.append(start_date)
+            if end_date:
+                conditions.append("trade_date <= ?")
+                params.append(end_date)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
         query = f"""
@@ -2152,8 +2162,11 @@ class DataReader:
                 params.append(end_date)
 
         if holder_name:
-            conditions.append("holder_name LIKE ?")
-            params.append(f"%{holder_name}%")
+            # 转义 LIKE 元字符（% _ \），避免用户输入里的通配符导致多算/误匹配
+            escaped = (holder_name.replace("\\", "\\\\")
+                       .replace("%", "\\%").replace("_", "\\_"))
+            conditions.append("holder_name LIKE ? ESCAPE '\\'")
+            params.append(f"%{escaped}%")
 
         query = "SELECT * FROM top10_floatholders WHERE " + " AND ".join(conditions)
         query += " ORDER BY end_date DESC, hold_ratio DESC"
