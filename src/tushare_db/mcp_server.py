@@ -4,8 +4,10 @@ Tushare-DuckDB MCP Server —— 通过 Model Context Protocol 把本地 DuckDB 
 历史/大数据查询能力暴露给 Claude Desktop / Claude Code。
 
 定位：
-- 本 MCP 负责【历史、批量、大数据】，数据来自本地 tushare.db（只读）。
-- 【实时、小数据】请用配套的 `tushare-live` skill，通过 token 直接查询代理 API。
+- 历史/批量/大数据：run_sql / get_stock_daily / get_financial，查本地 tushare.db（只读）。
+- 实时/小数据：live_fetch，经 token 直连 Tushare（或所配代理）拿最新数据。
+  token 由 MCP 在宿主机侧从项目 .env（DB_PATH 同目录）读取，不进对话、不暴露给沙箱。
+  这样 Claude Desktop（沙箱内）无需自身联网/持有 token，调 MCP 即可拿实时数据。
 
 运行：
     python -m tushare_db.mcp_server
@@ -22,9 +24,11 @@ Claude Desktop 配置（claude_desktop_config.json）：
     }
 """
 import logging
+import os
 import re
 import sys
 import threading
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
@@ -45,6 +49,8 @@ mcp = FastMCP("tushare-duckdb")
 
 _reader = None
 _reader_lock = threading.Lock()
+_fetcher = None
+_fetcher_lock = threading.Lock()
 # 财务相关表白名单（供 get_financial 使用，防止表名注入）
 _FINANCIAL_TABLES = {
     "income", "balancesheet", "cashflow",
@@ -63,6 +69,43 @@ def _get_reader() -> DataReader:
             if _reader is None:  # double-checked locking
                 _reader = DataReader()
     return _reader
+
+
+def _load_env_from_db_dir() -> None:
+    """从 DB_PATH 所在目录（项目根）加载 .env，使 MCP 在宿主机上拿到
+    TUSHARE_TOKEN / TUSHARE_API_URL（实时查询用）。不覆盖已存在的环境变量。"""
+    db = os.getenv("DB_PATH")
+    if not db:
+        return
+    env_path = Path(db).resolve().parent / ".env"
+    if not env_path.exists():
+        return
+    for _ln in env_path.read_text(encoding="utf-8").splitlines():
+        _s = _ln.strip()
+        if _s and not _s.startswith("#") and "=" in _s:
+            _k, _v = _s.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip().strip("'").strip('"'))
+
+
+def _get_fetcher():
+    """惰性创建 TushareFetcher（实时查询，token 直连代理 API），线程安全。
+
+    token 从环境变量或项目 .env（DB_PATH 同目录）读取——这样 token 始终留在宿主机
+    侧，不暴露给对话/沙箱。"""
+    global _fetcher
+    if _fetcher is None:
+        with _fetcher_lock:
+            if _fetcher is None:
+                _load_env_from_db_dir()
+                token = os.getenv("TUSHARE_TOKEN")
+                if not token:
+                    raise RuntimeError(
+                        "未配置 TUSHARE_TOKEN（请在项目 .env 或 MCP env 中设置）"
+                    )
+                from .tushare_fetcher import TushareFetcher
+                from .rate_limit_config import PROXY_PROFILE
+                _fetcher = TushareFetcher(token, PROXY_PROFILE)
+    return _fetcher
 
 
 def _df_to_text(df, max_rows: int = 200) -> str:
@@ -176,6 +219,34 @@ def get_financial(ts_code: str, statement: str = "fina_indicator_vip",
         df = _get_reader().query(sql, params)
     except Exception as e:
         return f"查询出错：{e}"
+    return _df_to_text(df)
+
+
+@mcp.tool()
+def live_fetch(api_name: str, params: dict | None = None) -> str:
+    """实时查询 Tushare 接口（经 token 直连 API，适合最新/小数据，数据不落库）。
+
+    与本地库工具（run_sql/get_stock_daily 查历史）互补：这里直接打 Tushare（或所配
+    第三方代理）拿最新数据。token 由 MCP 在宿主机侧从 .env 读取，不进对话、不暴露。
+
+    Args:
+        api_name: Tushare 接口名，如 'daily','daily_basic','moneyflow','top_list',
+            'limit_list_d','stk_limit','index_daily' 等。
+        params: 接口参数 dict，如 {"ts_code":"000001.SZ","trade_date":"20260627"}。
+
+    Returns:
+        CSV 文本结果（无权限/不存在的接口会返回空，并在服务端日志提示）。
+
+    示例：
+        live_fetch("daily", {"ts_code":"000001.SZ","trade_date":"20260627"})
+        live_fetch("limit_list_d", {"trade_date":"20260627"})
+    """
+    if not api_name or not api_name.strip():
+        return "错误：api_name 不能为空。"
+    try:
+        df = _get_fetcher().fetch(api_name.strip(), **(params or {}))
+    except Exception as e:
+        return f"实时查询出错：{e}"
     return _df_to_text(df)
 
 

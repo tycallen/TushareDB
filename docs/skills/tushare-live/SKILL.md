@@ -16,6 +16,11 @@ allowed-tools:
 
 > 一句话区分：问"现在/今天/某只股票最新…"→ 本 skill；问"近 N 年 / 全市场 / 批量统计…"→ tushare-duckdb MCP。
 
+> **在 Claude Desktop（沙箱）里**：沙箱无项目环境、读不到本机 `.env`，请直接用
+> **tushare-duckdb MCP 的 `live_fetch` 工具**做实时查询——token 由 MCP 在宿主机侧从
+> `.env` 读取，**无需在对话中提供 token**。例：`live_fetch("daily", {"ts_code":"000001.SZ","trade_date":"20260627"})`。
+> 本 skill 的下列本机代码方式主要面向 Claude Code（本机有项目+`.env`）。
+
 ## Token 配置
 
 本项目数据可通过第三方代理（Tushare 协议兼容）获取。配置项目根目录 `.env`：

@@ -86,6 +86,30 @@ def test_get_financial_rejects_bad_date_format():
     assert "YYYYMMDD" in m.get_financial("000001.SZ", statement="income", start_date="2024")
 
 
+def test_live_fetch_uses_fetcher(monkeypatch):
+    class _FakeFetcher:
+        def fetch(self, api_name, **kwargs):
+            assert api_name == "daily"
+            return pd.DataFrame({"ts_code": ["000001.SZ"], "close": [9.2]})
+    monkeypatch.setattr(m, "_get_fetcher", lambda: _FakeFetcher())
+    out = m.live_fetch("daily", {"ts_code": "000001.SZ", "trade_date": "20240102"})
+    assert "000001.SZ" in out and "9.2" in out
+
+
+def test_live_fetch_rejects_empty_api_name():
+    assert "api_name 不能为空" in m.live_fetch("", {})
+
+
+def test_load_env_from_db_dir(tmp_path, monkeypatch):
+    (tmp_path / ".env").write_text("TUSHARE_TOKEN='abc123'\nTUSHARE_API_URL='https://x'\n")
+    (tmp_path / "tushare.db").write_text("")  # 仅用其目录
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "tushare.db"))
+    monkeypatch.delenv("TUSHARE_TOKEN", raising=False)
+    m._load_env_from_db_dir()
+    import os
+    assert os.environ.get("TUSHARE_TOKEN") == "abc123"
+
+
 def test_get_financial_valid_statement_uses_reader(monkeypatch):
     captured = {}
 

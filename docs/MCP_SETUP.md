@@ -60,6 +60,10 @@ DB_PATH=/绝对路径/tushare.db python -m tushare_db.mcp_server
 | `run_sql(sql, max_rows=500)` | 执行只读 SQL（最通用，仅 SELECT/WITH/PRAGMA） |
 | `get_stock_daily(ts_code, start_date, end_date, adj)` | 个股日线（支持 qfq/hfq 复权） |
 | `get_financial(ts_code, statement, start_date, end_date)` | 财务数据（income/balancesheet/cashflow/fina_indicator_vip/forecast/express） |
+| `live_fetch(api_name, params)` | **实时**查询 Tushare（经 token 直连代理）。token 由 MCP 在宿主机从 `.env` 读取，不进对话。例：`live_fetch("daily", {"ts_code":"000001.SZ","trade_date":"20260627"})` |
+
+> `live_fetch` 让 Claude Desktop（沙箱内）也能取实时小数据——无需自身联网或持有 token，
+> token 全程留在宿主机侧。前置：项目 `.env`（DB_PATH 同目录）配好 `TUSHARE_TOKEN`/`TUSHARE_API_URL`。
 
 示例对话："用 tushare-duckdb 查 000001.SZ 最近 30 个交易日的前复权收盘价" → Claude 调 `get_stock_daily` 或 `run_sql`。
 
